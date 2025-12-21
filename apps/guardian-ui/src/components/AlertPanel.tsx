@@ -10,22 +10,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Howl } from 'howler';
-import { useMonitoringStore } from '../stores/monitoring-store';
+import { useMonitoringStore, type Alert } from '../stores/monitoring-store';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface Alert {
-  id: string;
-  streamId: string;
-  alertType: string;
-  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
-  message: string;
-  thumbnailUrl?: string;
-  createdAt: string;
-  acknowledged: boolean;
-}
+// Re-export for backwards compatibility
+export type { Alert };
 
 interface AlertPanelProps {
   alerts?: Alert[];
@@ -113,7 +105,8 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
 
     unacknowledged.forEach((alert) => {
       const currentLevel = escalationLevels.get(alert.id) || 1;
-      const alertAge = Date.now() - new Date(alert.createdAt).getTime();
+      const alertTime = alert.createdAt || alert.timestamp || new Date().toISOString();
+      const alertAge = Date.now() - new Date(alertTime).getTime();
 
       // Find current escalation level based on age
       let newLevel = 1;
@@ -271,7 +264,8 @@ interface AlertCardProps {
 function AlertCard({ alert, escalationLevel, onAcknowledge }: AlertCardProps) {
   const colors = SEVERITY_COLORS[alert.severity];
   const icon = SEVERITY_ICONS[alert.severity];
-  const timeAgo = getTimeAgo(alert.createdAt);
+  const alertTime = alert.createdAt || alert.timestamp || new Date().toISOString();
+  const timeAgo = getTimeAgo(alertTime);
 
   // Escalation indicator
   const escalationColor =
@@ -360,7 +354,7 @@ function AcknowledgedSection({ alerts }: AcknowledgedSectionProps) {
                 <span>{SEVERITY_ICONS[alert.severity]}</span>
                 <span className="text-slate-300 truncate">{alert.message}</span>
                 <span className="text-xs text-slate-500 ml-auto">
-                  {getTimeAgo(alert.createdAt)}
+                  {getTimeAgo(alert.createdAt || alert.timestamp || new Date().toISOString())}
                 </span>
               </div>
             </div>

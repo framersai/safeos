@@ -35,7 +35,7 @@
       },
       "free": {
         "title": "永久免费",
-        "description": "SuperCloud"10%为人类"计划的一部分。此服务永不商业化。"
+        "description": "SuperCloud「10%为人类」计划的一部分。此服务永不商业化。"
       }
     },
     "abusePrevention": {
@@ -81,8 +81,8 @@
         "text": "前往设置 → 导出数据，下载您配置的备份。"
       },
       "step2": {
-        "title": "避免"全部清除"操作",
-        "text": "清除浏览器数据时，如果要保留 SafeOS 数据，请避免选择"Cookie 和站点数据"。"
+        "title": "避免「全部清除」操作",
+        "text": "清除浏览器数据时，如果要保留 SafeOS 数据，请避免选择「Cookie 和站点数据」。"
       },
       "step3": {
         "title": "使用浏览器配置文件",
@@ -130,6 +130,127 @@
   "language": {
     "select": "选择语言",
     "current": "当前：{language}"
+  },
+  "lostFound": {
+    "title": "失物招领",
+    "subtitle": "使用视觉检测寻找丢失的宠物或人员",
+    "addSubject": "添加新的监视对象",
+    "addSubjectDesc": "上传丢失宠物或人员的照片",
+    "currentlyWatching": "正在监视",
+    "savedSubjects": "已保存对象",
+    "matchHistory": "匹配历史",
+    "viewMatches": "查看所有检测到的潜在匹配",
+    "noSubjects": "暂无对象",
+    "noSubjectsDesc": "添加一个对象开始监视。上传丢失宠物或人员的照片，我们将持续监控您的摄像头以寻找潜在匹配。",
+    "howItWorks": {
+      "title": "工作原理",
+      "step1": "从不同角度上传对象的清晰照片",
+      "step2": "我们根据颜色、图案和特征创建视觉指纹",
+      "step3": "将摄像头对准一个位置，我们将持续监视",
+      "step4": "检测到潜在匹配时收到警报"
+    },
+    "setup": {
+      "whatLookingFor": "您在寻找什么？",
+      "selectType": "选择您要监视的对象类型",
+      "pet": "宠物",
+      "petDesc": "狗、猫或其他动物",
+      "person": "人员",
+      "personDesc": "家人或朋友",
+      "other": "其他",
+      "otherDesc": "物品或物件",
+      "uploadPhotos": "上传参考照片",
+      "uploadPhotosDesc": "从不同角度添加清晰的照片以获得更好的匹配",
+      "name": "名称",
+      "namePlaceholder": "例如：小黑、露露、爸爸",
+      "description": "描述（可选）",
+      "descPlaceholder": "任何显著特征...",
+      "clickToUpload": "点击上传照片",
+      "uploadLimit": "PNG、JPG 最大10MB（最多5张图片）",
+      "configureDetection": "配置检测",
+      "colorSensitivity": "颜色敏感度",
+      "moreMatches": "更多匹配",
+      "fewerAccurate": "更少但更准确",
+      "alertThreshold": "警报阈值",
+      "minConfidence": "触发声音/通知的最低置信度",
+      "processingMode": "处理模式",
+      "localInstant": "本地即时",
+      "localInstantDesc": "快速、离线、随处可用",
+      "aiEnhanced": "AI增强",
+      "aiEnhancedDesc": "更高精度，需要网络",
+      "alerts": "警报",
+      "soundAlert": "声音警报",
+      "browserNotification": "浏览器通知",
+      "startWatching": "开始监视",
+      "analyzingPhotos": "分析照片中",
+      "creatingFingerprint": "创建视觉指纹..."
+    },
+    "gallery": {
+      "title": "匹配画廊",
+      "subtitle": "浏览和管理所有捕获的潜在匹配",
+      "potentialMatches": "潜在匹配",
+      "filter": "筛选",
+      "all": "全部",
+      "new": "新的",
+      "highConfidence": "高置信度",
+      "exported": "已导出",
+      "newestFirst": "最新优先",
+      "oldestFirst": "最旧优先",
+      "highestConfidence": "最高置信度",
+      "selectAll": "全选",
+      "acknowledge": "确认",
+      "delete": "删除",
+      "export": "导出",
+      "exportJson": "导出JSON",
+      "exportCsv": "导出CSV",
+      "noMatches": "未找到匹配",
+      "confidence": "置信度",
+      "colorMatch": "颜色",
+      "dominantMatch": "主色",
+      "edgeMatch": "边缘",
+      "sizeMatch": "尺寸",
+      "excellentMatch": "优秀匹配",
+      "goodMatch": "良好匹配",
+      "possibleMatch": "可能匹配",
+      "weakMatch": "弱匹配",
+      "unlikelyMatch": "不太可能匹配"
+    },
+    "monitor": {
+      "watching": "监视中",
+      "matching": "匹配中",
+      "noSubjectSet": "未设置对象",
+      "addSubject": "添加丢失的宠物或人员进行监视",
+      "setupLostFound": "设置失物招领",
+      "viewMatchHistory": "查看匹配历史",
+      "consecutiveMatches": "{count} 次连续匹配",
+      "consecutiveMatchesPlural": "{count} 次连续匹配",
+      "scanning": "扫描中..."
+    },
+    "matchQuality": {
+      "excellent": "优秀",
+      "excellentDesc": "匹配可能性很高",
+      "good": "良好",
+      "goodDesc": "强潜在匹配",
+      "possible": "可能",
+      "possibleDesc": "值得检查",
+      "weak": "弱",
+      "weakDesc": "低置信度，可能是误报",
+      "unlikely": "不太可能",
+      "unlikelyDesc": "可能不是匹配"
+    }
+  },
+  "security": {
+    "title": "安全模式",
+    "subtitle": "防盗入侵检测",
+    "description": "AI驱动的人员检测，保护您的空间。",
+    "armingStates": { "disarmed": "未布防", "arming": "布防中...", "armed": "已布防", "triggered": "检测到入侵者" },
+    "alertModes": { "extreme": "极端", "extremeDesc": "警报、语音、闪光", "silent": "静音", "silentDesc": "仅录制" },
+    "controls": { "arm": "布防", "disarm": "撤防", "armingCountdown": "{seconds}秒后布防", "allowedPersons": "允许人数", "alertMode": "警报模式", "sirenSound": "警报声", "voiceWarnings": "语音警告", "screenFlash": "屏幕闪光", "sirenVolume": "警报音量", "customMessages": "自定义消息" },
+    "status": { "detected": "检测到", "status": "状态", "excess": "超出", "intruder": "入侵者", "intruders": "入侵者", "unauthorized": "未授权人员", "personsDetected": "检测到人员" },
+    "gallery": { "title": "入侵历史", "noEvents": "无事件", "noEventsDesc": "检测到的入侵者将显示在此处。", "totalEvents": "总计", "unreviewed": "未审核", "last24h": "最近24小时", "avgPersons": "平均人数", "acknowledge": "确认", "delete": "删除", "exportJson": "导出JSON", "exportCsv": "导出CSV", "deleteSelected": "删除选中", "selectAll": "全选", "clear": "清除" },
+    "tts": { "authoritative": { "warning1": "警告！您正在被录像。立即离开。", "warning2": "安全警报。当局已被通知。", "warning3": "检测到入侵者。此区域正在监控中。", "warning4": "检测到未授权进入。" }, "alarm": { "alert1": "入侵警报！救命！", "alert2": "离开！离开！", "alert3": "警报！入侵者！", "alert4": "危险！" } },
+    "settings": { "confidenceThreshold": "检测置信度", "motionThreshold": "运动灵敏度", "armingCountdown": "布防倒计时", "triggerCooldown": "触发冷却", "maxStoredFrames": "最大帧数", "autoDeleteDays": "自动删除（天后）" },
+    "notifications": { "intruderDetected": "入侵者警报！", "intruderBody": "检测到{count}人。{excess}人未授权。" },
+    "silentModeInfo": "静音模式：入侵将被记录但不会发出声音警报。您可以在图库中查看捕获的帧。"
   }
 }
 

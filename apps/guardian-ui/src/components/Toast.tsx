@@ -56,6 +56,9 @@ export function useToast() {
 // Provider
 // =============================================================================
 
+// Global handler for showToast outside of React context
+let globalAddToast: ((toast: Omit<Toast, 'id'>) => void) | null = null;
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -75,6 +78,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => removeToast(id), duration);
     }
   }, [removeToast]);
+
+  // Register global handler when provider mounts
+  useEffect(() => {
+    globalAddToast = addToast;
+    return () => {
+      globalAddToast = null;
+    };
+  }, [addToast]);
 
   const success = useCallback((title: string, message?: string) => {
     addToast({ type: 'success', title, message });
@@ -235,4 +246,25 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
 export default ToastProvider;
 
+// =============================================================================
+// Standalone showToast function for backwards compatibility
+// =============================================================================
 
+/**
+ * Show a toast notification. Can be used outside of React components.
+ * Note: For best results, use within ToastProvider context via useToast() hook.
+ */
+export function showToast(toast: Omit<Toast, 'id'>) {
+  if (globalAddToast) {
+    globalAddToast(toast);
+  } else {
+    // Fallback: log to console when no provider is available
+    console.warn('[Toast]', toast.type?.toUpperCase() || 'INFO', toast.title, toast.message || '');
+  }
+}
+
+// Convenience functions for standalone usage
+showToast.success = (title: string, message?: string) => showToast({ type: 'success', title, message });
+showToast.error = (title: string, message?: string) => showToast({ type: 'error', title, message, duration: 8000 });
+showToast.warning = (title: string, message?: string) => showToast({ type: 'warning', title, message });
+showToast.info = (title: string, message?: string) => showToast({ type: 'info', title, message });

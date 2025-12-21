@@ -482,7 +482,8 @@ interface Alert {
   id: string;
   message: string;
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
-  createdAt: string;
+  createdAt?: string;
+  timestamp?: string;
 }
 
 interface RecentAlertsPanelProps {
@@ -534,7 +535,7 @@ function RecentAlertsPanel({ alerts }: RecentAlertsPanelProps) {
                     {alert.message}
                   </p>
                   <p className="font-mono text-xs text-[var(--color-steel-500)]">
-                    {new Date(alert.createdAt).toLocaleTimeString()}
+                    {new Date(alert.createdAt || alert.timestamp || new Date()).toLocaleTimeString()}
                   </p>
                 </div>
               </div>

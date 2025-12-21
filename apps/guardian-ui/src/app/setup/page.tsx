@@ -295,8 +295,8 @@ function ScenarioStep({
   onSelect,
   onBack,
 }: {
-  selectedScenario: 'pet' | 'baby' | 'elderly' | null;
-  onSelect: (scenario: 'pet' | 'baby' | 'elderly') => void;
+  selectedScenario: 'pet' | 'baby' | 'elderly' | 'security' | null;
+  onSelect: (scenario: 'pet' | 'baby' | 'elderly' | 'security') => void;
   onBack: () => void;
 }) {
   const scenarios = [
@@ -317,6 +317,12 @@ function ScenarioStep({
       label: 'Elderly Care',
       description: 'Fall detection, activity monitoring, wellness checks',
       icon: <IconElderly size={24} />,
+    },
+    {
+      id: 'security' as const,
+      label: 'Security Mode',
+      description: 'Intruder detection, person counting, theft prevention',
+      icon: <IconShield size={24} />,
     },
   ];
 

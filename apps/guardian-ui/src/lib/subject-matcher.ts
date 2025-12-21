@@ -1,0 +1,672 @@
+/**
+ * Subject Matcher Library
+ * 
+ * Real-time frame matching engine for lost pet/person detection.
+ * Compares camera frames against visual fingerprints.
+ * 
+ * @module lib/subject-matcher
+ */
+
+import {
+  VisualFingerprint,
+  quickCompare,
+  compareFingerprints,
+  calculateAverageColor,
+  extractDominantColors,
+  extractColorHistogram,
+  extractEdgeSignature,
+  estimateSizeRatio,
+  RGB,
+  colorDistance,
+} from './visual-fingerprint';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+export interface MatchResult {
+  id: string;
+  timestamp: number;
+  confidence: number;
+  details: {
+    colorMatch: number;
+    dominantMatch: number;
+    edgeMatch: number;
+    sizeMatch: number;
+  };
+  frameData?: string;
+  region?: MatchRegion;
+  processingTimeMs: number;
+}
+
+export interface MatchRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+}
+
+export interface MatcherSettings {
+  minConfidenceForAlert: number;      // 0-100, trigger sound/notification
+  minConfidenceForRecord: number;     // 0-100, save frame to gallery
+  colorSensitivity: number;           // 0-100, higher = more strict
+  sizeTolerance: number;              // 0-100, how much size variation allowed
+  scanGridSize: number;               // Grid size for region scanning (4-16)
+  processingMode: 'local' | 'hybrid'; // Local only or AI-enhanced
+  adaptiveLighting: boolean;          // Adjust for lighting variations
+  motionPriority: boolean;            // Focus on moving regions
+}
+
+export interface MatcherState {
+  isActive: boolean;
+  lastMatch: MatchResult | null;
+  matchHistory: MatchResult[];
+  consecutiveMatches: number;
+  averageConfidence: number;
+}
+
+const DEFAULT_SETTINGS: MatcherSettings = {
+  minConfidenceForAlert: 70,
+  minConfidenceForRecord: 50,
+  colorSensitivity: 50,
+  sizeTolerance: 50,
+  scanGridSize: 8,
+  processingMode: 'local',
+  adaptiveLighting: true,
+  motionPriority: true,
+};
+
+// =============================================================================
+// Subject Matcher Engine
+// =============================================================================
+
+export class SubjectMatcher {
+  private fingerprint: VisualFingerprint | null = null;
+  private settings: MatcherSettings;
+  private state: MatcherState;
+  private previousFrame: ImageData | null = null;
+  private motionMask: boolean[] = [];
+  private frameCount: number = 0;
+  private lightingOffset: RGB = { r: 0, g: 0, b: 0 };
+
+  constructor(settings?: Partial<MatcherSettings>) {
+    this.settings = { ...DEFAULT_SETTINGS, ...settings };
+    this.state = {
+      isActive: false,
+      lastMatch: null,
+      matchHistory: [],
+      consecutiveMatches: 0,
+      averageConfidence: 0,
+    };
+  }
+
+  /**
+   * Set the subject fingerprint to match against
+   */
+  setFingerprint(fingerprint: VisualFingerprint | null): void {
+    this.fingerprint = fingerprint;
+    this.reset();
+  }
+
+  /**
+   * Get current fingerprint
+   */
+  getFingerprint(): VisualFingerprint | null {
+    return this.fingerprint;
+  }
+
+  /**
+   * Update matcher settings
+   */
+  setSettings(settings: Partial<MatcherSettings>): void {
+    this.settings = { ...this.settings, ...settings };
+  }
+
+  /**
+   * Get current settings
+   */
+  getSettings(): MatcherSettings {
+    return { ...this.settings };
+  }
+
+  /**
+   * Get current state
+   */
+  getState(): MatcherState {
+    return { ...this.state };
+  }
+
+  /**
+   * Activate/deactivate matching
+   */
+  setActive(active: boolean): void {
+    this.state.isActive = active;
+    if (!active) {
+      this.reset();
+    }
+  }
+
+  /**
+   * Reset matcher state
+   */
+  reset(): void {
+    this.state = {
+      isActive: this.state.isActive,
+      lastMatch: null,
+      matchHistory: [],
+      consecutiveMatches: 0,
+      averageConfidence: 0,
+    };
+    this.previousFrame = null;
+    this.motionMask = [];
+    this.frameCount = 0;
+    this.lightingOffset = { r: 0, g: 0, b: 0 };
+  }
+
+  /**
+   * Process a video frame and check for matches
+   */
+  processFrame(video: HTMLVideoElement): MatchResult | null {
+    if (!this.state.isActive || !this.fingerprint) {
+      return null;
+    }
+
+    const startTime = performance.now();
+
+    // Create canvas and get frame
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+
+    ctx.drawImage(video, 0, 0);
+    const frameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Update motion mask if enabled
+    if (this.settings.motionPriority && this.previousFrame) {
+      this.updateMotionMask(frameData, this.previousFrame);
+    }
+
+    // Update lighting offset for adaptive lighting
+    if (this.settings.adaptiveLighting) {
+      this.updateLightingOffset(frameData);
+    }
+
+    this.previousFrame = this.cloneImageData(frameData);
+    this.frameCount++;
+
+    // Quick full-frame check first
+    const quickScore = this.quickFrameCheck(frameData);
+    
+    if (quickScore < this.settings.minConfidenceForRecord / 2) {
+      // No potential match, skip detailed analysis
+      return null;
+    }
+
+    // Detailed region scanning
+    const result = this.scanRegions(frameData, canvas.width, canvas.height, startTime);
+
+    if (result) {
+      // Update state
+      this.state.lastMatch = result;
+      this.state.consecutiveMatches++;
+      
+      // Update average
+      const historyLimit = 20;
+      this.state.matchHistory = [result, ...this.state.matchHistory].slice(0, historyLimit);
+      this.state.averageConfidence = 
+        this.state.matchHistory.reduce((s, m) => s + m.confidence, 0) / this.state.matchHistory.length;
+
+      // Include frame data if above record threshold
+      if (result.confidence >= this.settings.minConfidenceForRecord) {
+        result.frameData = canvas.toDataURL('image/jpeg', 0.8);
+      }
+
+      return result;
+    } else {
+      this.state.consecutiveMatches = 0;
+    }
+
+    return null;
+  }
+
+  /**
+   * Process a canvas element directly
+   */
+  processCanvas(canvas: HTMLCanvasElement): MatchResult | null {
+    if (!this.state.isActive || !this.fingerprint) {
+      return null;
+    }
+
+    const startTime = performance.now();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+
+    const frameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Quick check
+    const quickScore = this.quickFrameCheck(frameData);
+    if (quickScore < this.settings.minConfidenceForRecord / 2) {
+      return null;
+    }
+
+    return this.scanRegions(frameData, canvas.width, canvas.height, startTime);
+  }
+
+  /**
+   * Quick full-frame color match
+   */
+  private quickFrameCheck(frameData: ImageData): number {
+    if (!this.fingerprint) return 0;
+    
+    // Apply lighting offset if enabled
+    const adjustedFrame = this.settings.adaptiveLighting
+      ? this.adjustLighting(frameData)
+      : frameData;
+
+    return quickCompare(this.fingerprint, adjustedFrame);
+  }
+
+  /**
+   * Scan regions of the frame for potential matches
+   */
+  private scanRegions(
+    frameData: ImageData,
+    width: number,
+    height: number,
+    startTime: number
+  ): MatchResult | null {
+    if (!this.fingerprint) return null;
+
+    const gridSize = this.settings.scanGridSize;
+    const cellWidth = Math.floor(width / gridSize);
+    const cellHeight = Math.floor(height / gridSize);
+
+    let bestMatch: MatchResult | null = null;
+    let bestConfidence = 0;
+
+    // Scan grid cells
+    for (let gy = 0; gy < gridSize - 1; gy++) {
+      for (let gx = 0; gx < gridSize - 1; gx++) {
+        // Skip if no motion in this region (when motion priority enabled)
+        if (this.settings.motionPriority && this.motionMask.length > 0) {
+          const maskIdx = gy * gridSize + gx;
+          if (!this.motionMask[maskIdx]) {
+            continue;
+          }
+        }
+
+        // Extract region (2x2 cells for overlap)
+        const regionX = gx * cellWidth;
+        const regionY = gy * cellHeight;
+        const regionW = cellWidth * 2;
+        const regionH = cellHeight * 2;
+
+        const regionData = this.extractRegion(
+          frameData,
+          width,
+          height,
+          regionX,
+          regionY,
+          regionW,
+          regionH
+        );
+
+        if (!regionData) continue;
+
+        // Compare region to fingerprint
+        const regionFingerprint = this.createQuickFingerprint(regionData);
+        const comparison = compareFingerprints(this.fingerprint, regionFingerprint);
+
+        // Apply sensitivity adjustment
+        const adjustedConfidence = this.applySensitivity(comparison.overall);
+
+        if (adjustedConfidence > bestConfidence && adjustedConfidence >= this.settings.minConfidenceForRecord) {
+          bestConfidence = adjustedConfidence;
+          bestMatch = {
+            id: `match-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            timestamp: Date.now(),
+            confidence: adjustedConfidence,
+            details: {
+              colorMatch: comparison.colorMatch,
+              dominantMatch: comparison.dominantMatch,
+              edgeMatch: comparison.edgeMatch,
+              sizeMatch: comparison.sizeMatch,
+            },
+            region: {
+              x: regionX,
+              y: regionY,
+              width: regionW,
+              height: regionH,
+              centerX: regionX + regionW / 2,
+              centerY: regionY + regionH / 2,
+            },
+            processingTimeMs: performance.now() - startTime,
+          };
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Extract a region from image data
+   */
+  private extractRegion(
+    source: ImageData,
+    sourceWidth: number,
+    sourceHeight: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): ImageData | null {
+    // Clamp bounds
+    const sx = Math.max(0, Math.min(x, sourceWidth - 1));
+    const sy = Math.max(0, Math.min(y, sourceHeight - 1));
+    const sw = Math.min(w, sourceWidth - sx);
+    const sh = Math.min(h, sourceHeight - sy);
+
+    if (sw <= 0 || sh <= 0) return null;
+
+    const regionData = new Uint8ClampedArray(sw * sh * 4);
+
+    for (let ry = 0; ry < sh; ry++) {
+      for (let rx = 0; rx < sw; rx++) {
+        const srcIdx = ((sy + ry) * sourceWidth + (sx + rx)) * 4;
+        const dstIdx = (ry * sw + rx) * 4;
+
+        regionData[dstIdx] = source.data[srcIdx];
+        regionData[dstIdx + 1] = source.data[srcIdx + 1];
+        regionData[dstIdx + 2] = source.data[srcIdx + 2];
+        regionData[dstIdx + 3] = source.data[srcIdx + 3];
+      }
+    }
+
+    return new ImageData(regionData, sw, sh);
+  }
+
+  /**
+   * Create a quick fingerprint from image data (for comparison)
+   */
+  private createQuickFingerprint(imageData: ImageData): VisualFingerprint {
+    const colorHistogram = extractColorHistogram(imageData, 16);
+    const dominantColors = extractDominantColors(imageData, 3);
+    const averageColor = calculateAverageColor(imageData);
+    const edgeSignature = extractEdgeSignature(imageData, 4);
+    const sizeRatio = estimateSizeRatio(imageData);
+
+    return {
+      id: 'temp',
+      name: 'temp',
+      colorHistogram,
+      dominantColors,
+      averageColor,
+      colorVariance: 0,
+      estimatedSizeRatio: sizeRatio,
+      edgeSignature,
+      referenceImages: [],
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Update motion mask from frame comparison
+   */
+  private updateMotionMask(current: ImageData, previous: ImageData): void {
+    const gridSize = this.settings.scanGridSize;
+    const cellWidth = Math.floor(current.width / gridSize);
+    const cellHeight = Math.floor(current.height / gridSize);
+
+    this.motionMask = [];
+
+    for (let gy = 0; gy < gridSize; gy++) {
+      for (let gx = 0; gx < gridSize; gx++) {
+        let diff = 0;
+        let samples = 0;
+
+        const startX = gx * cellWidth;
+        const startY = gy * cellHeight;
+
+        // Sample pixels in cell
+        for (let y = startY; y < startY + cellHeight; y += 4) {
+          for (let x = startX; x < startX + cellWidth; x += 4) {
+            const idx = (y * current.width + x) * 4;
+            if (idx + 2 < current.data.length && idx + 2 < previous.data.length) {
+              diff += Math.abs(current.data[idx] - previous.data[idx]);
+              diff += Math.abs(current.data[idx + 1] - previous.data[idx + 1]);
+              diff += Math.abs(current.data[idx + 2] - previous.data[idx + 2]);
+              samples++;
+            }
+          }
+        }
+
+        // Mark cell as having motion if average diff > threshold
+        const avgDiff = samples > 0 ? diff / (samples * 3) : 0;
+        this.motionMask.push(avgDiff > 10);
+      }
+    }
+  }
+
+  /**
+   * Update lighting offset for adaptive lighting
+   */
+  private updateLightingOffset(frameData: ImageData): void {
+    if (!this.fingerprint) return;
+
+    const frameAvg = calculateAverageColor(frameData);
+    const refAvg = this.fingerprint.averageColor;
+
+    // Calculate offset (smooth update)
+    const alpha = 0.1; // Smoothing factor
+    this.lightingOffset = {
+      r: Math.round(this.lightingOffset.r * (1 - alpha) + (refAvg.r - frameAvg.r) * alpha),
+      g: Math.round(this.lightingOffset.g * (1 - alpha) + (refAvg.g - frameAvg.g) * alpha),
+      b: Math.round(this.lightingOffset.b * (1 - alpha) + (refAvg.b - frameAvg.b) * alpha),
+    };
+  }
+
+  /**
+   * Apply lighting adjustment to frame
+   */
+  private adjustLighting(frameData: ImageData): ImageData {
+    if (this.lightingOffset.r === 0 && 
+        this.lightingOffset.g === 0 && 
+        this.lightingOffset.b === 0) {
+      return frameData;
+    }
+
+    const adjusted = new Uint8ClampedArray(frameData.data.length);
+    
+    for (let i = 0; i < frameData.data.length; i += 4) {
+      adjusted[i] = Math.max(0, Math.min(255, frameData.data[i] + this.lightingOffset.r));
+      adjusted[i + 1] = Math.max(0, Math.min(255, frameData.data[i + 1] + this.lightingOffset.g));
+      adjusted[i + 2] = Math.max(0, Math.min(255, frameData.data[i + 2] + this.lightingOffset.b));
+      adjusted[i + 3] = frameData.data[i + 3];
+    }
+
+    return new ImageData(adjusted, frameData.width, frameData.height);
+  }
+
+  /**
+   * Apply sensitivity settings to confidence score
+   */
+  private applySensitivity(rawConfidence: number): number {
+    // colorSensitivity: 0 = very lenient, 100 = very strict
+    // At 50, no adjustment
+    const sensitivityFactor = (100 - this.settings.colorSensitivity) / 50;
+    
+    if (sensitivityFactor > 1) {
+      // Lenient - boost scores
+      return Math.min(100, rawConfidence * sensitivityFactor);
+    } else {
+      // Strict - reduce scores
+      return rawConfidence * sensitivityFactor;
+    }
+  }
+
+  /**
+   * Clone ImageData
+   */
+  private cloneImageData(imageData: ImageData): ImageData {
+    return new ImageData(
+      new Uint8ClampedArray(imageData.data),
+      imageData.width,
+      imageData.height
+    );
+  }
+
+  /**
+   * Check if current match exceeds alert threshold
+   */
+  shouldAlert(): boolean {
+    return (
+      this.state.lastMatch !== null &&
+      this.state.lastMatch.confidence >= this.settings.minConfidenceForAlert
+    );
+  }
+
+  /**
+   * Check if current match should be recorded
+   */
+  shouldRecord(): boolean {
+    return (
+      this.state.lastMatch !== null &&
+      this.state.lastMatch.confidence >= this.settings.minConfidenceForRecord
+    );
+  }
+
+  /**
+   * Get match history
+   */
+  getMatchHistory(): MatchResult[] {
+    return [...this.state.matchHistory];
+  }
+
+  /**
+   * Clear match history
+   */
+  clearHistory(): void {
+    this.state.matchHistory = [];
+    this.state.averageConfidence = 0;
+  }
+}
+
+// =============================================================================
+// Singleton Instance
+// =============================================================================
+
+let matcherInstance: SubjectMatcher | null = null;
+
+export function getSubjectMatcher(settings?: Partial<MatcherSettings>): SubjectMatcher {
+  if (!matcherInstance) {
+    matcherInstance = new SubjectMatcher(settings);
+  } else if (settings) {
+    matcherInstance.setSettings(settings);
+  }
+  return matcherInstance;
+}
+
+export function resetSubjectMatcher(): void {
+  if (matcherInstance) {
+    matcherInstance.reset();
+  }
+  matcherInstance = null;
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Calculate match quality label
+ */
+export function getMatchQuality(confidence: number): {
+  label: string;
+  color: string;
+  description: string;
+} {
+  if (confidence >= 85) {
+    return {
+      label: 'Excellent',
+      color: 'green',
+      description: 'Very high likelihood of match',
+    };
+  } else if (confidence >= 70) {
+    return {
+      label: 'Good',
+      color: 'emerald',
+      description: 'Strong potential match',
+    };
+  } else if (confidence >= 55) {
+    return {
+      label: 'Possible',
+      color: 'yellow',
+      description: 'Worth checking',
+    };
+  } else if (confidence >= 40) {
+    return {
+      label: 'Weak',
+      color: 'orange',
+      description: 'Low confidence, may be false positive',
+    };
+  } else {
+    return {
+      label: 'Unlikely',
+      color: 'red',
+      description: 'Probably not a match',
+    };
+  }
+}
+
+/**
+ * Format match result for display
+ */
+export function formatMatchResult(result: MatchResult): {
+  time: string;
+  confidence: string;
+  quality: ReturnType<typeof getMatchQuality>;
+} {
+  const date = new Date(result.timestamp);
+  const time = date.toLocaleTimeString();
+  const confidence = `${result.confidence}%`;
+  const quality = getMatchQuality(result.confidence);
+
+  return { time, confidence, quality };
+}
+
+/**
+ * Estimate processing mode speed
+ */
+export function getProcessingInfo(mode: 'local' | 'hybrid'): {
+  label: string;
+  description: string;
+  estimatedLatency: string;
+  color: string;
+} {
+  if (mode === 'local') {
+    return {
+      label: 'Local Instant',
+      description: 'All processing on-device, no internet required',
+      estimatedLatency: '< 50ms',
+      color: 'green',
+    };
+  } else {
+    return {
+      label: 'AI Enhanced',
+      description: 'Local + cloud AI for higher accuracy',
+      estimatedLatency: '1-5s',
+      color: 'blue',
+    };
+  }
+}
+

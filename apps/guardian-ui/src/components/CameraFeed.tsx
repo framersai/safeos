@@ -18,13 +18,16 @@ import { getAudioLevel, detectCryingPattern, AUDIO_THRESHOLDS } from '../lib/aud
 
 interface CameraFeedProps {
   onFrame?: (data: FrameData) => void;
+  onMotion?: (score: number) => void;
+  onAudio?: (level: number) => void;
   onError?: (error: Error) => void;
-  scenario?: 'pet' | 'baby' | 'elderly';
+  scenario?: 'pet' | 'baby' | 'elderly' | 'security';
   enabled?: boolean;
   showDebug?: boolean;
+  className?: string;
 }
 
-interface FrameData {
+export interface FrameData {
   imageData: string;
   motionScore: number;
   audioLevel: number;
@@ -46,10 +49,13 @@ const AUDIO_INTERVAL = 100; // Audio level every 100ms
 
 export function CameraFeed({
   onFrame,
+  onMotion,
+  onAudio,
   onError,
   scenario = 'baby',
   enabled = true,
   showDebug = false,
+  className,
 }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -154,7 +160,9 @@ export function CameraFeed({
       // Compare with previous frame
       if (previousFrameRef.current) {
         const score = detectMotion(previousFrameRef.current, currentFrame);
-        setMotionScore(Math.round(score * 100));
+        const motionPercent = Math.round(score * 100);
+        setMotionScore(motionPercent);
+        onMotion?.(motionPercent);
       }
 
       // Store current frame for next comparison
@@ -172,7 +180,9 @@ export function CameraFeed({
       if (!analyserRef.current) return;
 
       const level = getAudioLevel(analyserRef.current);
-      setAudioLevel(Math.round(level * 100));
+      const audioPercent = Math.round(level * 100);
+      setAudioLevel(audioPercent);
+      onAudio?.(audioPercent);
 
       // Detect crying for baby monitoring
       if (scenario === 'baby' && analyserRef.current) {

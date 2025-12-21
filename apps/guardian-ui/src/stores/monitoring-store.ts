@@ -16,17 +16,20 @@ import { persist } from 'zustand/middleware';
 export interface Alert {
   id: string;
   streamId: string;
-  alertType: string;
+  alertType?: string;
   severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
   message: string;
   thumbnailUrl?: string;
-  createdAt: string;
+  createdAt?: string;
+  timestamp?: string;
   acknowledged: boolean;
 }
 
+export type MonitoringScenario = 'pet' | 'baby' | 'elderly' | 'security';
+
 export interface StreamInfo {
   id: string;
-  scenario: 'pet' | 'baby' | 'elderly';
+  scenario: 'pet' | 'baby' | 'elderly' | 'security';
   status: 'active' | 'paused' | 'ended';
   startedAt: string;
   motionScore?: number;
@@ -44,10 +47,13 @@ export interface MonitoringSettings {
 }
 
 export interface MonitoringState {
+  // Connection state
+  isConnected: boolean;
+  
   // Stream state
   isStreaming: boolean;
   streamId: string | null;
-  scenario: 'pet' | 'baby' | 'elderly' | null;
+  scenario: 'pet' | 'baby' | 'elderly' | 'security' | null;
   streams: StreamInfo[];
 
   // Real-time metrics
@@ -61,10 +67,16 @@ export interface MonitoringState {
   // Settings
   settings: MonitoringSettings;
 
+  // Session timer (for pet/baby/elderly modes only)
+  sessionExpiresAt: number | null;
+  sessionDurationHours: number;
+  sessionStartedAt: number | null;
+
   // Actions
+  setConnected: (connected: boolean) => void;
   setStreaming: (streaming: boolean) => void;
   setStreamId: (id: string | null) => void;
-  setScenario: (scenario: 'pet' | 'baby' | 'elderly' | null) => void;
+  setScenario: (scenario: 'pet' | 'baby' | 'elderly' | 'security' | null) => void;
   setMotionScore: (score: number) => void;
   setAudioLevel: (level: number) => void;
   setHasCrying: (crying: boolean) => void;
@@ -76,6 +88,14 @@ export interface MonitoringState {
   removeStream: (id: string) => void;
   updateStream: (id: string, update: Partial<StreamInfo>) => void;
   updateSettings: (settings: Partial<MonitoringSettings>) => void;
+  
+  // Session timer actions
+  startSession: (durationHours?: number) => void;
+  endSession: () => void;
+  extendSession: (additionalHours: number) => void;
+  isSessionExpired: () => boolean;
+  getSessionRemaining: () => number;
+  
   reset: () => void;
 }
 
@@ -101,6 +121,7 @@ export const useMonitoringStore = create<MonitoringState>()(
   persist(
     (set, get) => ({
       // Initial state
+      isConnected: false,
       isStreaming: false,
       streamId: null,
       scenario: null,
@@ -111,7 +132,14 @@ export const useMonitoringStore = create<MonitoringState>()(
       alerts: [],
       settings: DEFAULT_SETTINGS,
 
+      // Session timer state
+      sessionExpiresAt: null,
+      sessionDurationHours: 24,
+      sessionStartedAt: null,
+
       // Actions
+      setConnected: (connected) => set({ isConnected: connected }),
+      
       setStreaming: (streaming) => set({ isStreaming: streaming }),
 
       setStreamId: (id) => set({ streamId: id }),
@@ -165,8 +193,63 @@ export const useMonitoringStore = create<MonitoringState>()(
           settings: { ...state.settings, ...update },
         })),
 
+      // Session timer actions
+      startSession: (durationHours = 24) => {
+        const { scenario } = get();
+        // Only apply timer to monitoring modes, not security or lost-found
+        if (scenario === 'security') return;
+        
+        const clampedHours = Math.max(1, Math.min(24, durationHours));
+        const now = Date.now();
+        const expiresAt = now + clampedHours * 60 * 60 * 1000;
+        
+        set({
+          sessionStartedAt: now,
+          sessionExpiresAt: expiresAt,
+          sessionDurationHours: clampedHours,
+        });
+      },
+
+      endSession: () => {
+        set({
+          sessionStartedAt: null,
+          sessionExpiresAt: null,
+        });
+      },
+
+      extendSession: (additionalHours) => {
+        const { sessionExpiresAt } = get();
+        if (!sessionExpiresAt) return;
+
+        const now = Date.now();
+        const currentRemaining = sessionExpiresAt - now;
+        const additionalMs = additionalHours * 60 * 60 * 1000;
+        const maxDurationMs = 24 * 60 * 60 * 1000;
+        
+        const newRemaining = Math.min(maxDurationMs, currentRemaining + additionalMs);
+        
+        set({
+          sessionExpiresAt: now + newRemaining,
+        });
+      },
+
+      isSessionExpired: () => {
+        const { sessionExpiresAt, scenario } = get();
+        // Security mode never expires
+        if (scenario === 'security') return false;
+        if (!sessionExpiresAt) return false;
+        return Date.now() >= sessionExpiresAt;
+      },
+
+      getSessionRemaining: () => {
+        const { sessionExpiresAt } = get();
+        if (!sessionExpiresAt) return 0;
+        return Math.max(0, sessionExpiresAt - Date.now());
+      },
+
       reset: () =>
         set({
+          isConnected: false,
           isStreaming: false,
           streamId: null,
           scenario: null,
@@ -176,6 +259,9 @@ export const useMonitoringStore = create<MonitoringState>()(
           hasCrying: false,
           alerts: [],
           settings: DEFAULT_SETTINGS,
+          sessionExpiresAt: null,
+          sessionDurationHours: 24,
+          sessionStartedAt: null,
         }),
     }),
     {

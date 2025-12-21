@@ -1,0 +1,47 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- SafeOS Guardian Logo - Shield with Eye -->
+  
+  <!-- Outer Shield -->
+  <path 
+    d="M256 32L64 112V240C64 368 144 464 256 496C368 464 448 368 448 240V112L256 32Z" 
+    fill="#0F1215"
+    stroke="#22C55E"
+    stroke-width="8"
+  />
+  
+  <!-- Inner Shield Accent -->
+  <path 
+    d="M256 64L96 132V240C96 348 164 432 256 460C348 432 416 348 416 240V132L256 64Z" 
+    fill="#14181C"
+    stroke="#1A5F2D"
+    stroke-width="2"
+  />
+  
+  <!-- Central Eye - Outer Ring -->
+  <circle cx="256" cy="240" r="96" fill="none" stroke="#22C55E" stroke-width="6"/>
+  
+  <!-- Eye - Middle Ring -->
+  <circle cx="256" cy="240" r="64" fill="none" stroke="#166534" stroke-width="4"/>
+  
+  <!-- Eye - Inner Circle (Iris) -->
+  <circle cx="256" cy="240" r="40" fill="#166534"/>
+  
+  <!-- Eye - Pupil -->
+  <circle cx="256" cy="240" r="20" fill="#22C55E"/>
+  
+  <!-- Eye - Highlight -->
+  <circle cx="268" cy="228" r="8" fill="#4ADE80"/>
+  
+  <!-- Radar Lines -->
+  <path d="M256 144V176" stroke="#22C55E" stroke-width="3" stroke-linecap="round"/>
+  <path d="M256 304V336" stroke="#22C55E" stroke-width="3" stroke-linecap="round"/>
+  <path d="M160 240H192" stroke="#22C55E" stroke-width="3" stroke-linecap="round"/>
+  <path d="M320 240H352" stroke="#22C55E" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Corner Accents -->
+  <path d="M188 172L204 188" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+  <path d="M308 172L324 188" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+  <path d="M188 308L204 292" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+  <path d="M308 308L324 292" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+</svg>
+

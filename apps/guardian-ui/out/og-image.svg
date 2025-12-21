@@ -1,0 +1,68 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- SafeOS Guardian OG Image -->
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0A0C0F"/>
+  
+  <!-- Grid Pattern -->
+  <defs>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#1A1F24" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  
+  <!-- Gradient Overlay -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#166534" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0A0C0F" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="600" cy="280" rx="400" ry="300" fill="url(#glow)"/>
+  
+  <!-- Logo Shield -->
+  <g transform="translate(480, 100)">
+    <path 
+      d="M120 0L0 40V120C0 200 48 264 120 288C192 264 240 200 240 120V40L120 0Z" 
+      fill="#0F1215"
+      stroke="#22C55E"
+      stroke-width="4"
+    />
+    <path 
+      d="M120 16L16 52V120C16 188 56 244 120 264C184 244 224 188 224 120V52L120 16Z" 
+      fill="#14181C"
+      stroke="#1A5F2D"
+      stroke-width="1"
+    />
+    <circle cx="120" cy="130" r="48" fill="none" stroke="#22C55E" stroke-width="3"/>
+    <circle cx="120" cy="130" r="32" fill="none" stroke="#166534" stroke-width="2"/>
+    <circle cx="120" cy="130" r="20" fill="#166534"/>
+    <circle cx="120" cy="130" r="10" fill="#22C55E"/>
+    <circle cx="126" cy="124" r="4" fill="#4ADE80"/>
+  </g>
+  
+  <!-- Text: SafeOS Guardian -->
+  <text x="600" y="450" text-anchor="middle" fill="#F4F5F6" font-family="Inter, system-ui, sans-serif" font-size="56" font-weight="600" letter-spacing="-0.02em">
+    SafeOS Guardian
+  </text>
+  
+  <!-- Tagline -->
+  <text x="600" y="510" text-anchor="middle" fill="#5A6270" font-family="JetBrains Mono, monospace" font-size="20" letter-spacing="0.1em">
+    HUMANITARIAN AI MONITORING
+  </text>
+  
+  <!-- SuperCloud Attribution -->
+  <g transform="translate(1020, 560)">
+    <text fill="#3A424D" font-family="Inter, system-ui, sans-serif" font-size="14">
+      Part of SuperCloud
+    </text>
+  </g>
+  
+  <!-- Corner Decorations -->
+  <path d="M0 0L80 0L80 8L8 8L8 80L0 80Z" fill="#22C55E" opacity="0.3"/>
+  <path d="M1200 0L1120 0L1120 8L1192 8L1192 80L1200 80Z" fill="#22C55E" opacity="0.3"/>
+  <path d="M0 630L80 630L80 622L8 622L8 550L0 550Z" fill="#22C55E" opacity="0.3"/>
+  <path d="M1200 630L1120 630L1120 622L1192 622L1192 550L1200 550Z" fill="#22C55E" opacity="0.3"/>
+</svg>
+

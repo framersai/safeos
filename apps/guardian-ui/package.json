@@ -16,6 +16,8 @@
     "export": "next build && next export"
   },
   "dependencies": {
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow/tfjs": "^4.17.0",
     "@capacitor/app": "^5.0.6",
     "@capacitor/camera": "^5.0.8",
     "@capacitor/core": "^5.6.0",

@@ -32,7 +32,7 @@ export interface UserProfile {
 }
 
 export interface UserPreferences {
-  defaultScenario: 'pet' | 'baby' | 'elderly';
+  defaultScenario: 'pet' | 'baby' | 'elderly' | 'security';
   motionSensitivity: number;
   audioSensitivity: number;
   alertVolume: number;

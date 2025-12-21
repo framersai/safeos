@@ -15,8 +15,6 @@ import { persist } from 'zustand/middleware';
 
 export type Locale = 'en' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'pt' | 'ar' | 'hi' | 'ko';
 
-export type TranslationKey = keyof typeof translations.en;
-
 export interface I18nStore {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -26,7 +24,8 @@ export interface I18nStore {
 // Translations
 // =============================================================================
 
-export const translations = {
+// Define translations first, then derive TranslationKey from it
+const translationsData = {
   en: {
     // Common
     'common.loading': 'Loading...',
@@ -413,14 +412,18 @@ export const translations = {
     'footer.humanitarian': 'Teil der SuperCloud 10% für die Menschheit Initiative',
   },
 
-  // Add stubs for other languages
-  zh: { ...({} as typeof translations.en) },
-  ja: { ...({} as typeof translations.en) },
-  pt: { ...({} as typeof translations.en) },
-  ar: { ...({} as typeof translations.en) },
-  hi: { ...({} as typeof translations.en) },
-  ko: { ...({} as typeof translations.en) },
-} as const;
+  // Stub entries for other languages (will be filled with English fallbacks below)
+  zh: {} as Record<string, string>,
+  ja: {} as Record<string, string>,
+  pt: {} as Record<string, string>,
+  ar: {} as Record<string, string>,
+  hi: {} as Record<string, string>,
+  ko: {} as Record<string, string>,
+};
+
+// Export translations and derive TranslationKey type
+export const translations = translationsData;
+export type TranslationKey = keyof typeof translationsData.en;
 
 // Fill in missing keys for other languages with English fallbacks
 const languages: Locale[] = ['zh', 'ja', 'pt', 'ar', 'hi', 'ko'];

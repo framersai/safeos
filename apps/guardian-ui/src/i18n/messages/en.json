@@ -130,6 +130,194 @@
   "language": {
     "select": "Select Language",
     "current": "Current: {language}"
+  },
+  "lostFound": {
+    "title": "Lost & Found",
+    "subtitle": "Watch for lost pets or people using visual detection",
+    "addSubject": "Add New Subject to Watch",
+    "addSubjectDesc": "Upload photos of a lost pet or person",
+    "currentlyWatching": "Currently Watching",
+    "savedSubjects": "Saved Subjects",
+    "matchHistory": "Match History",
+    "viewMatches": "View all detected potential matches",
+    "noSubjects": "No Subjects Yet",
+    "noSubjectsDesc": "Add a subject to start watching. Upload photos of a lost pet or person and we'll continuously monitor your camera for potential matches.",
+    "howItWorks": {
+      "title": "How it works",
+      "step1": "Upload clear photos of the subject from different angles",
+      "step2": "We create a visual fingerprint based on colors, patterns, and features",
+      "step3": "Point your camera at a location and we'll watch continuously",
+      "step4": "Get alerts when potential matches are detected"
+    },
+    "setup": {
+      "whatLookingFor": "What are you looking for?",
+      "selectType": "Select the type of subject you want to watch for",
+      "pet": "Pet",
+      "petDesc": "Dog, cat, or other animal",
+      "person": "Person",
+      "personDesc": "Family member or friend",
+      "other": "Other",
+      "otherDesc": "Object or item",
+      "uploadPhotos": "Upload Reference Photos",
+      "uploadPhotosDesc": "Add clear photos from different angles for better matching",
+      "name": "Name",
+      "namePlaceholder": "e.g., Max, Luna, Dad",
+      "description": "Description (optional)",
+      "descPlaceholder": "Any distinguishing features...",
+      "clickToUpload": "Click to upload photos",
+      "uploadLimit": "PNG, JPG up to 10MB (max 5 images)",
+      "configureDetection": "Configure Detection",
+      "colorSensitivity": "Color Sensitivity",
+      "moreMatches": "More matches",
+      "fewerAccurate": "Fewer, accurate",
+      "alertThreshold": "Alert Threshold",
+      "minConfidence": "Minimum confidence to trigger sound/notification",
+      "processingMode": "Processing Mode",
+      "localInstant": "Local Instant",
+      "localInstantDesc": "Fast, offline, works anywhere",
+      "aiEnhanced": "AI Enhanced",
+      "aiEnhancedDesc": "Higher accuracy, needs internet",
+      "alerts": "Alerts",
+      "soundAlert": "Sound alert",
+      "browserNotification": "Browser notification",
+      "startWatching": "Start Watching",
+      "analyzingPhotos": "Analyzing Photos",
+      "creatingFingerprint": "Creating visual fingerprint..."
+    },
+    "gallery": {
+      "title": "Match Gallery",
+      "subtitle": "Browse and manage all captured potential matches",
+      "potentialMatches": "Potential Matches",
+      "filter": "Filter",
+      "all": "All",
+      "new": "New",
+      "highConfidence": "High Confidence",
+      "exported": "Exported",
+      "newestFirst": "Newest First",
+      "oldestFirst": "Oldest First",
+      "highestConfidence": "Highest Confidence",
+      "selectAll": "Select all",
+      "acknowledge": "Acknowledge",
+      "delete": "Delete",
+      "export": "Export",
+      "exportJson": "Export JSON",
+      "exportCsv": "Export CSV",
+      "noMatches": "No matches found",
+      "confidence": "Confidence",
+      "colorMatch": "Color",
+      "dominantMatch": "Dominant",
+      "edgeMatch": "Edge",
+      "sizeMatch": "Size",
+      "excellentMatch": "Excellent Match",
+      "goodMatch": "Good Match",
+      "possibleMatch": "Possible Match",
+      "weakMatch": "Weak Match",
+      "unlikelyMatch": "Unlikely Match"
+    },
+    "monitor": {
+      "watching": "Watching",
+      "matching": "Matching",
+      "noSubjectSet": "No Subject Set",
+      "addSubject": "Add a lost pet or person to watch for",
+      "setupLostFound": "Set Up Lost & Found",
+      "viewMatchHistory": "View Match History",
+      "consecutiveMatches": "{count} consecutive match",
+      "consecutiveMatchesPlural": "{count} consecutive matches",
+      "scanning": "Scanning..."
+    },
+    "matchQuality": {
+      "excellent": "Excellent",
+      "excellentDesc": "Very high likelihood of match",
+      "good": "Good",
+      "goodDesc": "Strong potential match",
+      "possible": "Possible",
+      "possibleDesc": "Worth checking",
+      "weak": "Weak",
+      "weakDesc": "Low confidence, may be false positive",
+      "unlikely": "Unlikely",
+      "unlikelyDesc": "Probably not a match"
+    }
+  },
+  "security": {
+    "title": "Security Mode",
+    "subtitle": "Anti-Theft & Intruder Detection",
+    "description": "AI-powered person detection to protect your space from unauthorized entry.",
+    "armingStates": {
+      "disarmed": "Disarmed",
+      "arming": "Arming...",
+      "armed": "Armed",
+      "triggered": "INTRUDER DETECTED"
+    },
+    "alertModes": {
+      "extreme": "Extreme",
+      "extremeDesc": "Maximum volume sirens, TTS warnings, screen flash, and recording",
+      "silent": "Silent",
+      "silentDesc": "Silent recording with optional browser notification"
+    },
+    "controls": {
+      "arm": "Arm System",
+      "disarm": "Disarm",
+      "armingCountdown": "Arming in {seconds}s",
+      "allowedPersons": "Allowed Persons",
+      "alertMode": "Alert Mode",
+      "sirenSound": "Siren Sound",
+      "voiceWarnings": "Voice Warnings",
+      "screenFlash": "Screen Flash",
+      "sirenVolume": "Siren Volume",
+      "customMessages": "Custom TTS Messages"
+    },
+    "status": {
+      "detected": "Detected",
+      "status": "Status",
+      "excess": "EXCESS",
+      "intruder": "INTRUDER",
+      "intruders": "INTRUDERS",
+      "unauthorized": "unauthorized person(s)",
+      "personsDetected": "Persons Detected"
+    },
+    "gallery": {
+      "title": "Intrusion History",
+      "noEvents": "No Intrusion Events",
+      "noEventsDesc": "When intruders are detected, captured frames will appear here.",
+      "totalEvents": "Total Events",
+      "unreviewed": "Unreviewed",
+      "last24h": "Last 24h",
+      "avgPersons": "Avg Persons",
+      "acknowledge": "Acknowledge",
+      "delete": "Delete",
+      "exportJson": "Export JSON",
+      "exportCsv": "Export CSV",
+      "deleteSelected": "Delete Selected",
+      "selectAll": "Select All",
+      "clear": "Clear"
+    },
+    "tts": {
+      "authoritative": {
+        "warning1": "Warning! You are being recorded. Leave immediately.",
+        "warning2": "Security alert. Authorities have been notified.",
+        "warning3": "Intruder detected. This area is under surveillance.",
+        "warning4": "Unauthorized entry detected. You are being monitored."
+      },
+      "alarm": {
+        "alert1": "Intruder alert! Help!",
+        "alert2": "Go away! Go away!",
+        "alert3": "Alert! Alert! Intruder!",
+        "alert4": "Danger! Danger!"
+      }
+    },
+    "settings": {
+      "confidenceThreshold": "Detection Confidence",
+      "motionThreshold": "Motion Sensitivity",
+      "armingCountdown": "Arming Countdown",
+      "triggerCooldown": "Trigger Cooldown",
+      "maxStoredFrames": "Max Stored Frames",
+      "autoDeleteDays": "Auto-delete after (days)"
+    },
+    "notifications": {
+      "intruderDetected": "INTRUDER ALERT!",
+      "intruderBody": "{count} person(s) detected. {excess} unauthorized."
+    },
+    "silentModeInfo": "Silent Mode: Intrusions will be recorded without sound or visual alerts. You can review captured frames in the Intrusion Gallery."
   }
 }
 

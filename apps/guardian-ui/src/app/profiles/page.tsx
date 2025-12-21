@@ -18,7 +18,7 @@ import Link from 'next/link';
 interface MonitoringProfile {
   id: string;
   name: string;
-  scenario: 'pet' | 'baby' | 'elderly';
+  scenario: 'pet' | 'baby' | 'elderly' | 'security';
   settings: {
     motionSensitivity: number;
     audioSensitivity: number;

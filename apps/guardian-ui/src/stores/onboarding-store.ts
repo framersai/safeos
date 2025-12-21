@@ -29,7 +29,7 @@ export interface OnboardingState {
   disclaimerAcceptedAt: string | null;
 
   // Profile selection
-  selectedScenario: 'pet' | 'baby' | 'elderly' | null;
+  selectedScenario: 'pet' | 'baby' | 'elderly' | 'security' | null;
   profileName: string;
 
   // Notifications
@@ -49,7 +49,7 @@ export interface OnboardingState {
   setComplete: (complete: boolean) => void;
   acceptDisclaimer: (type: keyof OnboardingState['acceptedDisclaimers']) => void;
   acceptAllDisclaimers: () => void;
-  setScenario: (scenario: 'pet' | 'baby' | 'elderly' | null) => void;
+  setScenario: (scenario: 'pet' | 'baby' | 'elderly' | 'security' | null) => void;
   setProfileName: (name: string) => void;
   setNotifications: (settings: Partial<NotificationSettings>) => void;
   setCameraPermission: (granted: boolean) => void;

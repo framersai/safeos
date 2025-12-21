@@ -74,7 +74,8 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
         }
 
         showToast({
-          message: 'Account created! Please check your email to verify.',
+          title: 'Account created!',
+          message: 'Please check your email to verify.',
           type: 'success',
         });
         setMode('login');
@@ -114,6 +115,7 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
         }
 
         showToast({
+          title: 'Password Reset',
           message: 'If an account exists, a reset link has been sent.',
           type: 'success',
         });

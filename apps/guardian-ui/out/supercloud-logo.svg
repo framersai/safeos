@@ -1,0 +1,34 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- SuperCloud Logo - Stylized Cloud with Neural Network -->
+  
+  <!-- Cloud Base -->
+  <path 
+    d="M208 120C208 133.255 197.255 144 184 144H56C42.7452 144 32 133.255 32 120C32 108.954 39.9453 99.6833 50.6093 96.9647C48.9154 93.3893 48 89.3984 48 85.1429C48 66.7461 62.7461 52 81.1429 52C87.5089 52 93.4655 53.7773 98.5089 56.8906C107.172 38.4922 125.883 26 147.429 26C177.353 26 202 50.6467 202 80.5714C202 82.5 201.891 84.4018 201.681 86.2679C205.55 90.4688 208 96.0357 208 102.143V120Z" 
+    fill="#1E293B"
+    stroke="#3B82F6"
+    stroke-width="4"
+  />
+  
+  <!-- Neural Nodes -->
+  <circle cx="80" cy="100" r="8" fill="#3B82F6"/>
+  <circle cx="128" cy="80" r="10" fill="#60A5FA"/>
+  <circle cx="176" cy="100" r="8" fill="#3B82F6"/>
+  <circle cx="104" cy="120" r="6" fill="#2563EB"/>
+  <circle cx="152" cy="120" r="6" fill="#2563EB"/>
+  
+  <!-- Neural Connections -->
+  <path d="M80 100L128 80" stroke="#3B82F6" stroke-width="2" opacity="0.6"/>
+  <path d="M128 80L176 100" stroke="#3B82F6" stroke-width="2" opacity="0.6"/>
+  <path d="M80 100L104 120" stroke="#3B82F6" stroke-width="2" opacity="0.6"/>
+  <path d="M128 80L104 120" stroke="#3B82F6" stroke-width="2" opacity="0.6"/>
+  <path d="M128 80L152 120" stroke="#3B82F6" stroke-width="2" opacity="0.6"/>
+  <path d="M176 100L152 120" stroke="#3B82F6" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Data Flow Lines -->
+  <path d="M64 180L80 160L104 172L128 156L152 168L176 152L192 176" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M64 200L88 184L112 196L136 180L160 192L184 176L192 196" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+  
+  <!-- S Letter Accent -->
+  <path d="M108 210C108 210 118 202 128 202C138 202 148 210 148 218C148 226 138 234 128 234C118 234 108 226 108 226" stroke="#3B82F6" stroke-width="3" stroke-linecap="round" fill="none"/>
+</svg>
+

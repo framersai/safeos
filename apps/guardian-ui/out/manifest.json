@@ -1,0 +1,89 @@
+{
+  "name": "SafeOS Guardian",
+  "short_name": "SafeOS",
+  "description": "Free AI monitoring for pets, babies & elderly - Part of SuperCloud's 10% for Humanity Initiative",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#10b981",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "lifestyle", "health"],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "SafeOS Dashboard"
+    },
+    {
+      "src": "/screenshots/monitoring.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Live Monitoring"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Monitoring",
+      "short_name": "Monitor",
+      "description": "Start a new monitoring session",
+      "url": "/monitor",
+      "icons": [{ "src": "/icons/shortcut-monitor.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Alerts",
+      "short_name": "Alerts",
+      "description": "View alert history",
+      "url": "/history",
+      "icons": [{ "src": "/icons/shortcut-alerts.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
+
+

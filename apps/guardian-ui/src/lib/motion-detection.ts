@@ -41,6 +41,11 @@ export const MOTION_THRESHOLDS = {
     medium: 8, // Normal activity
     high: 20, // Significant movement
   },
+  security: {
+    low: 10, // Detect subtle intrusion attempts
+    medium: 20, // Normal motion trigger
+    high: 40, // Significant movement only
+  },
 };
 
 // Pixel difference threshold (0-255)
@@ -222,7 +227,7 @@ export function detectRegionalMotion(
  * Get motion threshold for a scenario
  */
 export function getThresholdForScenario(
-  scenario: 'pet' | 'baby' | 'elderly'
+  scenario: 'pet' | 'baby' | 'elderly' | 'security'
 ): number {
   return MOTION_THRESHOLDS[scenario]?.medium || 10;
 }
@@ -232,7 +237,7 @@ export function getThresholdForScenario(
  */
 export function shouldTriggerMotionAlert(
   score: number,
-  scenario: 'pet' | 'baby' | 'elderly',
+  scenario: 'pet' | 'baby' | 'elderly' | 'security',
   level: 'low' | 'medium' | 'high' = 'medium'
 ): boolean {
   const threshold = MOTION_THRESHOLDS[scenario]?.[level] || 10;

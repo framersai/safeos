@@ -18,7 +18,7 @@ import { useMonitoringStore } from '../stores/monitoring-store';
 
 interface Stream {
   id: string;
-  scenario: 'pet' | 'baby' | 'elderly';
+  scenario: 'pet' | 'baby' | 'elderly' | 'security';
   status: 'active' | 'paused' | 'ended';
   startedAt: string;
   lastActivity?: string;
@@ -109,12 +109,14 @@ function StreamCard({ stream, isActive }: StreamCardProps) {
     pet: '🐕',
     baby: '👶',
     elderly: '👴',
+    security: '🛡️',
   };
 
   const scenarioColors = {
     pet: 'from-amber-500 to-orange-500',
     baby: 'from-pink-500 to-rose-500',
     elderly: 'from-blue-500 to-indigo-500',
+    security: 'from-emerald-500 to-teal-500',
   };
 
   const statusColors = {

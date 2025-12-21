@@ -3,17 +3,22 @@
 /**
  * Monitor Page
  *
- * Live monitoring interface.
+ * Live monitoring interface with Lost & Found detection.
  *
  * @module app/monitor/page
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CameraFeed } from '../../components/CameraFeed';
 import { AlertPanel } from '../../components/AlertPanel';
+import { SubjectPreviewOverlay, SubjectPreview } from '../../components/SubjectPreview';
+import { IconSearch, IconFingerprint, IconRadar } from '../../components/icons';
 import { useMonitoringStore } from '../../stores/monitoring-store';
 import { useOnboardingStore } from '../../stores/onboarding-store';
+import { useLostFoundStore, createMatchFrame, getMatcherSettings } from '../../stores/lost-found-store';
+import { getSubjectMatcher, type MatchResult } from '../../lib/subject-matcher';
+import { saveMatchFrame, type MatchFrameDB } from '../../lib/client-db';
 import { useWebSocket, type WSMessage } from '../../lib/websocket';
 
 // =============================================================================
@@ -43,6 +48,103 @@ export default function MonitorPage() {
   } = useMonitoringStore();
 
   const { selectedScenario } = useOnboardingStore();
+  
+  const {
+    activeSubject,
+    isWatching: isLostFoundWatching,
+    settings: lostFoundSettings,
+    updateCurrentConfidence,
+    updateConsecutiveMatches,
+    addMatchFrame: addMatchFrameToStore,
+    addRecentMatch,
+    recordAlert: recordLostFoundAlert,
+  } = useLostFoundStore();
+  
+  const [showLostFoundPanel, setShowLostFoundPanel] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const matcherRef = useRef(getSubjectMatcher());
+
+  // ---------------------------------------------------------------------------
+  // Lost & Found Integration
+  // ---------------------------------------------------------------------------
+  
+  // Update matcher when settings change
+  useEffect(() => {
+    if (activeSubject && isLostFoundWatching) {
+      const matcher = matcherRef.current;
+      matcher.setFingerprint(activeSubject.fingerprint);
+      matcher.setSettings(getMatcherSettings(lostFoundSettings));
+      matcher.setActive(true);
+    } else {
+      matcherRef.current.setActive(false);
+    }
+  }, [activeSubject, isLostFoundWatching, lostFoundSettings]);
+
+  // Process frames for Lost & Found matching
+  const processLostFoundFrame = useCallback((video: HTMLVideoElement) => {
+    if (!isLostFoundWatching || !activeSubject) return;
+    
+    const matcher = matcherRef.current;
+    const result = matcher.processFrame(video);
+    
+    if (result) {
+      // Update UI
+      updateCurrentConfidence(result.confidence);
+      updateConsecutiveMatches(matcher.getState().consecutiveMatches);
+      addRecentMatch(result);
+      
+      // Check if should record
+      if (matcher.shouldRecord() && result.frameData) {
+        // Create match frame and save to IndexedDB
+        const matchFrame: MatchFrameDB = {
+          id: result.id,
+          subjectId: activeSubject.id,
+          frameData: result.frameData,
+          thumbnailData: result.frameData, // TODO: Create thumbnail
+          confidence: result.confidence,
+          timestamp: result.timestamp,
+          details: result.details,
+          region: result.region || null,
+          acknowledged: false,
+          notes: '',
+          exported: false,
+        };
+        
+        saveMatchFrame(matchFrame);
+        addMatchFrameToStore(createMatchFrame(activeSubject.id, result));
+      }
+      
+      // Check if should alert
+      if (matcher.shouldAlert()) {
+        recordLostFoundAlert();
+        
+        // Play sound if enabled
+        if (lostFoundSettings.alertSound) {
+          // TODO: Play alert sound
+        }
+        
+        // Show notification if enabled
+        if (lostFoundSettings.alertNotification && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification('Potential Match Detected!', {
+            body: `${activeSubject.name} - ${result.confidence}% confidence`,
+            icon: activeSubject.referenceImages[0],
+          });
+        }
+      }
+    } else {
+      // Reset confidence when no match
+      updateCurrentConfidence(0);
+    }
+  }, [
+    isLostFoundWatching,
+    activeSubject,
+    lostFoundSettings,
+    updateCurrentConfidence,
+    updateConsecutiveMatches,
+    addRecentMatch,
+    addMatchFrameToStore,
+    recordLostFoundAlert,
+  ]);
 
   // ---------------------------------------------------------------------------
   // WebSocket
@@ -77,37 +179,39 @@ export default function MonitorPage() {
     [setStreaming, setStreamId, addAlert]
   );
 
-  const { send, isConnected: wsConnected, reconnect } = useWebSocket({
-    url: WS_URL,
-    onMessage: handleMessage,
-    onConnect: () => setConnected(true),
-    onDisconnect: () => setConnected(false),
-  });
+  const { sendMessage, isConnected: wsConnected, connect: reconnect } = useWebSocket(
+    WS_URL,
+    {
+      onMessage: handleMessage,
+      onConnect: () => setConnected(true),
+      onDisconnect: () => setConnected(false),
+    }
+  );
 
   // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
 
   const startStream = () => {
-    send({
+    sendMessage({
       type: 'start-stream',
       payload: { scenario: selectedScenario || scenario },
     });
   };
 
   const stopStream = () => {
-    send({ type: 'stop-stream' });
+    sendMessage({ type: 'stop-stream' });
   };
 
-  const handleFrame = (frame: string, motion: number, audio: number) => {
+  const handleFrame = (data: { imageData: string; motionScore: number; audioLevel: number }) => {
     if (!isStreaming) return;
 
-    send({
+    sendMessage({
       type: 'frame',
       payload: {
-        frame,
-        motionScore: motion,
-        audioLevel: audio,
+        frame: data.imageData,
+        motionScore: data.motionScore,
+        audioLevel: data.audioLevel,
       },
     });
   };
@@ -129,11 +233,11 @@ export default function MonitorPage() {
     if (!wsConnected) return;
 
     const interval = setInterval(() => {
-      send({ type: 'ping' });
+      sendMessage({ type: 'ping' });
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [wsConnected, send]);
+  }, [wsConnected, sendMessage]);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -169,6 +273,25 @@ export default function MonitorPage() {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Lost & Found toggle */}
+              <button
+                onClick={() => setShowLostFoundPanel(!showLostFoundPanel)}
+                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                  isLostFoundWatching
+                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Lost & Found Mode"
+              >
+                <IconRadar size={18} />
+                <span className="hidden sm:inline">
+                  {isLostFoundWatching ? 'Watching' : 'Lost & Found'}
+                </span>
+                {isLostFoundWatching && (
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                )}
+              </button>
+              
               {!wsConnected && (
                 <button
                   onClick={reconnect}
@@ -205,12 +328,22 @@ export default function MonitorPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Camera Feed */}
           <div className="lg:col-span-2">
-            <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden">
-              <div className="p-4 border-b border-gray-700">
+            <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden relative">
+              <div className="p-4 border-b border-gray-700 flex items-center justify-between">
                 <h2 className="font-semibold text-white">Camera Feed</h2>
+                {isLostFoundWatching && activeSubject && (
+                  <div className="flex items-center gap-2 text-sm text-purple-400">
+                    <IconFingerprint size={16} />
+                    <span>Matching: {activeSubject.name}</span>
+                  </div>
+                )}
               </div>
+              
+              {/* Subject preview overlay */}
+              {isLostFoundWatching && <SubjectPreviewOverlay />}
+              
               <CameraFeed
-                scenario={selectedScenario || scenario}
+                scenario={selectedScenario || scenario || undefined}
                 onFrame={handleFrame}
                 onMotion={handleMotion}
                 onAudio={handleAudio}
@@ -240,15 +373,66 @@ export default function MonitorPage() {
               />
               <StatCard
                 label="Mode"
-                value={selectedScenario || scenario}
+                value={selectedScenario || scenario || 'Standard'}
                 color="blue"
               />
             </div>
           </div>
 
-          {/* Alert Panel */}
+          {/* Alert Panel or Lost & Found Panel */}
           <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden min-h-[400px]">
-            <AlertPanel />
+            {showLostFoundPanel ? (
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-white flex items-center gap-2">
+                    <IconSearch size={18} />
+                    Lost & Found
+                  </h2>
+                  <button
+                    onClick={() => setShowLostFoundPanel(false)}
+                    className="text-sm text-gray-400 hover:text-white"
+                  >
+                    Show Alerts
+                  </button>
+                </div>
+                
+                {activeSubject ? (
+                  <SubjectPreview mode="full" showClose={false} />
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mx-auto mb-4">
+                      <IconSearch size={32} className="text-gray-500" />
+                    </div>
+                    <h3 className="text-lg font-medium text-white mb-2">
+                      No Subject Set
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Add a lost pet or person to watch for
+                    </p>
+                    <Link
+                      href="/lost-found"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors"
+                    >
+                      <IconFingerprint size={16} />
+                      Set Up Lost & Found
+                    </Link>
+                  </div>
+                )}
+                
+                {activeSubject && (
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <Link
+                      href="/lost-found/gallery"
+                      className="block w-full text-center px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    >
+                      View Match History
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <AlertPanel />
+            )}
           </div>
         </div>
       </main>

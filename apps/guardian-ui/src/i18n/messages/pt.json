@@ -1,0 +1,326 @@
+{
+  "meta": {
+    "title": "SafeOS Guardian - Monitoramento Humanitário com IA",
+    "description": "Monitoramento gratuito com IA para pets, bebês e cuidados com idosos. Processamento local, respeito à privacidade."
+  },
+  "nav": {
+    "dashboard": "Painel",
+    "monitor": "Monitor",
+    "history": "Histórico",
+    "settings": "Configurações",
+    "notifications": "Notificações",
+    "help": "Ajuda",
+    "openMenu": "Abrir menu"
+  },
+  "landing": {
+    "title": "SafeOS Guardian",
+    "subtitle": "Ferramenta de Monitoramento Suplementar Experimental",
+    "tagline": "Uma ferramenta de monitoramento gratuita e de baixa tecnologia usando {webcams} e {microphones} padrão.",
+    "taglineSub": "Projetada para pais educados e experientes em tecnologia. Portátil por design.",
+    "startSetup": "Iniciar Configuração",
+    "setupTime": "Leva menos de 2 minutos · Nenhuma conta necessária",
+    "disclaimer": {
+      "title": "Isto NÃO substitui a supervisão humana",
+      "text": "SafeOS Guardian é apenas uma {bold}. Não pode e não deve substituir o cuidado e atenção humana direta. A tecnologia pode falhar. Sempre mantenha supervisão adequada de crianças, pets e familiares idosos.",
+      "boldText": "ferramenta experimental suplementar"
+    },
+    "features": {
+      "lotech": {
+        "title": "Baixa Tecnologia e Portátil",
+        "description": "Usa webcams e microfones padrão que você já possui. Nenhum hardware especial necessário."
+      },
+      "privacy": {
+        "title": "Privacidade em Primeiro",
+        "description": "Todo o processamento acontece localmente no seu dispositivo. Sem uploads para nuvem, sem mineração de dados."
+      },
+      "free": {
+        "title": "Sempre Gratuito",
+        "description": "Parte da iniciativa 10% para a Humanidade da SuperCloud. Este serviço nunca será monetizado."
+      }
+    },
+    "abusePrevention": {
+      "title": "Prevenção de Abuso e Uso Justo",
+      "p1": "Monitoramos ativamente e prevenimos abusos desta ferramenta humanitária. Uso indevido detectado resulta em {warnings}, depois restrições de acesso.",
+      "p2": "Em casos de abuso generalizado, nos reservamos o direito de suspender temporariamente o serviço até que melhores proteções estejam em vigor. {emphasis}.",
+      "emphasis": "Sua segurança e a segurança dos monitorados sempre vêm em primeiro lugar"
+    },
+    "humanitarian": {
+      "text": "Esta é uma ferramenta humanitária. {never} será cobrado por ela. Nunca."
+    }
+  },
+  "storage": {
+    "title": "Armazenamento Local de Dados",
+    "subtitle": "Entendendo Como Seus Dados São Armazenados",
+    "intro": "SafeOS Guardian armazena todos os dados localmente no seu navegador. Isso significa que seus dados permanecem no seu dispositivo e nunca são enviados para servidores externos.",
+    "warning": {
+      "title": "Aviso Importante",
+      "text": "Limpar o cache do navegador, cookies ou dados do site excluirá permanentemente todos os dados do SafeOS Guardian. Isso inclui suas configurações, histórico de monitoramento e logs de alertas."
+    },
+    "whatStored": {
+      "title": "Quais Dados São Armazenados Localmente",
+      "settings": "Suas preferências e configuração de monitoramento",
+      "profiles": "Perfis de monitoramento (configurações de pet, bebê, idoso)",
+      "history": "Histórico de alertas e logs de eventos",
+      "calibration": "Dados de calibração de câmera e microfone",
+      "ui": "Preferências de interface (tema, idioma, layout)"
+    },
+    "whereStored": {
+      "title": "Onde os Dados São Armazenados",
+      "text": "Os dados são armazenados no LocalStorage e IndexedDB do seu navegador. Este é um armazenamento específico do navegador que persiste entre sessões.",
+      "browsers": {
+        "chrome": "Chrome: Configurações → Privacidade → Limpar dados de navegação → Cookies e dados do site",
+        "firefox": "Firefox: Configurações → Privacidade → Cookies e Dados do Site",
+        "safari": "Safari: Preferências → Privacidade → Gerenciar Dados do Site",
+        "edge": "Edge: Configurações → Privacidade → Limpar dados de navegação"
+      }
+    },
+    "prevent": {
+      "title": "Como Prevenir Perda de Dados",
+      "step1": {
+        "title": "Exporte Suas Configurações",
+        "text": "Vá para Configurações → Exportar Dados para baixar um backup da sua configuração."
+      },
+      "step2": {
+        "title": "Evite Ações de 'Limpar Tudo'",
+        "text": "Ao limpar dados do navegador, evite selecionar 'Cookies e dados do site' se quiser manter os dados do SafeOS."
+      },
+      "step3": {
+        "title": "Use Perfis de Navegador",
+        "text": "Considere criar um perfil de navegador dedicado para SafeOS Guardian para isolar seus dados."
+      },
+      "step4": {
+        "title": "Marque a Exportação de Configurações",
+        "text": "Exporte regularmente suas configurações antes de qualquer manutenção do navegador."
+      }
+    },
+    "clear": {
+      "title": "Como Limpar Dados do SafeOS",
+      "intro": "Se você precisar resetar o SafeOS Guardian completamente:",
+      "option1": {
+        "title": "Opção 1: Reset no App",
+        "text": "Vá para Configurações → Avançado → Resetar Todos os Dados. Isso removerá todos os dados do SafeOS mas preservará outros dados do navegador."
+      },
+      "option2": {
+        "title": "Opção 2: Limpeza do Navegador",
+        "text": "Limpe os dados do site especificamente para o domínio SafeOS nas configurações do navegador."
+      },
+      "steps": {
+        "chrome": "Chrome: Clique no ícone de cadeado → Configurações do site → Limpar dados",
+        "firefox": "Firefox: Clique no ícone de escudo → Limpar cookies e dados do site",
+        "safari": "Safari: Menu Desenvolvedor → Esvaziar Caches para esta página",
+        "edge": "Edge: Clique no ícone de cadeado → Permissões do site → Resetar permissões"
+      }
+    },
+    "recovery": {
+      "title": "Recuperação de Dados",
+      "text": "Uma vez que os dados do navegador são limpos, não há como recuperá-los a menos que você tenha um backup exportado anteriormente. Recomendamos fortemente exportações regulares se você tiver configurações personalizadas."
+    }
+  },
+  "footer": {
+    "product": "Produto",
+    "resources": "Recursos",
+    "helpCenter": "Central de Ajuda",
+    "documentation": "Documentação",
+    "privacyPolicy": "Política de Privacidade",
+    "termsOfService": "Termos de Serviço",
+    "github": "GitHub",
+    "twitter": "Twitter",
+    "discord": "Discord"
+  },
+  "language": {
+    "select": "Selecionar Idioma",
+    "current": "Atual: {language}"
+  },
+  "processing": {
+    "modes": {
+      "title": "Modos de Processamento",
+      "local": {
+        "label": "LOCAL INSTANTÂNEO",
+        "description": "Processamento 100% no dispositivo. Sem internet. Sem latência."
+      },
+      "ai": {
+        "label": "FILA IA",
+        "description": "Análise avançada com IA. Pode ficar em fila conforme carga do servidor."
+      },
+      "hybrid": {
+        "label": "HÍBRIDO",
+        "description": "Detecção local instantânea + melhoria IA em segundo plano."
+      }
+    },
+    "queue": {
+      "status": "Status da Fila API",
+      "position": "Posição",
+      "eta": "Tempo Est.",
+      "queued": "Na Fila",
+      "avgWait": "Espera Méd.",
+      "loading": "Carregando",
+      "resourceCommitted": "Recursos Dedicados Alocados",
+      "resourceCommittedDesc": "Sua solicitação está sendo priorizada. Alocamos recursos dedicados do servidor."
+    }
+  },
+  "sleep": {
+    "title": "Monitoramento de Sono",
+    "description": "Configurações ultra-sensíveis para monitorar bebês, pets ou qualquer pessoa durante o sono. Todos os modos usam processamento 100% local.",
+    "presets": {
+      "infant": {
+        "name": "Monitor de Sono de Bebê",
+        "description": "Ultra-sensível: 5px de movimento aciona alerta. 100% local, resposta instantânea."
+      },
+      "pet": {
+        "name": "Monitor de Sono de Pet",
+        "description": "Sensível: 10px de movimento aciona alerta. Processamento 100% local."
+      },
+      "deepSleep": {
+        "name": "Sono Profundo Ultra-Sensível",
+        "description": "Sensibilidade máxima: 3px aciona alerta. Para monitoramento crítico. Sem latência."
+      }
+    },
+    "howItWorks": {
+      "title": "Como Funciona a Detecção de Sono",
+      "absoluteThreshold": "Limite de Pixels Absoluto: Detecta número exato de pixels alterados",
+      "localProcessing": "Processamento 100% Local: Sem internet. Sem latência. Alertas instantâneos.",
+      "earlyExit": "Detecção de Saída Antecipada: Dispara imediatamente quando o limite é excedido.",
+      "optimized": "Otimizado para Velocidade: Processamento reduzido para tempos de detecção abaixo de 5ms."
+    },
+    "stats": {
+      "pixelThreshold": "limite de pixels",
+      "interval": "intervalo",
+      "sensitivity": "sensibilidade",
+      "emergencyModeOn": "Modo Emergência ATIVADO"
+    }
+  },
+  "settings": {
+    "currentProcessingMode": "Modo de Processamento Atual",
+    "sleepMonitoring": "Monitoramento de Sono",
+    "securityPresets": "Predefinições de Segurança",
+    "detection": "Detecção",
+    "audio": "Áudio",
+    "timing": "Temporização",
+    "soundTesting": "Teste de Som",
+    "notifications": "Notificações",
+    "scenarios": "Cenários",
+    "dataPrivacy": "Dados e Privacidade"
+  },
+  "lostFound": {
+    "title": "Achados e Perdidos",
+    "subtitle": "Procure animais de estimação ou pessoas perdidas usando detecção visual",
+    "addSubject": "Adicionar Novo Assunto para Vigiar",
+    "addSubjectDesc": "Carregue fotos de um animal de estimação ou pessoa perdida",
+    "currentlyWatching": "Vigiando Atualmente",
+    "savedSubjects": "Assuntos Salvos",
+    "matchHistory": "Histórico de Correspondências",
+    "viewMatches": "Ver todas as correspondências potenciais detectadas",
+    "noSubjects": "Nenhum Assunto",
+    "noSubjectsDesc": "Adicione um assunto para começar a vigiar. Carregue fotos de um animal de estimação ou pessoa perdida e monitoraremos continuamente sua câmera em busca de correspondências potenciais.",
+    "howItWorks": {
+      "title": "Como funciona",
+      "step1": "Carregue fotos claras do assunto de diferentes ângulos",
+      "step2": "Criamos uma impressão digital visual baseada em cores, padrões e características",
+      "step3": "Aponte sua câmera para um local e vigiaremos continuamente",
+      "step4": "Receba alertas quando correspondências potenciais forem detectadas"
+    },
+    "setup": {
+      "whatLookingFor": "O que você está procurando?",
+      "selectType": "Selecione o tipo de assunto que deseja vigiar",
+      "pet": "Animal",
+      "petDesc": "Cachorro, gato ou outro animal",
+      "person": "Pessoa",
+      "personDesc": "Membro da família ou amigo",
+      "other": "Outro",
+      "otherDesc": "Objeto ou item",
+      "uploadPhotos": "Carregar Fotos de Referência",
+      "uploadPhotosDesc": "Adicione fotos claras de diferentes ângulos para melhor correspondência",
+      "name": "Nome",
+      "namePlaceholder": "ex.: Max, Luna, Papai",
+      "description": "Descrição (opcional)",
+      "descPlaceholder": "Características distintivas...",
+      "clickToUpload": "Clique para carregar fotos",
+      "uploadLimit": "PNG, JPG até 10MB (máx. 5 imagens)",
+      "configureDetection": "Configurar Detecção",
+      "colorSensitivity": "Sensibilidade de Cor",
+      "moreMatches": "Mais correspondências",
+      "fewerAccurate": "Menos, mas precisas",
+      "alertThreshold": "Limite de Alerta",
+      "minConfidence": "Confiança mínima para disparar som/notificação",
+      "processingMode": "Modo de Processamento",
+      "localInstant": "Local Instantâneo",
+      "localInstantDesc": "Rápido, offline, funciona em qualquer lugar",
+      "aiEnhanced": "Aprimorado por IA",
+      "aiEnhancedDesc": "Maior precisão, requer internet",
+      "alerts": "Alertas",
+      "soundAlert": "Alerta sonoro",
+      "browserNotification": "Notificação do navegador",
+      "startWatching": "Começar a Vigiar",
+      "analyzingPhotos": "Analisando Fotos",
+      "creatingFingerprint": "Criando impressão digital visual..."
+    },
+    "gallery": {
+      "title": "Galeria de Correspondências",
+      "subtitle": "Navegar e gerenciar todas as correspondências potenciais capturadas",
+      "potentialMatches": "Correspondências Potenciais",
+      "filter": "Filtrar",
+      "all": "Todas",
+      "new": "Novas",
+      "highConfidence": "Alta Confiança",
+      "exported": "Exportadas",
+      "newestFirst": "Mais Recentes",
+      "oldestFirst": "Mais Antigas",
+      "highestConfidence": "Maior Confiança",
+      "selectAll": "Selecionar tudo",
+      "acknowledge": "Confirmar",
+      "delete": "Excluir",
+      "export": "Exportar",
+      "exportJson": "Exportar JSON",
+      "exportCsv": "Exportar CSV",
+      "noMatches": "Nenhuma correspondência encontrada",
+      "confidence": "Confiança",
+      "colorMatch": "Cor",
+      "dominantMatch": "Dominante",
+      "edgeMatch": "Borda",
+      "sizeMatch": "Tamanho",
+      "excellentMatch": "Correspondência Excelente",
+      "goodMatch": "Boa Correspondência",
+      "possibleMatch": "Correspondência Possível",
+      "weakMatch": "Correspondência Fraca",
+      "unlikelyMatch": "Correspondência Improvável"
+    },
+    "monitor": {
+      "watching": "Vigiando",
+      "matching": "Buscando correspondência",
+      "noSubjectSet": "Nenhum Assunto Definido",
+      "addSubject": "Adicione um animal de estimação ou pessoa perdida para vigiar",
+      "setupLostFound": "Configurar Achados e Perdidos",
+      "viewMatchHistory": "Ver Histórico de Correspondências",
+      "consecutiveMatches": "{count} correspondência consecutiva",
+      "consecutiveMatchesPlural": "{count} correspondências consecutivas",
+      "scanning": "Escaneando..."
+    },
+    "matchQuality": {
+      "excellent": "Excelente",
+      "excellentDesc": "Probabilidade muito alta de correspondência",
+      "good": "Boa",
+      "goodDesc": "Forte correspondência potencial",
+      "possible": "Possível",
+      "possibleDesc": "Vale verificar",
+      "weak": "Fraca",
+      "weakDesc": "Baixa confiança, pode ser falso positivo",
+      "unlikely": "Improvável",
+      "unlikelyDesc": "Provavelmente não é uma correspondência"
+    }
+  },
+  "security": {
+    "title": "Modo Segurança",
+    "subtitle": "Detecção de Intrusos e Anti-Roubo",
+    "description": "Detecção de pessoas com IA para proteger seu espaço.",
+    "armingStates": { "disarmed": "Desarmado", "arming": "Armando...", "armed": "Armado", "triggered": "INTRUSO DETECTADO" },
+    "alertModes": { "extreme": "Extremo", "extremeDesc": "Sirenes, TTS, flash", "silent": "Silencioso", "silentDesc": "Apenas gravação" },
+    "controls": { "arm": "Armar", "disarm": "Desarmar", "armingCountdown": "Armando em {seconds}s", "allowedPersons": "Pessoas Permitidas", "alertMode": "Modo Alerta", "sirenSound": "Sirene", "voiceWarnings": "Avisos de Voz", "screenFlash": "Flash de Tela", "sirenVolume": "Volume Sirene", "customMessages": "Mensagens Personalizadas" },
+    "status": { "detected": "Detectado", "status": "Status", "excess": "EXCESSO", "intruder": "INTRUSO", "intruders": "INTRUSOS", "unauthorized": "pessoa(s) não autorizada(s)", "personsDetected": "Pessoas Detectadas" },
+    "gallery": { "title": "Histórico de Intrusões", "noEvents": "Sem Eventos", "noEventsDesc": "Intrusos detectados aparecerão aqui.", "totalEvents": "Total", "unreviewed": "Não Revisado", "last24h": "Últimas 24h", "avgPersons": "Média Pessoas", "acknowledge": "Reconhecer", "delete": "Excluir", "exportJson": "Exportar JSON", "exportCsv": "Exportar CSV", "deleteSelected": "Excluir Selecionados", "selectAll": "Selecionar Tudo", "clear": "Limpar" },
+    "tts": { "authoritative": { "warning1": "Aviso! Você está sendo gravado. Saia imediatamente.", "warning2": "Alerta de segurança. Autoridades notificadas.", "warning3": "Intruso detectado. Esta área está sob vigilância.", "warning4": "Entrada não autorizada detectada." }, "alarm": { "alert1": "Alerta de intruso! Socorro!", "alert2": "Saia! Saia!", "alert3": "Alerta! Intruso!", "alert4": "Perigo!" } },
+    "settings": { "confidenceThreshold": "Confiança de Detecção", "motionThreshold": "Sensibilidade de Movimento", "armingCountdown": "Contagem Regressiva", "triggerCooldown": "Cooldown", "maxStoredFrames": "Máx Frames", "autoDeleteDays": "Excluir após (dias)" },
+    "notifications": { "intruderDetected": "ALERTA DE INTRUSO!", "intruderBody": "{count} pessoa(s) detectadas. {excess} não autorizadas." },
+    "silentModeInfo": "Modo Silencioso: Intrusões serão gravadas sem alertas sonoros. Você pode revisar os frames capturados na Galeria."
+  }
+}
+

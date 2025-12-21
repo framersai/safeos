@@ -113,6 +113,69 @@ interface SafeOSDB extends DBSchema {
     };
     indexes: { 'by-type': string };
   };
+  // Lost & Found stores
+  subject_profile: {
+    key: string;
+    value: {
+      id: string;
+      name: string;
+      type: 'pet' | 'person' | 'other';
+      description: string;
+      fingerprint: any;
+      referenceImages: string[];
+      createdAt: string;
+      lastActiveAt: string | null;
+      matchCount: number;
+    };
+    indexes: { 'by-type': string; 'by-created': string };
+  };
+  match_frame: {
+    key: string;
+    value: {
+      id: string;
+      subjectId: string;
+      frameData: string;
+      thumbnailData: string;
+      confidence: number;
+      timestamp: number;
+      details: {
+        colorMatch: number;
+        dominantMatch: number;
+        edgeMatch: number;
+        sizeMatch: number;
+      };
+      region: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      } | null;
+      acknowledged: boolean;
+      notes: string;
+      exported: boolean;
+    };
+    indexes: { 'by-subject': string; 'by-timestamp': number; 'by-confidence': number };
+  };
+  // Security/Intrusion detection stores
+  intrusion_frame: {
+    key: string;
+    value: {
+      id: string;
+      frameData: string;
+      thumbnailData: string;
+      timestamp: number;
+      personCount: number;
+      allowedCount: number;
+      detections: Array<{
+        bbox: [number, number, number, number];
+        confidence: number;
+      }>;
+      acknowledged: boolean;
+      notes: string;
+      exported: boolean;
+    };
+    indexes: { 'by-timestamp': number; 'by-personCount': number };
+  };
 }
 
 // =============================================================================
@@ -120,10 +183,11 @@ interface SafeOSDB extends DBSchema {
 // =============================================================================
 
 const DB_NAME = 'safeos-guardian';
-const DB_VERSION = 1;
+const DB_VERSION = 3; // Bumped for Security/Intrusion detection stores
 
 const FRAME_BUFFER_MINUTES = 5;
 const MAX_CACHED_ALERTS = 500;
+const MAX_MATCH_FRAMES = 500;
 
 // =============================================================================
 // Database Instance
@@ -178,6 +242,27 @@ function getDB(): Promise<IDBPDatabase<SafeOSDB>> {
         if (!db.objectStoreNames.contains('consent_log')) {
           const consentStore = db.createObjectStore('consent_log', { keyPath: 'id' });
           consentStore.createIndex('by-type', 'consentType');
+        }
+
+        // Lost & Found stores (added in v2)
+        if (!db.objectStoreNames.contains('subject_profile')) {
+          const subjectStore = db.createObjectStore('subject_profile', { keyPath: 'id' });
+          subjectStore.createIndex('by-type', 'type');
+          subjectStore.createIndex('by-created', 'createdAt');
+        }
+
+        if (!db.objectStoreNames.contains('match_frame')) {
+          const matchStore = db.createObjectStore('match_frame', { keyPath: 'id' });
+          matchStore.createIndex('by-subject', 'subjectId');
+          matchStore.createIndex('by-timestamp', 'timestamp');
+          matchStore.createIndex('by-confidence', 'confidence');
+        }
+
+        // Security/Intrusion detection stores (added in v3)
+        if (!db.objectStoreNames.contains('intrusion_frame')) {
+          const intrusionStore = db.createObjectStore('intrusion_frame', { keyPath: 'id' });
+          intrusionStore.createIndex('by-timestamp', 'timestamp');
+          intrusionStore.createIndex('by-personCount', 'personCount');
         }
       },
     });
@@ -518,18 +603,664 @@ export async function getStorageStats(): Promise<{
   frames: number;
   alerts: number;
   syncPending: number;
+  subjects: number;
+  matchFrames: number;
 }> {
   try {
     const db = await getDB();
 
-    const [frames, alerts, sync] = await Promise.all([
+    const [frames, alerts, sync, subjects, matchFrames] = await Promise.all([
       db.count('frame_cache'),
       db.count('alert_cache'),
       db.count('sync_queue'),
+      db.count('subject_profile'),
+      db.count('match_frame'),
     ]);
 
-    return { frames, alerts, syncPending: sync };
+    return { frames, alerts, syncPending: sync, subjects, matchFrames };
   } catch {
-    return { frames: 0, alerts: 0, syncPending: 0 };
+    return { frames: 0, alerts: 0, syncPending: 0, subjects: 0, matchFrames: 0 };
+  }
+}
+
+// =============================================================================
+// Lost & Found: Subject Profiles
+// =============================================================================
+
+export interface SubjectProfileDB {
+  id: string;
+  name: string;
+  type: 'pet' | 'person' | 'other';
+  description: string;
+  fingerprint: any;
+  referenceImages: string[];
+  createdAt: string;
+  lastActiveAt: string | null;
+  matchCount: number;
+}
+
+export async function saveSubjectProfile(profile: SubjectProfileDB): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('subject_profile', profile);
+  } catch (error) {
+    console.warn('[ClientDB] Failed to save subject profile:', error);
+  }
+}
+
+export async function getSubjectProfile(id: string): Promise<SubjectProfileDB | null> {
+  try {
+    const db = await getDB();
+    const profile = await db.get('subject_profile', id);
+    return profile || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getAllSubjectProfiles(): Promise<SubjectProfileDB[]> {
+  try {
+    const db = await getDB();
+    const profiles = await db.getAll('subject_profile');
+    return profiles.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch {
+    return [];
+  }
+}
+
+export async function getSubjectProfilesByType(type: 'pet' | 'person' | 'other'): Promise<SubjectProfileDB[]> {
+  try {
+    const db = await getDB();
+    return await db.getAllFromIndex('subject_profile', 'by-type', type);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteSubjectProfile(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('subject_profile', id);
+    
+    // Also delete associated match frames
+    const matchFrames = await db.getAllFromIndex('match_frame', 'by-subject', id);
+    const tx = db.transaction('match_frame', 'readwrite');
+    for (const frame of matchFrames) {
+      await tx.store.delete(frame.id);
+    }
+    await tx.done;
+  } catch (error) {
+    console.warn('[ClientDB] Failed to delete subject profile:', error);
+  }
+}
+
+export async function updateSubjectMatchCount(id: string, increment: number = 1): Promise<void> {
+  try {
+    const db = await getDB();
+    const profile = await db.get('subject_profile', id);
+    if (profile) {
+      profile.matchCount += increment;
+      profile.lastActiveAt = new Date().toISOString();
+      await db.put('subject_profile', profile);
+    }
+  } catch (error) {
+    console.warn('[ClientDB] Failed to update subject match count:', error);
+  }
+}
+
+// =============================================================================
+// Lost & Found: Match Frames
+// =============================================================================
+
+export interface MatchFrameDB {
+  id: string;
+  subjectId: string;
+  frameData: string;
+  thumbnailData: string;
+  confidence: number;
+  timestamp: number;
+  details: {
+    colorMatch: number;
+    dominantMatch: number;
+    edgeMatch: number;
+    sizeMatch: number;
+  };
+  region: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
+  acknowledged: boolean;
+  notes: string;
+  exported: boolean;
+}
+
+export async function saveMatchFrame(frame: MatchFrameDB): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('match_frame', frame);
+    
+    // Update subject match count
+    await updateSubjectMatchCount(frame.subjectId, 1);
+    
+    // Enforce max limit
+    await cleanupExcessMatchFrames();
+  } catch (error) {
+    console.warn('[ClientDB] Failed to save match frame:', error);
+  }
+}
+
+export async function getMatchFrame(id: string): Promise<MatchFrameDB | null> {
+  try {
+    const db = await getDB();
+    const frame = await db.get('match_frame', id);
+    return frame || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getMatchFramesBySubject(subjectId: string): Promise<MatchFrameDB[]> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAllFromIndex('match_frame', 'by-subject', subjectId);
+    return frames.sort((a, b) => b.timestamp - a.timestamp);
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllMatchFrames(limit?: number): Promise<MatchFrameDB[]> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAll('match_frame');
+    const sorted = frames.sort((a, b) => b.timestamp - a.timestamp);
+    return limit ? sorted.slice(0, limit) : sorted;
+  } catch {
+    return [];
+  }
+}
+
+export async function getHighConfidenceMatches(minConfidence: number): Promise<MatchFrameDB[]> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAll('match_frame');
+    return frames
+      .filter(f => f.confidence >= minConfidence)
+      .sort((a, b) => b.confidence - a.confidence);
+  } catch {
+    return [];
+  }
+}
+
+export async function getUnacknowledgedMatches(): Promise<MatchFrameDB[]> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAll('match_frame');
+    return frames
+      .filter(f => !f.acknowledged)
+      .sort((a, b) => b.timestamp - a.timestamp);
+  } catch {
+    return [];
+  }
+}
+
+export async function acknowledgeMatchFrame(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const frame = await db.get('match_frame', id);
+    if (frame) {
+      frame.acknowledged = true;
+      await db.put('match_frame', frame);
+    }
+  } catch (error) {
+    console.warn('[ClientDB] Failed to acknowledge match frame:', error);
+  }
+}
+
+export async function updateMatchFrameNotes(id: string, notes: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const frame = await db.get('match_frame', id);
+    if (frame) {
+      frame.notes = notes;
+      await db.put('match_frame', frame);
+    }
+  } catch (error) {
+    console.warn('[ClientDB] Failed to update match frame notes:', error);
+  }
+}
+
+export async function markMatchFramesExported(ids: string[]): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction('match_frame', 'readwrite');
+    
+    for (const id of ids) {
+      const frame = await tx.store.get(id);
+      if (frame) {
+        frame.exported = true;
+        await tx.store.put(frame);
+      }
+    }
+    
+    await tx.done;
+  } catch (error) {
+    console.warn('[ClientDB] Failed to mark match frames exported:', error);
+  }
+}
+
+export async function deleteMatchFrame(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('match_frame', id);
+  } catch (error) {
+    console.warn('[ClientDB] Failed to delete match frame:', error);
+  }
+}
+
+export async function deleteMatchFramesBySubject(subjectId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAllFromIndex('match_frame', 'by-subject', subjectId);
+    const tx = db.transaction('match_frame', 'readwrite');
+    
+    for (const frame of frames) {
+      await tx.store.delete(frame.id);
+    }
+    
+    await tx.done;
+  } catch (error) {
+    console.warn('[ClientDB] Failed to delete match frames by subject:', error);
+  }
+}
+
+async function cleanupExcessMatchFrames(): Promise<void> {
+  try {
+    const db = await getDB();
+    const count = await db.count('match_frame');
+    
+    if (count > MAX_MATCH_FRAMES) {
+      // Get oldest frames that are acknowledged
+      const frames = await db.getAll('match_frame');
+      const sortedByTime = frames
+        .filter(f => f.acknowledged)
+        .sort((a, b) => a.timestamp - b.timestamp);
+      
+      const toDelete = sortedByTime.slice(0, count - MAX_MATCH_FRAMES);
+      
+      const tx = db.transaction('match_frame', 'readwrite');
+      for (const frame of toDelete) {
+        await tx.store.delete(frame.id);
+      }
+      await tx.done;
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+export async function cleanupOldMatchFrames(olderThanDays: number): Promise<number> {
+  try {
+    const db = await getDB();
+    const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+    
+    const frames = await db.getAll('match_frame');
+    const toDelete = frames.filter(f => f.timestamp < cutoff && f.acknowledged);
+    
+    const tx = db.transaction('match_frame', 'readwrite');
+    for (const frame of toDelete) {
+      await tx.store.delete(frame.id);
+    }
+    await tx.done;
+    
+    return toDelete.length;
+  } catch {
+    return 0;
+  }
+}
+
+// =============================================================================
+// Export Match Frames to JSON/CSV
+// =============================================================================
+
+export interface MatchFrameExport {
+  id: string;
+  subjectId: string;
+  subjectName?: string;
+  confidence: number;
+  timestamp: string;
+  colorMatch: number;
+  dominantMatch: number;
+  edgeMatch: number;
+  sizeMatch: number;
+  notes: string;
+}
+
+export async function exportMatchFrames(
+  subjectId?: string,
+  format: 'json' | 'csv' = 'json'
+): Promise<{ data: string; filename: string }> {
+  const frames = subjectId
+    ? await getMatchFramesBySubject(subjectId)
+    : await getAllMatchFrames();
+  
+  const profiles = await getAllSubjectProfiles();
+  const profileMap = new Map(profiles.map(p => [p.id, p.name]));
+  
+  const exportData: MatchFrameExport[] = frames.map(f => ({
+    id: f.id,
+    subjectId: f.subjectId,
+    subjectName: profileMap.get(f.subjectId),
+    confidence: f.confidence,
+    timestamp: new Date(f.timestamp).toISOString(),
+    colorMatch: f.details.colorMatch,
+    dominantMatch: f.details.dominantMatch,
+    edgeMatch: f.details.edgeMatch,
+    sizeMatch: f.details.sizeMatch,
+    notes: f.notes,
+  }));
+  
+  const date = new Date().toISOString().slice(0, 10);
+  
+  if (format === 'csv') {
+    const headers = Object.keys(exportData[0] || {}).join(',');
+    const rows = exportData.map(row =>
+      Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    );
+    return {
+      data: [headers, ...rows].join('\n'),
+      filename: `safeos-matches-${date}.csv`,
+    };
+  }
+  
+  return {
+    data: JSON.stringify(exportData, null, 2),
+    filename: `safeos-matches-${date}.json`,
+  };
+}
+
+// =============================================================================
+// Intrusion Frame Management
+// =============================================================================
+
+const MAX_INTRUSION_FRAMES = 100;
+
+export interface IntrusionFrameDB {
+  id: string;
+  frameData: string;
+  thumbnailData: string;
+  timestamp: number;
+  personCount: number;
+  allowedCount: number;
+  detections: Array<{
+    bbox: [number, number, number, number];
+    confidence: number;
+  }>;
+  acknowledged: boolean;
+  notes: string;
+  exported: boolean;
+}
+
+export async function saveIntrusionFrame(frame: IntrusionFrameDB): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put('intrusion_frame', frame);
+    await cleanupExcessIntrusionFrames();
+  } catch (error) {
+    console.warn('[ClientDB] Failed to save intrusion frame:', error);
+  }
+}
+
+export async function getIntrusionFrame(id: string): Promise<IntrusionFrameDB | null> {
+  try {
+    const db = await getDB();
+    const frame = await db.get('intrusion_frame', id);
+    return frame || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getAllIntrusionFrames(limit?: number): Promise<IntrusionFrameDB[]> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAll('intrusion_frame');
+    const sorted = frames.sort((a, b) => b.timestamp - a.timestamp);
+    return limit ? sorted.slice(0, limit) : sorted;
+  } catch {
+    return [];
+  }
+}
+
+export async function getRecentIntrusionFrames(limit: number = 20): Promise<IntrusionFrameDB[]> {
+  return getAllIntrusionFrames(limit);
+}
+
+export async function getUnacknowledgedIntrusions(): Promise<IntrusionFrameDB[]> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAll('intrusion_frame');
+    return frames
+      .filter(f => !f.acknowledged)
+      .sort((a, b) => b.timestamp - a.timestamp);
+  } catch {
+    return [];
+  }
+}
+
+export async function getIntrusionsByTimeRange(
+  startTime: number,
+  endTime: number
+): Promise<IntrusionFrameDB[]> {
+  try {
+    const db = await getDB();
+    const frames = await db.getAll('intrusion_frame');
+    return frames
+      .filter(f => f.timestamp >= startTime && f.timestamp <= endTime)
+      .sort((a, b) => b.timestamp - a.timestamp);
+  } catch {
+    return [];
+  }
+}
+
+export async function acknowledgeIntrusionFrame(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const frame = await db.get('intrusion_frame', id);
+    if (frame) {
+      frame.acknowledged = true;
+      await db.put('intrusion_frame', frame);
+    }
+  } catch (error) {
+    console.warn('[ClientDB] Failed to acknowledge intrusion frame:', error);
+  }
+}
+
+export async function updateIntrusionFrameNotes(id: string, notes: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const frame = await db.get('intrusion_frame', id);
+    if (frame) {
+      frame.notes = notes;
+      await db.put('intrusion_frame', frame);
+    }
+  } catch (error) {
+    console.warn('[ClientDB] Failed to update intrusion frame notes:', error);
+  }
+}
+
+export async function markIntrusionFramesExported(ids: string[]): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction('intrusion_frame', 'readwrite');
+    
+    for (const id of ids) {
+      const frame = await tx.store.get(id);
+      if (frame) {
+        frame.exported = true;
+        await tx.store.put(frame);
+      }
+    }
+    
+    await tx.done;
+  } catch (error) {
+    console.warn('[ClientDB] Failed to mark intrusion frames exported:', error);
+  }
+}
+
+export async function deleteIntrusionFrame(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete('intrusion_frame', id);
+  } catch (error) {
+    console.warn('[ClientDB] Failed to delete intrusion frame:', error);
+  }
+}
+
+export async function clearAllIntrusionFrames(): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.clear('intrusion_frame');
+  } catch (error) {
+    console.warn('[ClientDB] Failed to clear intrusion frames:', error);
+  }
+}
+
+async function cleanupExcessIntrusionFrames(): Promise<void> {
+  try {
+    const db = await getDB();
+    const count = await db.count('intrusion_frame');
+    
+    if (count > MAX_INTRUSION_FRAMES) {
+      const frames = await db.getAllFromIndex('intrusion_frame', 'by-timestamp');
+      const toDelete = frames
+        .filter(f => f.acknowledged)
+        .slice(0, count - MAX_INTRUSION_FRAMES);
+      
+      const tx = db.transaction('intrusion_frame', 'readwrite');
+      for (const frame of toDelete) {
+        await tx.store.delete(frame.id);
+      }
+      await tx.done;
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+export async function cleanupOldIntrusionFrames(olderThanDays: number): Promise<number> {
+  try {
+    const db = await getDB();
+    const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+    
+    const frames = await db.getAll('intrusion_frame');
+    const toDelete = frames.filter(f => f.timestamp < cutoff && f.acknowledged);
+    
+    const tx = db.transaction('intrusion_frame', 'readwrite');
+    for (const frame of toDelete) {
+      await tx.store.delete(frame.id);
+    }
+    await tx.done;
+    
+    return toDelete.length;
+  } catch {
+    return 0;
+  }
+}
+
+// =============================================================================
+// Export Intrusion Frames
+// =============================================================================
+
+export interface IntrusionFrameExport {
+  id: string;
+  timestamp: string;
+  personCount: number;
+  allowedCount: number;
+  excessCount: number;
+  detectionCount: number;
+  averageConfidence: number;
+  notes: string;
+}
+
+export async function exportIntrusionFrames(
+  format: 'json' | 'csv' = 'json'
+): Promise<{ data: string; filename: string }> {
+  const frames = await getAllIntrusionFrames();
+  
+  const exportData: IntrusionFrameExport[] = frames.map(f => ({
+    id: f.id,
+    timestamp: new Date(f.timestamp).toISOString(),
+    personCount: f.personCount,
+    allowedCount: f.allowedCount,
+    excessCount: Math.max(0, f.personCount - f.allowedCount),
+    detectionCount: f.detections.length,
+    averageConfidence: f.detections.length > 0
+      ? f.detections.reduce((sum, d) => sum + d.confidence, 0) / f.detections.length
+      : 0,
+    notes: f.notes,
+  }));
+  
+  const date = new Date().toISOString().slice(0, 10);
+  
+  if (format === 'csv') {
+    const headers = Object.keys(exportData[0] || {}).join(',');
+    const rows = exportData.map(row =>
+      Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    );
+    return {
+      data: [headers, ...rows].join('\n'),
+      filename: `safeos-intrusions-${date}.csv`,
+    };
+  }
+  
+  return {
+    data: JSON.stringify(exportData, null, 2),
+    filename: `safeos-intrusions-${date}.json`,
+  };
+}
+
+// =============================================================================
+// Statistics
+// =============================================================================
+
+export async function getIntrusionStats(): Promise<{
+  totalIntrusions: number;
+  unacknowledged: number;
+  last24Hours: number;
+  last7Days: number;
+  averagePersonCount: number;
+}> {
+  try {
+    const frames = await getAllIntrusionFrames();
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    
+    const last24h = frames.filter(f => f.timestamp >= oneDayAgo);
+    const last7d = frames.filter(f => f.timestamp >= oneWeekAgo);
+    const unack = frames.filter(f => !f.acknowledged);
+    
+    const avgCount = frames.length > 0
+      ? frames.reduce((sum, f) => sum + f.personCount, 0) / frames.length
+      : 0;
+    
+    return {
+      totalIntrusions: frames.length,
+      unacknowledged: unack.length,
+      last24Hours: last24h.length,
+      last7Days: last7d.length,
+      averagePersonCount: Math.round(avgCount * 10) / 10,
+    };
+  } catch {
+    return {
+      totalIntrusions: 0,
+      unacknowledged: 0,
+      last24Hours: 0,
+      last7Days: 0,
+      averagePersonCount: 0,
+    };
   }
 }

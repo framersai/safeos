@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const [motionSensitivity, setMotionSensitivity] = useState(50);
   const [audioSensitivity, setAudioSensitivity] = useState(50);
   const [alertVolume, setAlertVolume] = useState(70);
-  const [theme, setTheme] = useState<'dark' | 'light' | 'auto'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
 
   // Notification settings
   const [browserPush, setBrowserPush] = useState(true);
@@ -250,12 +250,12 @@ export default function SettingsPage() {
                   </label>
                   <select
                     value={theme}
-                    onChange={(e) => setTheme(e.target.value as 'dark' | 'light' | 'auto')}
+                    onChange={(e) => setTheme(e.target.value as 'dark' | 'light' | 'system')}
                     className="w-full max-w-md px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="dark">Dark</option>
                     <option value="light">Light</option>
-                    <option value="auto">System</option>
+                    <option value="system">System</option>
                   </select>
                 </div>
               </div>

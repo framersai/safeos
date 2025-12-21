@@ -49,6 +49,12 @@ export const AUDIO_THRESHOLDS = {
     call: 45, // Calling for help
     distress: 60, // Distress sounds
   },
+  security: {
+    ambient: 5, // Very sensitive - detect any sound
+    activity: 20, // General activity
+    speech: 30, // Human speech
+    alert: 50, // Loud noises that may indicate break-in
+  },
 };
 
 // Cry detection frequencies (Hz)
@@ -309,26 +315,32 @@ export function resetCryDetection(): void {
  * Get audio threshold for scenario
  */
 export function getThresholdForScenario(
-  scenario: 'pet' | 'baby' | 'elderly',
+  scenario: 'pet' | 'baby' | 'elderly' | 'security',
   level: 'ambient' | 'medium' | 'high' = 'medium'
 ): number {
-  const thresholds = AUDIO_THRESHOLDS[scenario];
-
   switch (level) {
     case 'ambient':
-      return thresholds.ambient;
+      return AUDIO_THRESHOLDS[scenario].ambient;
     case 'medium':
-      return scenario === 'baby'
-        ? thresholds.fuss ?? 25
-        : scenario === 'pet'
-          ? thresholds.bark ?? 45
-          : thresholds.speech ?? 25;
+      if (scenario === 'baby') {
+        return AUDIO_THRESHOLDS.baby.fuss ?? 25;
+      } else if (scenario === 'pet') {
+        return AUDIO_THRESHOLDS.pet.bark ?? 45;
+      } else if (scenario === 'security') {
+        return AUDIO_THRESHOLDS.security.activity ?? 20;
+      } else {
+        return AUDIO_THRESHOLDS.elderly.speech ?? 25;
+      }
     case 'high':
-      return scenario === 'baby'
-        ? thresholds.cry ?? 40
-        : scenario === 'pet'
-          ? thresholds.distress ?? 65
-          : thresholds.distress ?? 60;
+      if (scenario === 'baby') {
+        return AUDIO_THRESHOLDS.baby.cry ?? 40;
+      } else if (scenario === 'pet') {
+        return AUDIO_THRESHOLDS.pet.distress ?? 65;
+      } else if (scenario === 'security') {
+        return AUDIO_THRESHOLDS.security.alert ?? 50;
+      } else {
+        return AUDIO_THRESHOLDS.elderly.distress ?? 60;
+      }
     default:
       return 20;
   }

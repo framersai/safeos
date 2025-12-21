@@ -382,7 +382,7 @@ export default function AnalyticsPage() {
                 a.download = `safeos-analytics-${timeRange}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
-                showToast({ message: 'Analytics exported!', type: 'success' });
+                showToast({ title: 'Export Complete', message: 'Analytics exported!', type: 'success' });
               }}
               className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors flex items-center gap-2"
             >
