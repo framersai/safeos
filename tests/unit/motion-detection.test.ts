@@ -141,3 +141,7 @@ function getThresholdForScenario(scenario: string): number {
   return MOTION_THRESHOLDS[scenario]?.medium || 10;
 }
 
+
+
+
+

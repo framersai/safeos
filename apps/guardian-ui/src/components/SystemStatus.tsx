@@ -266,3 +266,7 @@ function ResourceBar({ label, value, max, unit }: ResourceBarProps) {
 
 export default SystemStatus;
 
+
+
+
+
