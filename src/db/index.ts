@@ -206,6 +206,79 @@ export async function runMigrations(db: Database): Promise<void> {
     )
   `);
 
+  // Create user_profiles table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      id TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      avatar_url TEXT,
+      preferences TEXT NOT NULL DEFAULT '{}',
+      notification_settings TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  // Create sessions table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      token TEXT UNIQUE NOT NULL,
+      device_id TEXT,
+      is_guest INTEGER DEFAULT 1,
+      profile_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      last_active_at TEXT NOT NULL,
+      FOREIGN KEY (profile_id) REFERENCES user_profiles(id)
+    )
+  `);
+
+  // Create index for session tokens
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)
+  `);
+
+  // Create index for device ID lookup
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_sessions_device_id ON sessions(device_id)
+  `);
+
+  // Create push_subscriptions table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      keys_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (profile_id) REFERENCES user_profiles(id)
+    )
+  `);
+
+  // Create telegram_chats table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS telegram_chats (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      chat_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (profile_id) REFERENCES user_profiles(id)
+    )
+  `);
+
+  // Create phone_numbers table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS phone_numbers (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      phone_number TEXT NOT NULL,
+      verified INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (profile_id) REFERENCES user_profiles(id)
+    )
+  `);
+
   // Insert default profiles if not exist
   await insertDefaultProfiles(db);
 }
