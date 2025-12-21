@@ -1,8 +1,7 @@
 /**
  * Audio Level Analysis
  *
- * Client-side audio analysis for detecting sound levels,
- * cry patterns, and distress sounds.
+ * Client-side audio level detection and cry pattern recognition.
  *
  * @module lib/audio-levels
  */
@@ -11,137 +10,127 @@
 // Types
 // =============================================================================
 
-export interface AudioThresholds {
-  silenceLevel: number;
-  lowLevel: number;
-  moderateLevel: number;
-  loudLevel: number;
-  criticalLevel: number;
-}
-
 export interface FrequencyBands {
-  bass: number;    // 20-250 Hz
-  lowMid: number;  // 250-500 Hz
-  mid: number;     // 500-2000 Hz
-  highMid: number; // 2000-4000 Hz
-  high: number;    // 4000-20000 Hz
+  bass: number; // 0-300Hz
+  mid: number; // 300-2000Hz
+  high: number; // 2000-8000Hz
+  veryHigh: number; // 8000Hz+
+}
+
+export interface CryAnalysis {
+  isCrying: boolean;
+  confidence: number;
+  pattern: 'none' | 'whimper' | 'cry' | 'scream';
+  duration: number;
 }
 
 // =============================================================================
-// Configuration
+// Constants
 // =============================================================================
 
-export const AUDIO_THRESHOLDS: Record<string, AudioThresholds> = {
+/**
+ * Audio thresholds per scenario (percentage of max level)
+ */
+export const AUDIO_THRESHOLDS = {
   pet: {
-    silenceLevel: 0.01,
-    lowLevel: 0.1,
-    moderateLevel: 0.3,
-    loudLevel: 0.6,
-    criticalLevel: 0.85,
+    ambient: 15, // Normal background noise
+    bark: 45, // Dog barking
+    distress: 65, // Distress sounds
   },
   baby: {
-    silenceLevel: 0.005, // More sensitive for baby monitoring
-    lowLevel: 0.05,
-    moderateLevel: 0.2,
-    loudLevel: 0.5,
-    criticalLevel: 0.75,
+    ambient: 10, // Very quiet room
+    fuss: 25, // Fussing sounds
+    cry: 40, // Crying
+    scream: 70, // Screaming
   },
   elderly: {
-    silenceLevel: 0.01,
-    lowLevel: 0.15,
-    moderateLevel: 0.35,
-    loudLevel: 0.6,
-    criticalLevel: 0.8,
-  },
-  default: {
-    silenceLevel: 0.01,
-    lowLevel: 0.1,
-    moderateLevel: 0.3,
-    loudLevel: 0.6,
-    criticalLevel: 0.85,
+    ambient: 12, // Normal room noise
+    speech: 25, // Speaking
+    call: 45, // Calling for help
+    distress: 60, // Distress sounds
   },
 };
 
-// Crying frequency characteristics
+// Cry detection frequencies (Hz)
 const CRY_FREQUENCY_RANGE = {
   min: 300,
   max: 600,
-  harmonicPeaks: [350, 450, 530],
+  fundamental: 450, // Typical baby cry fundamental frequency
 };
 
+// Pattern detection state
+let cryPatternBuffer: number[] = [];
+let cryStartTime: number | null = null;
+const CRY_BUFFER_SIZE = 20; // ~2 seconds at 100ms intervals
+
 // =============================================================================
-// Audio Level Detection
+// Core Functions
 // =============================================================================
 
 /**
- * Get overall audio level (RMS) from analyser
+ * Get overall audio level from analyser
  *
  * @param analyser - Web Audio AnalyserNode
- * @returns Audio level between 0 and 1
+ * @returns Normalized audio level (0-1)
  */
 export function getAudioLevel(analyser: AnalyserNode): number {
-  const dataArray = new Uint8Array(analyser.fftSize);
-  analyser.getByteTimeDomainData(dataArray);
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  analyser.getByteFrequencyData(dataArray);
 
   // Calculate RMS (Root Mean Square)
   let sum = 0;
-  for (let i = 0; i < dataArray.length; i++) {
-    const sample = (dataArray[i] - 128) / 128;
-    sum += sample * sample;
+  for (let i = 0; i < bufferLength; i++) {
+    sum += dataArray[i] * dataArray[i];
   }
+  const rms = Math.sqrt(sum / bufferLength);
 
-  const rms = Math.sqrt(sum / dataArray.length);
-
-  // Normalize to 0-1 range with some headroom
-  return Math.min(1, rms * 2);
+  // Normalize to 0-1 (max byte value is 255)
+  return rms / 255;
 }
 
 /**
- * Get frequency band levels
+ * Get frequency levels for different bands
  *
  * @param analyser - Web Audio AnalyserNode
- * @returns Object with frequency band levels
+ * @returns Frequency band levels
  */
 export function getFrequencyLevels(analyser: AnalyserNode): FrequencyBands {
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
   analyser.getByteFrequencyData(dataArray);
 
+  // Calculate frequency per bin
   const sampleRate = analyser.context.sampleRate;
-  const binWidth = sampleRate / (bufferLength * 2);
+  const binWidth = sampleRate / analyser.fftSize;
 
-  // Calculate bin ranges for each frequency band
-  const getBandEnergy = (lowHz: number, highHz: number): number => {
-    const lowBin = Math.floor(lowHz / binWidth);
-    const highBin = Math.min(bufferLength - 1, Math.ceil(highHz / binWidth));
+  // Define band boundaries in bin indices
+  const bassEnd = Math.floor(300 / binWidth);
+  const midEnd = Math.floor(2000 / binWidth);
+  const highEnd = Math.floor(8000 / binWidth);
 
-    let sum = 0;
-    for (let i = lowBin; i <= highBin; i++) {
-      sum += dataArray[i] / 255;
-    }
-
-    return sum / (highBin - lowBin + 1);
+  // Calculate average for each band
+  const bands: FrequencyBands = {
+    bass: averageRange(dataArray, 0, bassEnd),
+    mid: averageRange(dataArray, bassEnd, midEnd),
+    high: averageRange(dataArray, midEnd, highEnd),
+    veryHigh: averageRange(dataArray, highEnd, bufferLength),
   };
 
+  // Normalize to 0-1
   return {
-    bass: getBandEnergy(20, 250),
-    lowMid: getBandEnergy(250, 500),
-    mid: getBandEnergy(500, 2000),
-    highMid: getBandEnergy(2000, 4000),
-    high: getBandEnergy(4000, 20000),
+    bass: bands.bass / 255,
+    mid: bands.mid / 255,
+    high: bands.high / 255,
+    veryHigh: bands.veryHigh / 255,
   };
 }
 
 /**
  * Detect crying pattern (for baby monitoring)
  *
- * Analyzes frequency content to detect patterns typical of infant crying:
- * - Fundamental frequency between 300-600 Hz
- * - Harmonic structure
- * - Rhythmic pattern
- *
  * @param analyser - Web Audio AnalyserNode
- * @returns True if crying pattern detected
+ * @returns Whether crying is detected
  */
 export function detectCryingPattern(analyser: AnalyserNode): boolean {
   const bufferLength = analyser.frequencyBinCount;
@@ -149,148 +138,210 @@ export function detectCryingPattern(analyser: AnalyserNode): boolean {
   analyser.getByteFrequencyData(dataArray);
 
   const sampleRate = analyser.context.sampleRate;
-  const binWidth = sampleRate / (bufferLength * 2);
+  const binWidth = sampleRate / analyser.fftSize;
 
-  // Get bins for cry frequency range
-  const lowBin = Math.floor(CRY_FREQUENCY_RANGE.min / binWidth);
-  const highBin = Math.min(bufferLength - 1, Math.ceil(CRY_FREQUENCY_RANGE.max / binWidth));
+  // Get cry frequency range bins
+  const minBin = Math.floor(CRY_FREQUENCY_RANGE.min / binWidth);
+  const maxBin = Math.floor(CRY_FREQUENCY_RANGE.max / binWidth);
 
   // Calculate energy in cry frequency range
-  let cryRangeEnergy = 0;
-  let peakBin = lowBin;
-  let peakValue = 0;
+  const cryEnergy = averageRange(dataArray, minBin, maxBin);
 
-  for (let i = lowBin; i <= highBin; i++) {
-    cryRangeEnergy += dataArray[i];
-    if (dataArray[i] > peakValue) {
-      peakValue = dataArray[i];
-      peakBin = i;
-    }
+  // Calculate energy outside cry range for comparison
+  const lowEnergy = averageRange(dataArray, 0, minBin);
+  const highEnergy = averageRange(dataArray, maxBin, bufferLength);
+  const otherEnergy = (lowEnergy + highEnergy) / 2;
+
+  // Crying has concentrated energy in 300-600Hz range
+  const isCryFrequency = cryEnergy > otherEnergy * 1.5 && cryEnergy > 50;
+
+  // Add to pattern buffer
+  cryPatternBuffer.push(isCryFrequency ? 1 : 0);
+  if (cryPatternBuffer.length > CRY_BUFFER_SIZE) {
+    cryPatternBuffer.shift();
   }
 
-  cryRangeEnergy /= (highBin - lowBin + 1);
+  // Check for sustained crying pattern (at least 60% of recent samples)
+  const cryRatio = cryPatternBuffer.reduce((a, b) => a + b, 0) / cryPatternBuffer.length;
+  const isCrying = cryRatio >= 0.6 && cryPatternBuffer.length >= 5;
 
-  // Calculate total energy for comparison
-  let totalEnergy = 0;
-  for (let i = 0; i < bufferLength; i++) {
-    totalEnergy += dataArray[i];
-  }
-  totalEnergy /= bufferLength;
-
-  // Check if cry range has dominant energy
-  const cryRangeRatio = totalEnergy > 0 ? cryRangeEnergy / totalEnergy : 0;
-
-  // Check for harmonics (2nd and 3rd)
-  const peakFreq = peakBin * binWidth;
-  const secondHarmonicBin = Math.round((peakFreq * 2) / binWidth);
-  const thirdHarmonicBin = Math.round((peakFreq * 3) / binWidth);
-
-  let harmonicsPresent = false;
-  if (secondHarmonicBin < bufferLength && thirdHarmonicBin < bufferLength) {
-    const secondHarmonic = dataArray[secondHarmonicBin] / 255;
-    const thirdHarmonic = dataArray[thirdHarmonicBin] / 255;
-    const peakNormalized = peakValue / 255;
-
-    // Harmonics should be present but lower than fundamental
-    harmonicsPresent =
-      secondHarmonic > peakNormalized * 0.2 &&
-      secondHarmonic < peakNormalized * 0.8;
+  // Track cry duration
+  if (isCrying && !cryStartTime) {
+    cryStartTime = Date.now();
+  } else if (!isCrying) {
+    cryStartTime = null;
   }
 
-  // Crying detected if:
-  // 1. Significant energy in cry range
-  // 2. Cry range is dominant
-  // 3. Harmonics present
-  return cryRangeEnergy > 40 && cryRangeRatio > 1.5 && harmonicsPresent;
+  return isCrying;
 }
 
 /**
- * Classify audio event type
+ * Analyze crying pattern in detail
+ *
+ * @param analyser - Web Audio AnalyserNode
+ * @returns Detailed cry analysis
  */
-export function classifyAudio(
-  analyser: AnalyserNode
-): 'silence' | 'ambient' | 'voice' | 'cry' | 'loud' | 'unknown' {
+export function analyzeCrying(analyser: AnalyserNode): CryAnalysis {
+  const isCrying = detectCryingPattern(analyser);
   const level = getAudioLevel(analyser);
-  const frequencies = getFrequencyLevels(analyser);
+  const bands = getFrequencyLevels(analyser);
 
-  // Silence
-  if (level < 0.02) {
-    return 'silence';
-  }
-
-  // Very loud
-  if (level > 0.8) {
-    return 'loud';
-  }
-
-  // Check for voice/cry frequencies
-  const voiceFrequencyRatio =
-    (frequencies.lowMid + frequencies.mid) / (frequencies.bass + frequencies.high + 0.01);
-
-  if (voiceFrequencyRatio > 2 && level > 0.2) {
-    // Could be voice or cry
-    if (detectCryingPattern(analyser)) {
-      return 'cry';
+  // Determine pattern type based on intensity
+  let pattern: CryAnalysis['pattern'] = 'none';
+  if (isCrying) {
+    if (level > 0.7) {
+      pattern = 'scream';
+    } else if (level > 0.4) {
+      pattern = 'cry';
+    } else {
+      pattern = 'whimper';
     }
-    return 'voice';
   }
 
-  if (level > 0.1) {
-    return 'ambient';
+  // Calculate confidence based on frequency distribution
+  let confidence = 0;
+  if (isCrying) {
+    // Higher confidence when mid-range dominates
+    const midRatio = bands.mid / (bands.bass + bands.high + 0.01);
+    confidence = Math.min(midRatio / 2, 1);
   }
 
-  return 'unknown';
+  // Calculate duration
+  const duration = cryStartTime ? Date.now() - cryStartTime : 0;
+
+  return {
+    isCrying,
+    confidence,
+    pattern,
+    duration,
+  };
+}
+
+// =============================================================================
+// Scenario-Specific Detection
+// =============================================================================
+
+/**
+ * Detect pet sounds
+ */
+export function detectPetSounds(
+  analyser: AnalyserNode
+): { type: 'none' | 'bark' | 'whine' | 'distress'; confidence: number } {
+  const level = getAudioLevel(analyser);
+  const bands = getFrequencyLevels(analyser);
+
+  // Barking: loud bursts in mid-range
+  if (level > 0.5 && bands.mid > bands.bass * 1.2) {
+    return { type: 'bark', confidence: Math.min(level, 0.9) };
+  }
+
+  // Whining: high-pitched sustained
+  if (bands.high > bands.mid * 1.3 && level > 0.2) {
+    return { type: 'whine', confidence: Math.min(bands.high, 0.8) };
+  }
+
+  // Distress: very loud with high frequencies
+  if (level > 0.7 && bands.veryHigh > 0.3) {
+    return { type: 'distress', confidence: 0.9 };
+  }
+
+  return { type: 'none', confidence: 0 };
 }
 
 /**
- * Audio level smoother for reducing noise
+ * Detect elderly distress sounds
  */
-export class AudioSmoother {
-  private values: number[] = [];
-  private maxValues: number;
+export function detectElderlyDistress(
+  analyser: AnalyserNode
+): { type: 'none' | 'speech' | 'call' | 'distress'; confidence: number } {
+  const level = getAudioLevel(analyser);
+  const bands = getFrequencyLevels(analyser);
 
-  constructor(windowSize: number = 10) {
-    this.maxValues = windowSize;
+  // Distress call: sudden loud vocalization
+  if (level > 0.6 && bands.mid > 0.5) {
+    return { type: 'distress', confidence: 0.8 };
   }
 
-  add(value: number): number {
-    this.values.push(value);
-    if (this.values.length > this.maxValues) {
-      this.values.shift();
-    }
-
-    // Return average
-    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
+  // Calling for help: sustained mid-range
+  if (level > 0.35 && bands.mid > bands.bass) {
+    return { type: 'call', confidence: 0.6 };
   }
 
-  getPeak(): number {
-    if (this.values.length === 0) return 0;
-    return Math.max(...this.values);
+  // Normal speech
+  if (level > 0.15 && bands.mid > 0.2) {
+    return { type: 'speech', confidence: 0.5 };
   }
 
-  getAverage(): number {
-    if (this.values.length === 0) return 0;
-    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
-  }
+  return { type: 'none', confidence: 0 };
+}
 
-  reset(): void {
-    this.values = [];
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Calculate average of array range
+ */
+function averageRange(
+  array: Uint8Array,
+  start: number,
+  end: number
+): number {
+  if (end <= start) return 0;
+
+  let sum = 0;
+  const actualEnd = Math.min(end, array.length);
+  for (let i = start; i < actualEnd; i++) {
+    sum += array[i];
   }
+  return sum / (actualEnd - start);
 }
 
 /**
- * Detect sudden audio spikes (could indicate distress)
+ * Reset cry pattern buffer (call when scenario changes)
  */
-export function detectSuddenSound(
-  audioHistory: number[],
-  spikeThreshold: number = 4
-): boolean {
-  if (audioHistory.length < 10) return false;
-
-  const recent = audioHistory.slice(-10);
-  const baseline = recent.slice(0, 8).reduce((a, b) => a + b, 0) / 8;
-  const current = (recent[8] + recent[9]) / 2;
-
-  // Check if current audio is significantly higher than baseline
-  return baseline < 0.1 && current > baseline * spikeThreshold;
+export function resetCryDetection(): void {
+  cryPatternBuffer = [];
+  cryStartTime = null;
 }
+
+/**
+ * Get audio threshold for scenario
+ */
+export function getThresholdForScenario(
+  scenario: 'pet' | 'baby' | 'elderly',
+  level: 'ambient' | 'medium' | 'high' = 'medium'
+): number {
+  const thresholds = AUDIO_THRESHOLDS[scenario];
+
+  switch (level) {
+    case 'ambient':
+      return thresholds.ambient;
+    case 'medium':
+      return scenario === 'baby'
+        ? thresholds.fuss ?? 25
+        : scenario === 'pet'
+          ? thresholds.bark ?? 45
+          : thresholds.speech ?? 25;
+    case 'high':
+      return scenario === 'baby'
+        ? thresholds.cry ?? 40
+        : scenario === 'pet'
+          ? thresholds.distress ?? 65
+          : thresholds.distress ?? 60;
+    default:
+      return 20;
+  }
+}
+
+export default {
+  getAudioLevel,
+  getFrequencyLevels,
+  detectCryingPattern,
+  analyzeCrying,
+  detectPetSounds,
+  detectElderlyDistress,
+  resetCryDetection,
+  getThresholdForScenario,
+  AUDIO_THRESHOLDS,
+};

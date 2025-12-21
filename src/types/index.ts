@@ -1,13 +1,13 @@
 /**
- * SafeOS Type Definitions
+ * SafeOS Types
  *
- * Core types for the SafeOS monitoring service.
+ * Shared TypeScript types for the SafeOS package.
  *
  * @module types
  */
 
 // =============================================================================
-// Monitoring Scenarios
+// Monitoring Types
 // =============================================================================
 
 export type MonitoringScenario = 'pet' | 'baby' | 'elderly';
@@ -16,47 +16,55 @@ export interface MonitoringProfile {
   id: string;
   name: string;
   scenario: MonitoringScenario;
-  motionThreshold: number; // 0-1, percentage of changed pixels to trigger
-  audioThreshold: number; // 0-1, volume level to trigger
-  alertSpeed: 'slow' | 'normal' | 'fast' | 'immediate';
-  description: string;
-  customPrompt?: string;
+  settings: MonitoringSettings;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface MonitoringSettings {
+  motionSensitivity: number; // 0-100
+  audioSensitivity: number; // 0-100
+  analysisInterval: number; // seconds
+  cryDetection?: boolean;
+  sleepMonitoring?: boolean;
+  barkDetection?: boolean;
+  inactivityAlert?: boolean;
+  fallDetection?: boolean;
+  helpDetection?: boolean;
 }
 
 // =============================================================================
-// Streams
+// Stream Types
 // =============================================================================
+
+export type StreamStatus = 'active' | 'paused' | 'ended' | 'banned';
 
 export interface Stream {
   id: string;
-  name: string;
-  profileId: string;
-  status: 'active' | 'paused' | 'disconnected';
+  userId?: string;
+  scenario: MonitoringScenario;
+  status: StreamStatus;
+  startedAt: string;
+  endedAt?: string;
   createdAt: string;
-  lastFrameAt?: string;
-  metadata?: Record<string, unknown>;
 }
 
-export interface StreamConfig {
-  name: string;
-  profileId: string;
-  motionThreshold?: number;
-  audioThreshold?: number;
-}
-
-// =============================================================================
-// Frames & Analysis
-// =============================================================================
-
-export interface FrameBuffer {
+export interface FrameData {
   id: string;
   streamId: string;
-  frameData: string; // Base64 JPEG
-  capturedAt: string;
+  frameData: string; // base64
   motionScore: number;
   audioLevel: number;
-  analyzed: boolean;
+  createdAt: string;
 }
+
+export interface FrameBuffer extends FrameData {
+  // Same as FrameData for now
+}
+
+// =============================================================================
+// Analysis Types
+// =============================================================================
 
 export type ConcernLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
 
@@ -64,119 +72,104 @@ export interface AnalysisResult {
   id: string;
   streamId: string;
   frameId?: string;
-  scenario: MonitoringScenario;
   concernLevel: ConcernLevel;
   description: string;
+  detectedIssues: string[];
+  processingTimeMs: number;
   modelUsed: string;
-  inferenceMs: number;
+  isCloudFallback: boolean;
   createdAt: string;
-  rawResponse?: string;
 }
 
 export interface AnalysisJob {
   id: string;
   streamId: string;
-  frameData: string;
+  frameId?: string;
+  imageData: string;
+  motionScore: number;
+  audioLevel: number;
   scenario: MonitoringScenario;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
+  priority: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  retries?: number;
   createdAt: string;
 }
 
 // =============================================================================
-// Alerts
+// Alert Types
 // =============================================================================
 
-export type AlertType = 'motion' | 'audio' | 'concern' | 'system';
-export type AlertSeverity = 'info' | 'warning' | 'urgent' | 'critical';
+export type AlertSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 
 export interface Alert {
   id: string;
   streamId: string;
-  analysisId?: string;
-  alertType: AlertType;
+  alertType: string;
   severity: AlertSeverity;
   message: string;
-  escalationLevel: number;
+  metadata?: Record<string, any>;
+  thumbnailUrl?: string;
   acknowledged: boolean;
-  createdAt: string;
   acknowledgedAt?: string;
+  createdAt: string;
 }
 
 export interface AlertEscalation {
-  level: number;
-  delaySeconds: number;
-  volume: number; // 0-100
-  sound: 'none' | 'chime' | 'alert' | 'alarm' | 'critical';
-  notify: ('browser' | 'sms' | 'telegram')[];
+  alertId: string;
+  streamId: string;
+  severity: string;
+  startedAt: number;
+  currentLevel: number;
+  acknowledged: boolean;
+  acknowledgedAt?: number;
 }
 
 // =============================================================================
-// Ollama
+// Ollama Types
 // =============================================================================
 
 export interface OllamaModelInfo {
   name: string;
-  modifiedAt: string;
   size: number;
+  modifiedAt: string;
   digest: string;
-  details?: {
-    format: string;
-    family: string;
-    parameterSize: string;
-    quantizationLevel: string;
-  };
 }
 
 export interface OllamaGenerateRequest {
   model: string;
   prompt: string;
-  images?: string[]; // Base64 encoded
+  images?: string[];
   stream?: boolean;
   options?: {
     temperature?: number;
-    top_p?: number;
-    num_predict?: number;
+    numPredict?: number;
   };
 }
 
 export interface OllamaGenerateResponse {
   model: string;
+  createdAt: string;
   response: string;
   done: boolean;
-  context?: number[];
-  total_duration?: number;
-  load_duration?: number;
-  prompt_eval_count?: number;
-  eval_count?: number;
-  eval_duration?: number;
+  totalDuration?: number;
 }
 
 // =============================================================================
-// WebSocket Messages
+// WebSocket Types
 // =============================================================================
 
-export type WSMessageType =
-  | 'frame'
-  | 'audio_level'
-  | 'motion_detected'
-  | 'analysis_result'
-  | 'alert'
-  | 'stream_status'
-  | 'error'
-  | 'ping'
-  | 'pong';
-
 export interface WSMessage {
-  type: WSMessageType;
+  type: string;
   streamId?: string;
-  payload: unknown;
-  timestamp: string;
+  channel?: string;
+  payload?: any;
+  timestamp?: number;
 }
 
 export interface WSFrameMessage extends WSMessage {
   type: 'frame';
   payload: {
-    frameData: string;
+    imageData: string;
     motionScore: number;
     audioLevel: number;
   };
@@ -188,97 +181,84 @@ export interface WSAlertMessage extends WSMessage {
 }
 
 // =============================================================================
-// Notifications
+// Notification Types
 // =============================================================================
 
 export interface NotificationConfig {
-  browser: {
-    enabled: boolean;
-    vapidPublicKey?: string;
-  };
-  twilio: {
-    enabled: boolean;
-    phoneNumbers: string[];
-  };
-  telegram: {
-    enabled: boolean;
-    chatIds: string[];
-  };
+  browserPush: boolean;
+  sms: boolean;
+  telegram: boolean;
+  smsNumber?: string;
+  telegramChatId?: string;
 }
 
 export interface NotificationPayload {
-  title: string;
-  body: string;
-  severity: AlertSeverity;
   streamId: string;
   alertId: string;
-  url?: string;
+  severity: AlertSeverity;
+  title: string;
+  message: string;
+  thumbnailUrl?: string;
+  timestamp: string;
 }
 
 // =============================================================================
-// Safety & Moderation
+// Content Moderation Types
 // =============================================================================
 
-export type ModerationTier = 1 | 2 | 3 | 4;
+export type ModerationTier = 0 | 1 | 2 | 3 | 4;
+export type ModerationAction = 'allow' | 'blur' | 'block' | 'escalate';
 
 export interface ModerationResult {
   tier: ModerationTier;
-  flagged: boolean;
+  action: ModerationAction;
   categories: string[];
   confidence: number;
-  action: 'allow' | 'blur' | 'block' | 'escalate';
   reason?: string;
 }
 
 export interface ContentFlag {
   id: string;
   streamId: string;
-  frameId: string;
-  tier: ModerationTier;
-  categories: string[];
-  status: 'pending' | 'reviewed' | 'escalated' | 'dismissed';
-  reviewedBy?: string;
+  analysisId?: string;
+  category: string;
+  tier: number;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'escalated' | 'banned';
+  metadata?: Record<string, any>;
   reviewedAt?: string;
-  notes?: string;
+  reviewerNotes?: string;
   createdAt: string;
 }
 
 // =============================================================================
-// Configuration
+// Configuration Types
 // =============================================================================
 
 export interface SafeOSConfig {
-  port: number;
-  host: string;
   bufferMinutes: number;
-  ollama: {
-    host: string;
-    triageModel: string;
-    analysisModel: string;
-    timeout: number;
-  };
-  notifications: NotificationConfig;
-  moderation: {
-    enabled: boolean;
-    autoEscalate: boolean;
-  };
+  motionThreshold: number;
+  audioThreshold: number;
+  analysisInterval: number;
+  maxConcurrentAnalysis: number;
+  ollamaEndpoint: string;
+  cloudFallbackEnabled: boolean;
 }
 
 // =============================================================================
-// API Responses
+// API Response Types
 // =============================================================================
 
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
   message?: string;
 }
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+export interface PaginatedResponse<T> {
+  items: T[];
   total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
+  limit: number;
+  offset: number;
 }
-

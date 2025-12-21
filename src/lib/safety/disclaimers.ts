@@ -145,36 +145,12 @@ export function getFullDisclaimer(
   return `${CRITICAL_DISCLAIMER}\n\n${getScenarioDisclaimer(scenario)}`;
 }
 
-/**
- * Format disclaimer for display
- */
-export function formatDisclaimerForDisplay(disclaimer: string): {
-  title: string;
-  sections: Array<{ heading?: string; content: string }>;
-} {
-  const lines = disclaimer.split('\n');
-  const title = lines[0] || 'Disclaimer';
-  const sections: Array<{ heading?: string; content: string }> = [];
-
-  let currentSection = { content: '' };
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i] || '';
-
-    if (line.match(/^[A-Z\s]+:$/)) {
-      // New section heading
-      if (currentSection.content.trim()) {
-        sections.push(currentSection);
-      }
-      currentSection = { heading: line.replace(':', ''), content: '' };
-    } else {
-      currentSection.content += line + '\n';
-    }
-  }
-
-  if (currentSection.content.trim()) {
-    sections.push(currentSection);
-  }
-
-  return { title, sections };
-}
+export default {
+  CRITICAL_DISCLAIMER,
+  BABY_MONITORING_DISCLAIMER,
+  ELDERLY_MONITORING_DISCLAIMER,
+  PET_MONITORING_DISCLAIMER,
+  ACKNOWLEDGMENT_TEXT,
+  getScenarioDisclaimer,
+  getFullDisclaimer,
+};

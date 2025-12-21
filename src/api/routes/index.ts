@@ -1,15 +1,15 @@
 /**
- * API Routes Index
+ * Route Index
  *
- * Consolidates all API routes.
+ * Exports all API routes.
  *
  * @module api/routes
  */
 
-export { default as streamsRouter } from './streams.js';
-export { default as alertsRouter } from './alerts.js';
-export { default as profilesRouter } from './profiles.js';
-export { default as systemRouter } from './system.js';
-export { default as analysisRouter } from './analysis.js';
-export { default as notificationsRouter } from './notifications.js';
-export { default as reviewRouter } from './review.js';
+export { streamRoutes } from './streams';
+export { alertRoutes } from './alerts';
+export { profileRoutes } from './profiles';
+export { analysisRoutes } from './analysis';
+export { systemRoutes } from './system';
+export { notificationRoutes } from './notifications';
+export { reviewRoutes } from './review';

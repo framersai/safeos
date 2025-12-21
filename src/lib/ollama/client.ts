@@ -1,435 +1,288 @@
 /**
  * Ollama Client
  *
- * HTTP client for interacting with local Ollama for vision analysis.
+ * Client for interacting with local Ollama server.
  *
  * @module lib/ollama/client
  */
-
-import type { ConcernLevel } from '../../types/index.js';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface OllamaConfig {
-  baseUrl: string;
-  timeoutMs: number;
-  triageModel: string;
-  analysisModel: string;
-}
-
 export interface OllamaModel {
   name: string;
   size: number;
+  modified_at: string;
   digest: string;
-  modifiedAt: string;
-  details?: {
-    family: string;
-    parameterSize: string;
-    quantizationLevel: string;
+}
+
+export interface OllamaGenerateOptions {
+  model: string;
+  prompt: string;
+  images?: string[];
+  stream?: boolean;
+  options?: {
+    temperature?: number;
+    num_predict?: number;
   };
 }
 
-export interface TriageResult {
-  needsDetailedAnalysis: boolean;
-  concernLevel: ConcernLevel;
-  summary: string;
-}
-
-export interface AnalysisResult {
-  concernLevel: ConcernLevel;
-  description: string;
-  issues: string[];
-  recommendations: string[];
-  confidence: number;
+export interface OllamaResponse {
+  model: string;
+  created_at: string;
+  response: string;
+  done: boolean;
+  total_duration?: number;
 }
 
 // =============================================================================
 // Constants
 // =============================================================================
 
-const DEFAULT_CONFIG: OllamaConfig = {
-  baseUrl: process.env['OLLAMA_HOST'] || 'http://localhost:11434',
-  timeoutMs: 60000,
-  triageModel: 'moondream',
-  analysisModel: 'llava:7b',
-};
+const DEFAULT_HOST = 'http://localhost:11434';
+const HEALTH_CHECK_TIMEOUT = 5000;
+const GENERATE_TIMEOUT = 120000; // 2 minutes for vision models
 
-const REQUIRED_MODELS = ['moondream', 'llava:7b'];
+// Models for SafeOS
+const TRIAGE_MODEL = 'moondream'; // Fast, small vision model
+const ANALYSIS_MODEL = 'llava:7b'; // Detailed analysis model
 
 // =============================================================================
 // OllamaClient Class
 // =============================================================================
 
 export class OllamaClient {
-  private config: OllamaConfig;
-  private healthCache: { healthy: boolean; checkedAt: number } | null = null;
-  private modelCache: { models: OllamaModel[]; checkedAt: number } | null = null;
-  private readonly cacheMs = 30000; // 30 seconds
+  private host: string;
+  private healthCache: { healthy: boolean; timestamp: number } | null = null;
+  private modelCache: Map<string, boolean> = new Map();
 
-  // Stats
-  private stats = {
-    totalRequests: 0,
-    triageRequests: 0,
-    analysisRequests: 0,
-    failures: 0,
-    avgLatencyMs: 0,
-  };
-
-  constructor(config?: Partial<OllamaConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(host?: string) {
+    this.host = host || process.env['OLLAMA_HOST'] || DEFAULT_HOST;
   }
 
   // ---------------------------------------------------------------------------
-  // Health & Model Management
+  // Health & Status
   // ---------------------------------------------------------------------------
 
-  /**
-   * Check if Ollama is healthy
-   */
   async isHealthy(): Promise<boolean> {
-    // Check cache
-    if (this.healthCache && Date.now() - this.healthCache.checkedAt < this.cacheMs) {
+    // Check cache (valid for 30 seconds)
+    if (
+      this.healthCache &&
+      Date.now() - this.healthCache.timestamp < 30000
+    ) {
       return this.healthCache.healthy;
     }
 
     try {
-      const response = await fetch(`${this.config.baseUrl}/api/version`, {
-        signal: AbortSignal.timeout(5000),
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
+
+      const response = await fetch(`${this.host}/api/tags`, {
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
+
       const healthy = response.ok;
-      this.healthCache = { healthy, checkedAt: Date.now() };
+      this.healthCache = { healthy, timestamp: Date.now() };
       return healthy;
-    } catch {
-      this.healthCache = { healthy: false, checkedAt: Date.now() };
+    } catch (error) {
+      this.healthCache = { healthy: false, timestamp: Date.now() };
       return false;
     }
   }
 
-  /**
-   * Get Ollama version
-   */
   async getVersion(): Promise<string | null> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/api/version`);
-      if (!response.ok) return null;
-      const data = await response.json();
-      return data.version;
-    } catch {
-      return null;
+      const response = await fetch(`${this.host}/api/version`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.version;
+      }
+    } catch (error) {
+      console.error('Failed to get Ollama version:', error);
     }
+    return null;
   }
 
-  /**
-   * List available models
-   */
+  // ---------------------------------------------------------------------------
+  // Model Management
+  // ---------------------------------------------------------------------------
+
   async listModels(): Promise<OllamaModel[]> {
-    // Check cache
-    if (this.modelCache && Date.now() - this.modelCache.checkedAt < this.cacheMs) {
-      return this.modelCache.models;
-    }
-
     try {
-      const response = await fetch(`${this.config.baseUrl}/api/tags`);
-      if (!response.ok) return [];
-
-      const data = await response.json();
-      const models: OllamaModel[] = (data.models || []).map((m: any) => ({
-        name: m.name,
-        size: m.size,
-        digest: m.digest,
-        modifiedAt: m.modified_at,
-        details: m.details,
-      }));
-
-      this.modelCache = { models, checkedAt: Date.now() };
-      return models;
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Check if a specific model is available
-   */
-  async hasModel(name: string): Promise<boolean> {
-    const models = await this.listModels();
-    return models.some((m) => m.name === name || m.name.startsWith(name + ':'));
-  }
-
-  /**
-   * Ensure required models are installed
-   */
-  async ensureModels(): Promise<{ available: string[]; missing: string[]; pulled: string[] }> {
-    const models = await this.listModels();
-    const available: string[] = [];
-    const missing: string[] = [];
-    const pulled: string[] = [];
-
-    for (const required of REQUIRED_MODELS) {
-      const found = models.some(
-        (m) => m.name === required || m.name.startsWith(required.split(':')[0] + ':')
-      );
-
-      if (found) {
-        available.push(required);
-      } else {
-        missing.push(required);
+      const response = await fetch(`${this.host}/api/tags`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.models || [];
       }
+    } catch (error) {
+      console.error('Failed to list models:', error);
+    }
+    return [];
+  }
+
+  async hasModel(modelName: string): Promise<boolean> {
+    // Check cache
+    if (this.modelCache.has(modelName)) {
+      return this.modelCache.get(modelName)!;
     }
 
-    // Try to pull missing models
-    for (const model of missing) {
-      try {
+    const models = await this.listModels();
+    const hasIt = models.some(
+      (m) => m.name === modelName || m.name.startsWith(`${modelName}:`)
+    );
+
+    this.modelCache.set(modelName, hasIt);
+    return hasIt;
+  }
+
+  async ensureModels(models: string[]): Promise<void> {
+    for (const model of models) {
+      const hasModel = await this.hasModel(model);
+      if (!hasModel) {
+        console.log(`Pulling model: ${model}`);
         await this.pullModel(model);
-        pulled.push(model);
-      } catch (error) {
-        console.error(`Failed to pull model ${model}:`, error);
       }
     }
-
-    return { available, missing: missing.filter((m) => !pulled.includes(m)), pulled };
   }
 
-  /**
-   * Pull a model
-   */
-  async pullModel(name: string): Promise<void> {
-    const response = await fetch(`${this.config.baseUrl}/api/pull`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
+  async pullModel(modelName: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.host}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelName }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to pull model: ${response.statusText}`);
-    }
-
-    // Stream the response to wait for completion
-    const reader = response.body?.getReader();
-    if (reader) {
-      while (true) {
-        const { done } = await reader.read();
-        if (done) break;
+      if (!response.ok) {
+        throw new Error(`Failed to pull model: ${response.statusText}`);
       }
-    }
 
-    // Clear cache
-    this.modelCache = null;
+      // Stream response to track progress
+      const reader = response.body?.getReader();
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // Parse progress updates
+          const text = new TextDecoder().decode(value);
+          const lines = text.split('\n').filter((l) => l.trim());
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line);
+              if (data.status) {
+                console.log(`Pull ${modelName}: ${data.status}`);
+              }
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+
+      // Update cache
+      this.modelCache.set(modelName, true);
+      console.log(`Model ${modelName} pulled successfully`);
+    } catch (error) {
+      console.error(`Failed to pull model ${modelName}:`, error);
+      throw error;
+    }
   }
 
   // ---------------------------------------------------------------------------
   // Generation
   // ---------------------------------------------------------------------------
 
-  /**
-   * Generate text from an image
-   */
-  async generate(
-    model: string,
-    prompt: string,
-    imageBase64?: string
-  ): Promise<string> {
-    this.stats.totalRequests++;
-    const startTime = Date.now();
-
+  async generate(options: OllamaGenerateOptions): Promise<string> {
     try {
-      const body: any = {
-        model,
-        prompt,
-        stream: false,
-      };
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), GENERATE_TIMEOUT);
 
-      if (imageBase64) {
-        // Remove data URL prefix if present
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        body.images = [base64Data];
-      }
-
-      const response = await fetch(`${this.config.baseUrl}/api/generate`, {
+      const response = await fetch(`${this.host}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.config.timeoutMs),
+        body: JSON.stringify({
+          ...options,
+          stream: false,
+        }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
+
       if (!response.ok) {
-        throw new Error(`Ollama generate failed: ${response.statusText}`);
+        throw new Error(`Generation failed: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const latencyMs = Date.now() - startTime;
-      this.updateAvgLatency(latencyMs);
-
-      return data.response || '';
+      const data: OllamaResponse = await response.json();
+      return data.response;
     } catch (error) {
-      this.stats.failures++;
+      console.error('Ollama generation failed:', error);
       throw error;
     }
   }
 
-  /**
-   * Analyze an image with a prompt
-   */
-  async analyzeImage(imageBase64: string, prompt: string): Promise<string> {
-    return this.generate(this.config.analysisModel, prompt, imageBase64);
+  async analyzeImage(
+    imageBase64: string,
+    prompt: string,
+    model: string = ANALYSIS_MODEL
+  ): Promise<string> {
+    // Strip data URL prefix if present
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+
+    return this.generate({
+      model,
+      prompt,
+      images: [base64Data],
+      options: {
+        temperature: 0.2,
+        num_predict: 500,
+      },
+    });
   }
 
   // ---------------------------------------------------------------------------
-  // High-Level API
+  // SafeOS-Specific Methods
   // ---------------------------------------------------------------------------
 
   /**
-   * Quick triage of an image
+   * Quick triage with fast model (Moondream)
    */
-  async triage(imageBase64: string, prompt: string): Promise<TriageResult> {
-    this.stats.triageRequests++;
-
-    const response = await this.generate(this.config.triageModel, prompt, imageBase64);
-
-    // Try to parse JSON
-    try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          needsDetailedAnalysis: parsed.needsDetailedAnalysis ?? true,
-          concernLevel: this.normalizeConcernLevel(parsed.concernLevel),
-          summary: parsed.summary || response.slice(0, 200),
-        };
-      }
-    } catch {
-      // Fall through to default parsing
-    }
-
-    // Default: if any concerning keywords, need analysis
-    const needsAnalysis =
-      response.toLowerCase().includes('concern') ||
-      response.toLowerCase().includes('unsafe') ||
-      response.toLowerCase().includes('danger') ||
-      response.toLowerCase().includes('distress');
-
-    return {
-      needsDetailedAnalysis: needsAnalysis,
-      concernLevel: needsAnalysis ? 'medium' : 'none',
-      summary: response.slice(0, 200),
-    };
+  async triage(imageBase64: string, prompt: string): Promise<string> {
+    return this.analyzeImage(imageBase64, prompt, TRIAGE_MODEL);
   }
 
   /**
-   * Detailed analysis of an image
+   * Detailed analysis with larger model (LLaVA)
    */
-  async analyze(imageBase64: string, prompt: string): Promise<AnalysisResult> {
-    this.stats.analysisRequests++;
-
-    const response = await this.generate(this.config.analysisModel, prompt, imageBase64);
-
-    // Try to parse JSON
-    try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          concernLevel: this.normalizeConcernLevel(parsed.concernLevel),
-          description: parsed.description || response,
-          issues: parsed.issues || [],
-          recommendations: parsed.recommendations || [],
-          confidence: parsed.confidence || 0.7,
-        };
-      }
-    } catch {
-      // Fall through
-    }
-
-    // Parse from natural language
-    return {
-      concernLevel: this.extractConcernLevel(response),
-      description: response.slice(0, 500),
-      issues: this.extractIssues(response),
-      recommendations: this.extractRecommendations(response),
-      confidence: 0.5,
-    };
+  async analyze(imageBase64: string, prompt: string): Promise<string> {
+    return this.analyzeImage(imageBase64, prompt, ANALYSIS_MODEL);
   }
 
   /**
-   * Get stats
+   * Check if required models are available
    */
-  getStats() {
-    return { ...this.stats };
+  async checkRequiredModels(): Promise<{
+    triageModel: boolean;
+    analysisModel: boolean;
+  }> {
+    const [triageModel, analysisModel] = await Promise.all([
+      this.hasModel(TRIAGE_MODEL),
+      this.hasModel(ANALYSIS_MODEL),
+    ]);
+
+    return { triageModel, analysisModel };
   }
 
-  // ---------------------------------------------------------------------------
-  // Private Methods
-  // ---------------------------------------------------------------------------
-
-  private normalizeConcernLevel(level: string | undefined): ConcernLevel {
-    if (!level) return 'none';
-    const lower = level.toLowerCase();
-    if (lower.includes('critical')) return 'critical';
-    if (lower.includes('high')) return 'high';
-    if (lower.includes('medium') || lower.includes('moderate')) return 'medium';
-    if (lower.includes('low')) return 'low';
-    return 'none';
-  }
-
-  private extractConcernLevel(text: string): ConcernLevel {
-    const lower = text.toLowerCase();
-    if (lower.includes('critical') || lower.includes('emergency')) return 'critical';
-    if (lower.includes('high concern') || lower.includes('urgent')) return 'high';
-    if (lower.includes('moderate') || lower.includes('some concern')) return 'medium';
-    if (lower.includes('low concern') || lower.includes('minor')) return 'low';
-    return 'none';
-  }
-
-  private extractIssues(text: string): string[] {
-    const issues: string[] = [];
-    const patterns = [/concern[s]?:?\s*([^.]+)/gi, /issue[s]?:?\s*([^.]+)/gi];
-
-    for (const pattern of patterns) {
-      const matches = text.matchAll(pattern);
-      for (const match of matches) {
-        if (match[1]) issues.push(match[1].trim());
-      }
-    }
-
-    return issues.slice(0, 5);
-  }
-
-  private extractRecommendations(text: string): string[] {
-    const recs: string[] = [];
-    const patterns = [/recommend[s]?:?\s*([^.]+)/gi, /should\s+([^.]+)/gi];
-
-    for (const pattern of patterns) {
-      const matches = text.matchAll(pattern);
-      for (const match of matches) {
-        if (match[1]) recs.push(match[1].trim());
-      }
-    }
-
-    return recs.slice(0, 5);
-  }
-
-  private updateAvgLatency(latencyMs: number): void {
-    const total = this.stats.totalRequests;
-    this.stats.avgLatencyMs = (this.stats.avgLatencyMs * (total - 1) + latencyMs) / total;
+  /**
+   * Get host URL
+   */
+  getHost(): string {
+    return this.host;
   }
 }
 
-// =============================================================================
-// Singleton
-// =============================================================================
-
-let defaultClient: OllamaClient | null = null;
-
-export function getDefaultOllamaClient(): OllamaClient {
-  if (!defaultClient) {
-    defaultClient = new OllamaClient();
-  }
-  return defaultClient;
-}
-
-export function createOllamaClient(config?: Partial<OllamaConfig>): OllamaClient {
-  return new OllamaClient(config);
-}
+export default OllamaClient;

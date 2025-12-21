@@ -1,7 +1,7 @@
 {
-  "name": "@supercloud/safeos",
+  "name": "@safeos/core",
   "version": "0.1.0",
-  "description": "SafeOS - Free AI monitoring service for pets, babies, and elderly care. Part of SuperCloud's humanitarian mission.",
+  "description": "SafeOS Guardian - Humanitarian AI Monitoring Service",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,47 +12,76 @@
     }
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "concurrently \"npm run api\" \"npm run ui\"",
+    "api": "tsx watch src/api/server.ts",
+    "ui": "cd apps/guardian-ui && npm run dev",
     "build": "tsc",
-    "api": "tsx src/api/server.ts",
-    "api:dev": "tsx watch src/api/server.ts",
+    "build:ui": "cd apps/guardian-ui && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/**/*.ts"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src tests --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "ollama:check": "curl http://localhost:11434/api/tags",
+    "ollama:pull": "ollama pull moondream && ollama pull llava:7b"
   },
-  "keywords": [
-    "safeos",
-    "monitoring",
-    "ai",
-    "pet-monitoring",
-    "baby-monitor",
-    "elderly-care",
-    "ollama",
-    "vision",
-    "humanitarian"
-  ],
-  "author": "SuperCloud <team@supercloud.dev>",
-  "license": "MIT",
   "dependencies": {
-    "@framers/sql-storage-adapter": "^0.5.0",
-    "express": "^5.2.1",
-    "ws": "^8.18.3",
-    "zod": "^3.23.8",
-    "uuid": "^13.0.0"
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@framers/sql-storage-adapter": "^0.4.2",
+    "better-sqlite3": "^11.6.0",
+    "bullmq": "^5.31.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "howler": "^2.2.4",
+    "ioredis": "^5.4.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "ollama": "^0.5.11",
+    "openai": "^4.72.0",
+    "sharp": "^0.33.5",
+    "simple-peer": "^9.11.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "twilio": "^5.3.7",
+    "uuid": "^11.0.3",
+    "web-push": "^3.6.7",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/ws": "^8.18.1",
-    "@types/node": "^22.10.1",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/howler": "^2.2.12",
+    "@types/node": "^22.9.1",
+    "@types/node-telegram-bot-api": "^0.64.7",
+    "@types/simple-peer": "^9.11.8",
+    "@types/uuid": "^10.0.0",
+    "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.5.13",
+    "concurrently": "^9.1.0",
     "tsx": "^4.19.2",
-    "typescript": "5.8.3",
-    "vitest": "^2.1.0"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
   },
   "peerDependencies": {
-    "better-sqlite3": "^12.5.0"
+    "zustand": "^4.5.5"
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/supercloud/safeos"
+  },
+  "keywords": [
+    "monitoring",
+    "ai",
+    "safety",
+    "baby-monitor",
+    "pet-monitor",
+    "elderly-care",
+    "humanitarian"
+  ],
+  "license": "MIT",
+  "author": "SuperCloud"
 }
-

@@ -1,350 +1,85 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * Profiles Page
+ *
+ * Manage monitoring profiles.
+ *
+ * @module app/profiles/page
+ */
+
+import React from 'react';
 import Link from 'next/link';
+import { ProfileSelector } from '../../components/ProfileSelector';
+import { useOnboardingStore } from '../../stores/onboarding-store';
+import { useMonitoringStore } from '../../stores/monitoring-store';
 
-interface MonitoringProfile {
-  id: string;
-  name: string;
-  scenario: 'pet' | 'baby' | 'elderly';
-  icon: string;
-  settings: ProfileSettings;
-  is_active: number;
-  created_at: string;
-}
-
-interface ProfileSettings {
-  motionSensitivity: number;
-  audioSensitivity: number;
-  analysisInterval: number;
-  cryDetection?: boolean;
-  fallDetection?: boolean;
-  inactivityAlertMins?: number;
-  distressWords?: string[];
-}
-
-const SCENARIO_INFO: Record<string, { icon: string; description: string; color: string }> = {
-  pet: {
-    icon: '🐾',
-    description: 'Monitor pets for distress, eating, accidents, or inactivity',
-    color: 'amber',
-  },
-  baby: {
-    icon: '👶',
-    description: 'Watch toddlers and infants with cry detection and movement alerts',
-    color: 'pink',
-  },
-  elderly: {
-    icon: '🧓',
-    description: 'Care monitoring with fall detection and inactivity warnings',
-    color: 'blue',
-  },
-};
+// =============================================================================
+// Component
+// =============================================================================
 
 export default function ProfilesPage() {
-  const [profiles, setProfiles] = useState<MonitoringProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [newProfile, setNewProfile] = useState({
-    name: '',
-    scenario: 'pet' as const,
-    settings: {
-      motionSensitivity: 50,
-      audioSensitivity: 50,
-      analysisInterval: 30,
-    },
-  });
+  const { selectedScenario, selectScenario, acceptScenarioDisclaimer } = useOnboardingStore();
+  const { setScenario, isStreaming } = useMonitoringStore();
 
-  useEffect(() => {
-    fetchProfiles();
-  }, []);
-
-  async function fetchProfiles() {
-    try {
-      const res = await fetch('/api/profiles');
-      const data = await res.json();
-      if (data.success) {
-        setProfiles(data.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch profiles:', error);
-    } finally {
-      setLoading(false);
+  const handleSelect = (scenario: 'baby' | 'pet' | 'elderly') => {
+    if (isStreaming) {
+      alert('Please stop the current monitoring session before changing profiles.');
+      return;
     }
-  }
 
-  async function createProfile() {
-    try {
-      const res = await fetch('/api/profiles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProfile),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setProfiles((prev) => [...prev, data.data]);
-        setCreating(false);
-        setNewProfile({
-          name: '',
-          scenario: 'pet',
-          settings: {
-            motionSensitivity: 50,
-            audioSensitivity: 50,
-            analysisInterval: 30,
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Failed to create profile:', error);
-    }
-  }
-
-  async function deleteProfile(profileId: string) {
-    if (!confirm('Delete this profile?')) return;
-
-    try {
-      const res = await fetch(`/api/profiles/${profileId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setProfiles((prev) => prev.filter((p) => p.id !== profileId));
-      }
-    } catch (error) {
-      console.error('Failed to delete profile:', error);
-    }
-  }
-
-  async function setActiveProfile(profileId: string) {
-    try {
-      const res = await fetch(`/api/profiles/${profileId}/activate`, { method: 'POST' });
-      if (res.ok) {
-        setProfiles((prev) =>
-          prev.map((p) => ({ ...p, is_active: p.id === profileId ? 1 : 0 }))
-        );
-      }
-    } catch (error) {
-      console.error('Failed to activate profile:', error);
-    }
-  }
+    selectScenario(scenario);
+    acceptScenarioDisclaimer();
+    setScenario(scenario);
+  };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header */}
-      <header className="border-b border-white/10 bg-white/5 backdrop-blur-xl">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="text-white/60 hover:text-white">
-                ← Back
+      <header className="border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              <Link href="/" className="text-2xl hover:scale-110 transition-transform">
+                🛡️
               </Link>
-              <h1 className="text-xl font-semibold">Monitoring Profiles</h1>
+              <h1 className="text-xl font-bold text-white">Monitoring Profiles</h1>
             </div>
-            <button
-              onClick={() => setCreating(true)}
-              className="px-4 py-2 bg-safeos-500 hover:bg-safeos-600 rounded text-sm"
+            <Link
+              href="/"
+              className="text-gray-400 hover:text-white transition-colors"
             >
-              + New Profile
-            </button>
+              Back
+            </Link>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        {/* Create Profile Modal */}
-        {creating && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#141418] rounded-xl p-6 max-w-md w-full border border-white/10">
-              <h2 className="text-lg font-semibold mb-4">Create New Profile</h2>
+      {/* Content */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-white mb-2">
+            Choose Your Monitoring Profile
+          </h2>
+          <p className="text-gray-400">
+            Each profile is optimized with specific settings and AI prompts
+          </p>
+        </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-white/60 mb-1">Profile Name</label>
-                  <input
-                    type="text"
-                    value={newProfile.name}
-                    onChange={(e) =>
-                      setNewProfile((p) => ({ ...p, name: e.target.value }))
-                    }
-                    placeholder="e.g., Living Room - Dog"
-                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2"
-                  />
-                </div>
+        <ProfileSelector
+          selected={selectedScenario}
+          onSelect={handleSelect}
+          className="mb-8"
+        />
 
-                <div>
-                  <label className="block text-sm text-white/60 mb-2">Scenario Type</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['pet', 'baby', 'elderly'] as const).map((scenario) => (
-                      <button
-                        key={scenario}
-                        onClick={() => setNewProfile((p) => ({ ...p, scenario }))}
-                        className={`p-3 rounded-lg border text-center transition ${
-                          newProfile.scenario === scenario
-                            ? 'bg-safeos-500/20 border-safeos-500'
-                            : 'bg-white/5 border-white/10 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">{SCENARIO_INFO[scenario].icon}</div>
-                        <div className="text-sm capitalize">{scenario}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm text-white/60 mb-1">
-                    Motion Sensitivity: {newProfile.settings.motionSensitivity}%
-                  </label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    value={newProfile.settings.motionSensitivity}
-                    onChange={(e) =>
-                      setNewProfile((p) => ({
-                        ...p,
-                        settings: {
-                          ...p.settings,
-                          motionSensitivity: parseInt(e.target.value),
-                        },
-                      }))
-                    }
-                    className="w-full accent-safeos-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-white/60 mb-1">
-                    Audio Sensitivity: {newProfile.settings.audioSensitivity}%
-                  </label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    value={newProfile.settings.audioSensitivity}
-                    onChange={(e) =>
-                      setNewProfile((p) => ({
-                        ...p,
-                        settings: {
-                          ...p.settings,
-                          audioSensitivity: parseInt(e.target.value),
-                        },
-                      }))
-                    }
-                    className="w-full accent-safeos-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 mt-6">
-                <button
-                  onClick={() => setCreating(false)}
-                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={createProfile}
-                  disabled={!newProfile.name}
-                  className="flex-1 px-4 py-2 bg-safeos-500 hover:bg-safeos-600 rounded disabled:opacity-50"
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Profile Details */}
+        {selectedScenario && (
+          <ProfileDetails scenario={selectedScenario} />
         )}
 
-        {/* Profile Cards */}
-        {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-48 bg-white/5 rounded-xl animate-pulse border border-white/10"
-              />
-            ))}
-          </div>
-        ) : profiles.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-4xl mb-4">📋</div>
-            <h2 className="text-xl font-semibold mb-2">No Profiles Yet</h2>
-            <p className="text-white/60 mb-6">
-              Create your first monitoring profile to get started
-            </p>
-            <button
-              onClick={() => setCreating(true)}
-              className="px-6 py-3 bg-safeos-500 hover:bg-safeos-600 rounded-lg"
-            >
-              Create Profile
-            </button>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {profiles.map((profile) => {
-              const info = SCENARIO_INFO[profile.scenario] || SCENARIO_INFO.pet;
-              const settings =
-                typeof profile.settings === 'string'
-                  ? JSON.parse(profile.settings)
-                  : profile.settings;
-
-              return (
-                <div
-                  key={profile.id}
-                  className={`bg-white/5 rounded-xl p-5 border transition ${
-                    profile.is_active
-                      ? 'border-safeos-500 ring-1 ring-safeos-500/30'
-                      : 'border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="text-3xl">{info.icon}</div>
-                      <div>
-                        <h3 className="font-semibold">{profile.name}</h3>
-                        <p className="text-sm text-white/60 capitalize">{profile.scenario}</p>
-                      </div>
-                    </div>
-                    {profile.is_active ? (
-                      <span className="px-2 py-0.5 bg-safeos-500/20 text-safeos-400 text-xs rounded">
-                        Active
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <p className="text-sm text-white/40 mb-4">{info.description}</p>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/60">Motion Sensitivity</span>
-                      <span>{settings.motionSensitivity || 50}%</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/60">Audio Sensitivity</span>
-                      <span>{settings.audioSensitivity || 50}%</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/60">Analysis Interval</span>
-                      <span>{settings.analysisInterval || 30}s</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    {!profile.is_active && (
-                      <button
-                        onClick={() => setActiveProfile(profile.id)}
-                        className="flex-1 px-3 py-2 bg-safeos-500 hover:bg-safeos-600 rounded text-sm"
-                      >
-                        Activate
-                      </button>
-                    )}
-                    <button
-                      onClick={() => deleteProfile(profile.id)}
-                      className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+        {isStreaming && (
+          <div className="mt-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg text-yellow-400 text-center">
+            ⚠️ Stop the current monitoring session to change profiles
           </div>
         )}
       </main>
@@ -352,3 +87,88 @@ export default function ProfilesPage() {
   );
 }
 
+// =============================================================================
+// Sub-Components
+// =============================================================================
+
+function ProfileDetails({ scenario }: { scenario: 'baby' | 'pet' | 'elderly' }) {
+  const details = {
+    baby: {
+      title: 'Baby & Toddler Monitoring',
+      description:
+        'Optimized for monitoring infants and young children. Features enhanced cry detection and safe sleep monitoring.',
+      features: [
+        { name: 'Cry Detection', description: 'AI-powered baby cry recognition' },
+        { name: 'Sleep Monitoring', description: 'Safe sleep position alerts' },
+        { name: 'High Sensitivity', description: 'Lower motion thresholds' },
+        { name: 'Quick Response', description: 'Faster alert escalation' },
+      ],
+      sensitivity: { motion: 25, audio: 30 },
+    },
+    pet: {
+      title: 'Pet Monitoring',
+      description:
+        'Keep an eye on your pets when you are away. Detects unusual behavior and potential distress.',
+      features: [
+        { name: 'Activity Tracking', description: 'Monitor movement patterns' },
+        { name: 'Distress Detection', description: 'Recognize unusual behavior' },
+        { name: 'Inactivity Alerts', description: 'Alert on prolonged stillness' },
+        { name: 'Sound Detection', description: 'Barking and meowing alerts' },
+      ],
+      sensitivity: { motion: 35, audio: 40 },
+    },
+    elderly: {
+      title: 'Elderly Care Monitoring',
+      description:
+        'Support senior safety with fall detection and activity monitoring. Not a replacement for medical alert systems.',
+      features: [
+        { name: 'Fall Detection', description: 'Sudden movement detection' },
+        { name: 'Activity Monitoring', description: 'Track daily routines' },
+        { name: 'Help Detection', description: 'Recognize calls for help' },
+        { name: 'Inactivity Alerts', description: 'Alert on unusual stillness' },
+      ],
+      sensitivity: { motion: 20, audio: 25 },
+    },
+  };
+
+  const detail = details[scenario];
+
+  return (
+    <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+      <h3 className="text-xl font-bold text-white mb-2">{detail.title}</h3>
+      <p className="text-gray-400 mb-6">{detail.description}</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {detail.features.map((feature, index) => (
+          <div key={index} className="flex items-start gap-3">
+            <span className="text-green-400">✓</span>
+            <div>
+              <div className="font-medium text-white">{feature.name}</div>
+              <div className="text-sm text-gray-400">{feature.description}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="pt-4 border-t border-gray-700">
+        <h4 className="text-sm font-medium text-gray-400 mb-3">
+          Default Sensitivity Settings
+        </h4>
+        <div className="flex gap-4">
+          <div className="flex-1 bg-gray-900/50 rounded-lg p-3">
+            <div className="text-xs text-gray-500 mb-1">Motion</div>
+            <div className="text-lg font-bold text-white">
+              {detail.sensitivity.motion}%
+            </div>
+          </div>
+          <div className="flex-1 bg-gray-900/50 rounded-lg p-3">
+            <div className="text-xs text-gray-500 mb-1">Audio</div>
+            <div className="text-lg font-bold text-white">
+              {detail.sensitivity.audio}%
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

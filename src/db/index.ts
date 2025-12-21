@@ -1,333 +1,309 @@
 /**
- * SafeOS Database Layer
+ * SafeOS Database
  *
- * Uses @framers/sql-storage-adapter for cross-platform SQL with
- * automatic adapter selection (better-sqlite3 on Node, IndexedDB in browser).
+ * Database setup using @framers/sql-storage-adapter.
  *
  * @module db
  */
 
 import { createDatabase, type Database, type StorageHooks } from '@framers/sql-storage-adapter';
-import { v4 as uuidv4 } from 'uuid';
 
 // =============================================================================
-// Configuration
+// Types
 // =============================================================================
 
-const BUFFER_MINUTES = parseInt(process.env['SAFEOS_BUFFER_MINUTES'] || '5', 10);
-const DB_PATH = process.env['SAFEOS_DB_PATH'] || './data/safeos.db';
+export interface DatabaseRow {
+  [key: string]: unknown;
+}
 
 // =============================================================================
-// Lifecycle Hooks
+// Constants
 // =============================================================================
 
-let cleanupScheduled = false;
+const BUFFER_MINUTES = 10; // Rolling buffer for privacy
+const DB_PATH = process.env['SAFEOS_DB_PATH'] || 'db_data/safeos.sqlite3';
+
+// =============================================================================
+// Hooks
+// =============================================================================
 
 const hooks: StorageHooks = {
-  onAfterWrite: async (context) => {
-    // Schedule rolling buffer cleanup after frame_buffer writes
-    if (context.statement?.includes('frame_buffer') && !cleanupScheduled) {
-      cleanupScheduled = true;
-      // Defer cleanup to avoid blocking writes
-      setTimeout(async () => {
-        try {
-          await cleanupOldFrames();
-        } finally {
-          cleanupScheduled = false;
-        }
-      }, 1000);
+  onAfterWrite: async (context, result) => {
+    // Cleanup old frames after every write
+    if (context.statement?.includes('frame_buffer')) {
+      const db = await getSafeOSDatabase();
+      await cleanupOldFrames(db);
     }
+    return result;
   },
+
   onAfterQuery: async (context, result) => {
-    // Log slow queries for optimization
-    if (context.startTime) {
-      const duration = Date.now() - context.startTime;
-      if (duration > 100) {
-        console.warn(`[SafeOS DB] Slow query (${duration}ms):`, context.statement?.slice(0, 100));
-      }
+    // Log slow queries
+    const duration = Date.now() - (context.startTime || Date.now());
+    if (duration > 100) {
+      console.warn(`Slow query (${duration}ms):`, context.statement?.slice(0, 100));
     }
     return result;
   },
 };
 
 // =============================================================================
-// Database Singleton
+// Database Creation
 // =============================================================================
 
 let dbInstance: Database | null = null;
-let dbInitializing: Promise<Database> | null = null;
 
 /**
- * Create and initialize the SafeOS database
+ * Create the SafeOS database
  */
-export async function createSafeOSDatabase(dbPath?: string): Promise<Database> {
+export async function createSafeOSDatabase(): Promise<Database> {
   const db = await createDatabase({
     priority: ['better-sqlite3', 'sqljs'],
-    filename: dbPath || DB_PATH,
-    performance: { tier: 'balanced' },
+    betterSqlite3: {
+      filename: DB_PATH,
+    },
+    performance: {
+      tier: 'balanced',
+      trackMetrics: true,
+    },
     hooks,
   });
 
-  await runMigrations(db);
   return db;
 }
 
 /**
- * Get the singleton database instance
+ * Get the database singleton
  */
 export async function getSafeOSDatabase(): Promise<Database> {
-  if (dbInstance) {
-    return dbInstance;
+  if (!dbInstance) {
+    dbInstance = await createSafeOSDatabase();
   }
-
-  // Prevent race conditions during initialization
-  if (dbInitializing) {
-    return dbInitializing;
-  }
-
-  dbInitializing = createSafeOSDatabase().then((db) => {
-    dbInstance = db;
-    dbInitializing = null;
-    return db;
-  });
-
-  return dbInitializing;
-}
-
-/**
- * Close the database connection
- */
-export async function closeSafeOSDatabase(): Promise<void> {
-  if (dbInstance) {
-    await dbInstance.close();
-    dbInstance = null;
-  }
+  return dbInstance;
 }
 
 // =============================================================================
 // Migrations
 // =============================================================================
 
-async function runMigrations(db: Database): Promise<void> {
-  // Create tables if they don't exist
+/**
+ * Run database migrations
+ */
+export async function runMigrations(db: Database): Promise<void> {
+  // Create streams table
   await db.exec(`
-    -- Monitoring streams
     CREATE TABLE IF NOT EXISTS streams (
       id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      profile_id TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'active',
-      created_at TEXT NOT NULL,
-      last_frame_at TEXT,
-      metadata TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_streams_status ON streams(status);
+      user_id TEXT,
+      scenario TEXT NOT NULL CHECK (scenario IN ('pet', 'baby', 'elderly')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'ended', 'banned')),
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
 
-    -- Rolling frame buffer (auto-cleaned)
+  // Create frame_buffer table (rolling buffer for privacy)
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS frame_buffer (
       id TEXT PRIMARY KEY,
       stream_id TEXT NOT NULL,
-      frame_data TEXT,
-      captured_at TEXT NOT NULL,
-      motion_score REAL,
-      audio_level REAL,
-      analyzed INTEGER DEFAULT 0,
+      frame_data TEXT NOT NULL,
+      motion_score REAL DEFAULT 0,
+      audio_level REAL DEFAULT 0,
+      created_at TEXT NOT NULL,
       FOREIGN KEY (stream_id) REFERENCES streams(id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_frame_captured ON frame_buffer(captured_at);
-    CREATE INDEX IF NOT EXISTS idx_frame_stream ON frame_buffer(stream_id);
-    CREATE INDEX IF NOT EXISTS idx_frame_analyzed ON frame_buffer(analyzed);
+    )
+  `);
 
-    -- Analysis results
+  // Create index for frame cleanup
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_frame_buffer_created_at
+    ON frame_buffer(created_at)
+  `);
+
+  // Create analysis_results table
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS analysis_results (
       id TEXT PRIMARY KEY,
       stream_id TEXT NOT NULL,
       frame_id TEXT,
-      scenario TEXT NOT NULL,
-      concern_level TEXT NOT NULL,
-      description TEXT,
+      concern_level TEXT NOT NULL CHECK (concern_level IN ('none', 'low', 'medium', 'high', 'critical')),
+      description TEXT NOT NULL,
+      detected_issues TEXT,
+      processing_time_ms INTEGER,
       model_used TEXT,
-      inference_ms INTEGER,
-      raw_response TEXT,
+      is_cloud_fallback INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       FOREIGN KEY (stream_id) REFERENCES streams(id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_analysis_stream ON analysis_results(stream_id);
-    CREATE INDEX IF NOT EXISTS idx_analysis_concern ON analysis_results(concern_level);
+    )
+  `);
 
-    -- Alerts
+  // Create alerts table
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS alerts (
       id TEXT PRIMARY KEY,
       stream_id TEXT NOT NULL,
-      analysis_id TEXT,
       alert_type TEXT NOT NULL,
-      severity TEXT NOT NULL,
-      message TEXT,
-      escalation_level INTEGER DEFAULT 0,
+      severity TEXT NOT NULL CHECK (severity IN ('info', 'low', 'medium', 'high', 'critical')),
+      message TEXT NOT NULL,
+      metadata TEXT,
+      thumbnail_url TEXT,
       acknowledged INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL,
       acknowledged_at TEXT,
-      FOREIGN KEY (stream_id) REFERENCES streams(id),
-      FOREIGN KEY (analysis_id) REFERENCES analysis_results(id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_alerts_stream ON alerts(stream_id);
-    CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
-    CREATE INDEX IF NOT EXISTS idx_alerts_ack ON alerts(acknowledged);
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (stream_id) REFERENCES streams(id)
+    )
+  `);
 
-    -- Monitoring profiles
+  // Create index for unacknowledged alerts
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_alerts_acknowledged
+    ON alerts(acknowledged, created_at)
+  `);
+
+  // Create monitoring_profiles table
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS monitoring_profiles (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      scenario TEXT NOT NULL,
-      motion_threshold REAL NOT NULL,
-      audio_threshold REAL NOT NULL,
-      alert_speed TEXT NOT NULL,
-      description TEXT,
-      custom_prompt TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT
-    );
+      scenario TEXT NOT NULL CHECK (scenario IN ('pet', 'baby', 'elderly')),
+      settings TEXT NOT NULL,
+      is_active INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `);
 
-    -- Content moderation flags
+  // Create content_flags table (for human review)
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS content_flags (
       id TEXT PRIMARY KEY,
       stream_id TEXT NOT NULL,
-      frame_id TEXT,
-      tier INTEGER NOT NULL,
-      categories TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      reviewed_by TEXT,
+      analysis_id TEXT,
+      category TEXT NOT NULL,
+      tier INTEGER NOT NULL CHECK (tier BETWEEN 0 AND 4),
+      reason TEXT NOT NULL,
+      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'escalated', 'banned')),
+      metadata TEXT,
       reviewed_at TEXT,
-      notes TEXT,
+      reviewer_notes TEXT,
       created_at TEXT NOT NULL,
       FOREIGN KEY (stream_id) REFERENCES streams(id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_flags_status ON content_flags(status);
-    CREATE INDEX IF NOT EXISTS idx_flags_tier ON content_flags(tier);
+    )
+  `);
 
-    -- Analysis job queue
+  // Create analysis_queue table
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS analysis_queue (
       id TEXT PRIMARY KEY,
       stream_id TEXT NOT NULL,
-      frame_data TEXT NOT NULL,
       scenario TEXT NOT NULL,
-      priority TEXT NOT NULL DEFAULT 'normal',
-      status TEXT NOT NULL DEFAULT 'pending',
-      attempts INTEGER DEFAULT 0,
-      max_attempts INTEGER DEFAULT 3,
-      error TEXT,
+      priority INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+      retries INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
-      started_at TEXT,
-      completed_at TEXT,
       FOREIGN KEY (stream_id) REFERENCES streams(id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_queue_status ON analysis_queue(status);
-    CREATE INDEX IF NOT EXISTS idx_queue_priority ON analysis_queue(priority, created_at);
+    )
   `);
 
-  // Insert default profiles if none exist
-  const profileCount = await db.get<{ count: number }>(
-    'SELECT COUNT(*) as count FROM monitoring_profiles'
-  );
-
-  if (profileCount && profileCount.count === 0) {
-    await insertDefaultProfiles(db);
-  }
-
-  console.log('[SafeOS DB] Migrations complete');
+  // Insert default profiles if not exist
+  await insertDefaultProfiles(db);
 }
 
-async function insertDefaultProfiles(db: Database): Promise<void> {
-  const now = new Date().toISOString();
+/**
+ * Insert default monitoring profiles
+ */
+export async function insertDefaultProfiles(db: Database): Promise<void> {
+  const existing = await db.get('SELECT COUNT(*) as count FROM monitoring_profiles');
+  if (existing && (existing as any).count > 0) return;
+
+  const timestamp = now();
+
   const profiles = [
     {
-      id: uuidv4(),
+      id: 'profile-baby-default',
+      name: 'Baby Monitoring',
+      scenario: 'baby',
+      settings: JSON.stringify({
+        motionSensitivity: 35,
+        audioSensitivity: 30,
+        analysisInterval: 30,
+        cryDetection: true,
+        sleepMonitoring: true,
+      }),
+    },
+    {
+      id: 'profile-pet-default',
       name: 'Pet Monitoring',
       scenario: 'pet',
-      motion_threshold: 0.2,
-      audio_threshold: 0.3,
-      alert_speed: 'normal',
-      description: 'Monitor pets for activity, eating, drinking, and distress',
+      settings: JSON.stringify({
+        motionSensitivity: 40,
+        audioSensitivity: 45,
+        analysisInterval: 45,
+        inactivityAlert: true,
+        barkDetection: true,
+      }),
     },
     {
-      id: uuidv4(),
-      name: 'Baby Monitor',
-      scenario: 'baby',
-      motion_threshold: 0.1,
-      audio_threshold: 0.15,
-      alert_speed: 'fast',
-      description: 'Watch babies and toddlers for safety and crying',
-    },
-    {
-      id: uuidv4(),
+      id: 'profile-elderly-default',
       name: 'Elderly Care',
       scenario: 'elderly',
-      motion_threshold: 0.15,
-      audio_threshold: 0.2,
-      alert_speed: 'immediate',
-      description: 'Monitor elderly for falls, distress, and inactivity',
+      settings: JSON.stringify({
+        motionSensitivity: 20,
+        audioSensitivity: 25,
+        analysisInterval: 60,
+        fallDetection: true,
+        helpDetection: true,
+      }),
     },
   ];
 
   for (const profile of profiles) {
     await db.run(
-      `INSERT INTO monitoring_profiles 
-       (id, name, scenario, motion_threshold, audio_threshold, alert_speed, description, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        profile.id,
-        profile.name,
-        profile.scenario,
-        profile.motion_threshold,
-        profile.audio_threshold,
-        profile.alert_speed,
-        profile.description,
-        now,
-      ]
+      `INSERT INTO monitoring_profiles (id, name, scenario, settings, is_active, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+      [profile.id, profile.name, profile.scenario, profile.settings, timestamp]
     );
   }
-
-  console.log('[SafeOS DB] Inserted default monitoring profiles');
 }
 
 // =============================================================================
-// Rolling Buffer Cleanup
+// Cleanup Functions
 // =============================================================================
 
 /**
- * Delete frames older than the buffer window
+ * Clean up old frames from buffer (privacy)
  */
-async function cleanupOldFrames(): Promise<number> {
-  const db = await getSafeOSDatabase();
-  const cutoff = new Date(Date.now() - BUFFER_MINUTES * 60 * 1000).toISOString();
-  
-  const result = await db.run(
-    'DELETE FROM frame_buffer WHERE captured_at < ?',
-    [cutoff]
-  );
+export async function cleanupOldFrames(db: Database): Promise<void> {
+  const threshold = new Date(Date.now() - BUFFER_MINUTES * 60 * 1000).toISOString();
 
-  if (result.changes && result.changes > 0) {
-    console.log(`[SafeOS DB] Cleaned up ${result.changes} old frames`);
-  }
-
-  return result.changes || 0;
+  await db.run('DELETE FROM frame_buffer WHERE created_at < ?', [threshold]);
 }
 
 // =============================================================================
-// Utility Functions
+// Utilities
 // =============================================================================
 
 /**
- * Generate a new UUID
+ * Generate a unique ID
  */
 export function generateId(): string {
-  return uuidv4();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 /**
- * Get current ISO timestamp
+ * Get current timestamp as ISO string
  */
 export function now(): string {
   return new Date().toISOString();
 }
 
+/**
+ * Close the database
+ */
+export async function closeDatabase(): Promise<void> {
+  if (dbInstance) {
+    await dbInstance.close();
+    dbInstance = null;
+  }
+}

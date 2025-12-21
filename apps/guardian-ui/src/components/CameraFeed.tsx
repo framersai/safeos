@@ -1,290 +1,358 @@
-'use client';
-
 /**
  * Camera Feed Component
  *
- * Captures video/audio and performs client-side motion/audio detection.
+ * Displays camera feed with motion/audio detection.
  *
  * @module components/CameraFeed
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { detectMotion, MOTION_THRESHOLDS } from '../lib/motion-detection';
-import { getAudioLevel, AUDIO_THRESHOLDS } from '../lib/audio-levels';
-import type { MonitoringScenario } from '../stores/monitoring-store';
+'use client';
+
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { detectMotion, MOTION_THRESHOLDS, getThresholdForScenario } from '../lib/motion-detection';
+import { getAudioLevel, detectCryingPattern, AUDIO_THRESHOLDS } from '../lib/audio-levels';
 
 // =============================================================================
 // Types
 // =============================================================================
 
 interface CameraFeedProps {
-  onFrame?: (frame: string, motionScore: number, audioLevel: number) => void;
-  onMotion?: (score: number) => void;
-  onAudio?: (level: number) => void;
+  onFrame?: (data: FrameData) => void;
   onError?: (error: Error) => void;
-  scenario?: MonitoringScenario;
-  captureInterval?: number; // ms
+  scenario?: 'pet' | 'baby' | 'elderly';
+  enabled?: boolean;
   showDebug?: boolean;
-  className?: string;
+}
+
+interface FrameData {
+  imageData: string;
+  motionScore: number;
+  audioLevel: number;
+  timestamp: number;
+  hasCrying?: boolean;
 }
 
 // =============================================================================
-// Component
+// Constants
+// =============================================================================
+
+const FRAME_INTERVAL = 1000; // Check every second
+const MOTION_INTERVAL = 200; // Motion detection every 200ms
+const AUDIO_INTERVAL = 100; // Audio level every 100ms
+
+// =============================================================================
+// CameraFeed Component
 // =============================================================================
 
 export function CameraFeed({
   onFrame,
-  onMotion,
-  onAudio,
   onError,
   scenario = 'baby',
-  captureInterval = 1000,
+  enabled = true,
   showDebug = false,
-  className = '',
 }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previousFrameRef = useRef<ImageData | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const previousFrameRef = useRef<ImageData | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const [isActive, setIsActive] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [motionScore, setMotionScore] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [hasCrying, setHasCrying] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
 
-  // Get thresholds for scenario
-  const motionThreshold = MOTION_THRESHOLDS[scenario]?.alert || 30;
-  const audioThreshold = AUDIO_THRESHOLDS[scenario]?.alert || 30;
+  // Motion threshold for this scenario
+  const motionThreshold = getThresholdForScenario(scenario);
+  const audioThreshold = AUDIO_THRESHOLDS[scenario]?.ambient || 15;
 
-  // ---------------------------------------------------------------------------
-  // Camera Setup
-  // ---------------------------------------------------------------------------
-
-  const startCamera = useCallback(async () => {
+  // Initialize camera
+  const initCamera = useCallback(async () => {
     try {
+      setIsLoading(true);
+      setError(null);
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
           facingMode: 'environment',
-          width: { ideal: 640 },
-          height: { ideal: 480 },
         },
         audio: true,
       });
 
+      streamRef.current = stream;
+
+      // Set up video
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
 
-      // Set up audio analyzer
+      // Set up audio analysis
       audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
-
-      const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
 
-      setHasPermission(true);
-      setIsActive(true);
-      setError(null);
+      setCameraActive(true);
+      setIsLoading(false);
     } catch (err) {
-      const error = err as Error;
-      setError(error.message);
-      setHasPermission(false);
-      onError?.(error);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to access camera';
+      setError(errorMessage);
+      setIsLoading(false);
+      onError?.(err instanceof Error ? err : new Error(errorMessage));
     }
   }, [onError]);
 
+  // Stop camera
   const stopCamera = useCallback(() => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
-
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
-
-    setIsActive(false);
+    setCameraActive(false);
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Frame Capture & Analysis
-  // ---------------------------------------------------------------------------
+  // Initialize on mount
+  useEffect(() => {
+    if (enabled) {
+      initCamera();
+    }
+    return () => {
+      stopCamera();
+    };
+  }, [enabled, initCamera, stopCamera]);
 
-  const captureFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
+  // Motion detection loop
+  useEffect(() => {
+    if (!cameraActive || !canvasRef.current || !videoRef.current) return;
 
-    const video = videoRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const interval = setInterval(() => {
+      if (!videoRef.current) return;
 
-    // Draw current frame
-    ctx.drawImage(video, 0, 0);
+      // Draw current frame
+      canvas.width = videoRef.current.videoWidth || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+      ctx.drawImage(videoRef.current, 0, 0);
 
-    // Get current frame data
-    const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Get current frame data
+      const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-    // Calculate motion score
-    let motion = 0;
-    if (previousFrameRef.current) {
-      motion = detectMotion(previousFrameRef.current, currentFrame);
-    }
-    previousFrameRef.current = currentFrame;
+      // Compare with previous frame
+      if (previousFrameRef.current) {
+        const score = detectMotion(previousFrameRef.current, currentFrame);
+        setMotionScore(Math.round(score * 100));
+      }
 
-    setMotionScore(motion);
-    onMotion?.(motion);
+      // Store current frame for next comparison
+      previousFrameRef.current = currentFrame;
+    }, MOTION_INTERVAL);
 
-    // Calculate audio level
-    let audio = 0;
-    if (analyserRef.current) {
-      audio = getAudioLevel(analyserRef.current);
-    }
-    setAudioLevel(audio);
-    onAudio?.(audio);
-
-    // Send frame if motion or audio above threshold
-    if (motion > motionThreshold || audio > audioThreshold) {
-      const base64 = canvas.toDataURL('image/jpeg', 0.7);
-      onFrame?.(base64, motion, audio);
-    }
-  }, [motionThreshold, audioThreshold, onFrame, onMotion, onAudio]);
-
-  // ---------------------------------------------------------------------------
-  // Effects
-  // ---------------------------------------------------------------------------
-
-  // Start camera on mount
-  useEffect(() => {
-    startCamera();
-    return () => stopCamera();
-  }, [startCamera, stopCamera]);
-
-  // Capture loop
-  useEffect(() => {
-    if (!isActive) return;
-
-    const interval = setInterval(captureFrame, captureInterval);
     return () => clearInterval(interval);
-  }, [isActive, captureInterval, captureFrame]);
+  }, [cameraActive]);
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  // Audio analysis loop
+  useEffect(() => {
+    if (!cameraActive || !analyserRef.current) return;
 
-  if (hasPermission === false) {
-    return (
-      <div
-        className={`flex flex-col items-center justify-center bg-gray-900 text-white p-8 rounded-lg ${className}`}
-      >
-        <svg
-          className="w-16 h-16 mb-4 text-red-500"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-          />
-        </svg>
-        <h3 className="text-xl font-bold mb-2">Camera Access Required</h3>
-        <p className="text-gray-400 text-center mb-4">
-          Please allow camera and microphone access to enable monitoring.
-        </p>
-        <button
-          onClick={startCamera}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-        >
-          Grant Permission
-        </button>
-        {error && <p className="mt-4 text-red-400 text-sm">{error}</p>}
-      </div>
-    );
-  }
+    const interval = setInterval(() => {
+      if (!analyserRef.current) return;
 
-  if (hasPermission === null) {
-    return (
-      <div
-        className={`flex items-center justify-center bg-gray-900 text-white ${className}`}
-      >
-        <div className="animate-pulse">Requesting camera access...</div>
-      </div>
-    );
-  }
+      const level = getAudioLevel(analyserRef.current);
+      setAudioLevel(Math.round(level * 100));
+
+      // Detect crying for baby monitoring
+      if (scenario === 'baby' && analyserRef.current) {
+        const crying = detectCryingPattern(analyserRef.current);
+        setHasCrying(crying);
+      }
+    }, AUDIO_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [cameraActive, scenario]);
+
+  // Frame capture for analysis
+  useEffect(() => {
+    if (!cameraActive || !canvasRef.current) return;
+
+    const interval = setInterval(() => {
+      // Only send frames when there's significant activity
+      if (motionScore < motionThreshold && audioLevel < audioThreshold) {
+        return;
+      }
+
+      // Capture and send frame
+      if (canvasRef.current && onFrame) {
+        const imageData = canvasRef.current.toDataURL('image/jpeg', 0.7);
+        onFrame({
+          imageData,
+          motionScore,
+          audioLevel,
+          timestamp: Date.now(),
+          hasCrying,
+        });
+      }
+    }, FRAME_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [cameraActive, motionScore, audioLevel, motionThreshold, audioThreshold, hasCrying, onFrame]);
 
   return (
-    <div className={`relative ${className}`}>
-      {/* Video Feed */}
+    <div className="relative w-full aspect-video bg-slate-900 rounded-xl overflow-hidden">
+      {/* Video feed */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className="w-full h-full object-cover rounded-lg"
+        className="w-full h-full object-cover"
       />
 
-      {/* Hidden canvas for frame capture */}
+      {/* Hidden canvas for processing */}
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Debug overlay */}
-      {showDebug && (
-        <div className="absolute top-2 left-2 bg-black/70 text-white p-2 rounded text-sm font-mono">
-          <div
-            className={`${motionScore > motionThreshold ? 'text-yellow-400' : 'text-green-400'}`}
-          >
-            Motion: {motionScore.toFixed(1)}%
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-slate-600 border-t-emerald-500 rounded-full animate-spin mx-auto" />
+            <p className="text-slate-400 mt-4 text-sm">Initializing camera...</p>
           </div>
-          <div
-            className={`${audioLevel > audioThreshold ? 'text-yellow-400' : 'text-green-400'}`}
-          >
-            Audio: {audioLevel.toFixed(1)}%
-          </div>
-          <div className="text-gray-400">Scenario: {scenario}</div>
         </div>
       )}
 
-      {/* Status indicator */}
-      <div className="absolute top-2 right-2 flex items-center gap-2">
-        <div
-          className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
-        />
-        <span className="text-white text-sm bg-black/50 px-2 py-1 rounded">
-          {isActive ? 'LIVE' : 'OFFLINE'}
-        </span>
-      </div>
+      {/* Error overlay */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
+          <div className="text-center px-4">
+            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+              <span className="text-2xl">📷</span>
+            </div>
+            <p className="text-red-400 mt-4 text-sm font-medium">Camera Error</p>
+            <p className="text-slate-500 mt-1 text-xs max-w-xs">{error}</p>
+            <button
+              onClick={initCamera}
+              className="mt-4 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Motion/Audio bars */}
-      <div className="absolute bottom-2 left-2 right-2 flex gap-2">
-        {/* Motion bar */}
-        <div className="flex-1 bg-black/50 rounded-full h-2 overflow-hidden">
-          <div
-            className={`h-full transition-all duration-200 ${
-              motionScore > motionThreshold ? 'bg-yellow-500' : 'bg-blue-500'
-            }`}
-            style={{ width: `${Math.min(100, motionScore)}%` }}
-          />
-        </div>
-        {/* Audio bar */}
-        <div className="flex-1 bg-black/50 rounded-full h-2 overflow-hidden">
-          <div
-            className={`h-full transition-all duration-200 ${
-              audioLevel > audioThreshold ? 'bg-yellow-500' : 'bg-green-500'
-            }`}
-            style={{ width: `${Math.min(100, audioLevel)}%` }}
-          />
-        </div>
+      {/* Status indicators */}
+      {cameraActive && !error && (
+        <>
+          {/* Recording indicator */}
+          <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 rounded-full backdrop-blur-sm">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-xs text-white">LIVE</span>
+          </div>
+
+          {/* Motion indicator */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <MotionIndicator score={motionScore} threshold={motionThreshold} />
+            <AudioIndicator level={audioLevel} threshold={audioThreshold} hasCrying={hasCrying} />
+          </div>
+
+          {/* Debug overlay */}
+          {showDebug && (
+            <div className="absolute bottom-4 left-4 right-4 p-3 bg-slate-900/80 rounded-lg backdrop-blur-sm">
+              <div className="grid grid-cols-3 gap-4 text-xs">
+                <div>
+                  <span className="text-slate-500">Motion:</span>
+                  <span className="text-white ml-2">{motionScore}%</span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Audio:</span>
+                  <span className="text-white ml-2">{audioLevel}%</span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Threshold:</span>
+                  <span className="text-white ml-2">{motionThreshold}%</span>
+                </div>
+                {scenario === 'baby' && (
+                  <div className="col-span-3">
+                    <span className="text-slate-500">Cry Detection:</span>
+                    <span className={`ml-2 ${hasCrying ? 'text-red-400' : 'text-slate-300'}`}>
+                      {hasCrying ? 'DETECTED' : 'None'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Sub-components
+// =============================================================================
+
+interface MotionIndicatorProps {
+  score: number;
+  threshold: number;
+}
+
+function MotionIndicator({ score, threshold }: MotionIndicatorProps) {
+  const isActive = score >= threshold;
+  const color = isActive
+    ? 'bg-orange-500/80'
+    : score > threshold / 2
+      ? 'bg-yellow-500/80'
+      : 'bg-slate-700/80';
+
+  return (
+    <div className={`px-3 py-1.5 ${color} rounded-full backdrop-blur-sm flex items-center gap-2`}>
+      <span className="text-lg">👁️</span>
+      <div className="w-16 h-1.5 bg-slate-600 rounded-full overflow-hidden">
+        <div
+          className={`h-full ${isActive ? 'bg-orange-400' : 'bg-emerald-400'} transition-all duration-200`}
+          style={{ width: `${Math.min(score, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface AudioIndicatorProps {
+  level: number;
+  threshold: number;
+  hasCrying: boolean;
+}
+
+function AudioIndicator({ level, threshold, hasCrying }: AudioIndicatorProps) {
+  const isActive = level >= threshold || hasCrying;
+  const color = hasCrying
+    ? 'bg-red-500/80 animate-pulse'
+    : isActive
+      ? 'bg-orange-500/80'
+      : 'bg-slate-700/80';
+
+  return (
+    <div className={`px-3 py-1.5 ${color} rounded-full backdrop-blur-sm flex items-center gap-2`}>
+      <span className="text-lg">{hasCrying ? '😢' : '🔊'}</span>
+      <div className="w-12 h-1.5 bg-slate-600 rounded-full overflow-hidden">
+        <div
+          className={`h-full ${hasCrying ? 'bg-red-400' : isActive ? 'bg-orange-400' : 'bg-emerald-400'} transition-all duration-100`}
+          style={{ width: `${Math.min(level, 100)}%` }}
+        />
       </div>
     </div>
   );

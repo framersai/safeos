@@ -1,233 +1,154 @@
 /**
- * Analysis API Routes
+ * Analysis Routes
  *
- * Endpoints for analysis results.
+ * API routes for analysis results.
  *
  * @module api/routes/analysis
  */
 
-import { Router, type Request, type Response } from 'express';
-import { getSafeOSDatabase } from '../../db/index.js';
-import { getDefaultAnalysisQueue } from '../../queues/analysis-queue.js';
+import { Router, Request, Response } from 'express';
+import { getSafeOSDatabase } from '../../db';
 
-const router = Router();
+// =============================================================================
+// Router
+// =============================================================================
+
+export const analysisRoutes = Router();
 
 // =============================================================================
 // Routes
 // =============================================================================
 
 /**
- * GET /api/analysis
- * List analysis results
+ * GET /api/analysis - List analysis results
  */
-router.get('/', async (req: Request, res: Response) => {
+analysisRoutes.get('/', async (req: Request, res: Response) => {
   try {
-    const {
-      limit = '50',
-      offset = '0',
-      streamId,
-      concernLevel,
-    } = req.query;
-
     const db = await getSafeOSDatabase();
+    const { streamId, concernLevel, limit = 50, offset = 0 } = req.query;
 
     let query = 'SELECT * FROM analysis_results WHERE 1=1';
-    const params: (string | number)[] = [];
+    const params: any[] = [];
 
     if (streamId) {
       query += ' AND stream_id = ?';
-      params.push(streamId as string);
+      params.push(streamId);
     }
 
     if (concernLevel) {
       query += ' AND concern_level = ?';
-      params.push(concernLevel as string);
+      params.push(concernLevel);
     }
 
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit as string, 10));
-    params.push(parseInt(offset as string, 10));
+    params.push(Number(limit), Number(offset));
 
     const results = await db.all(query, params);
 
-    res.json({
-      success: true,
-      data: results.map((r) => ({
-        ...r,
-        detected_issues:
-          typeof r.detected_issues === 'string'
-            ? JSON.parse(r.detected_issues)
-            : r.detected_issues,
-      })),
-    });
+    // Parse detected_issues JSON
+    const parsed = results.map((r: any) => ({
+      ...r,
+      detectedIssues: r.detected_issues ? JSON.parse(r.detected_issues) : [],
+    }));
+
+    res.json({ results: parsed });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to list analysis results:', error);
+    res.status(500).json({ error: 'Failed to list analysis results' });
   }
 });
 
 /**
- * GET /api/analysis/:id
- * Get a specific analysis result
+ * GET /api/analysis/:id - Get analysis by ID
  */
-router.get('/:id', async (req: Request, res: Response) => {
+analysisRoutes.get('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
     const db = await getSafeOSDatabase();
+    const { id } = req.params;
 
     const result = await db.get('SELECT * FROM analysis_results WHERE id = ?', [id]);
 
     if (!result) {
-      return res.status(404).json({
-        success: false,
-        error: 'Analysis result not found',
-      });
+      return res.status(404).json({ error: 'Analysis result not found' });
     }
 
     res.json({
-      success: true,
-      data: {
+      result: {
         ...result,
-        detected_issues:
-          typeof result.detected_issues === 'string'
-            ? JSON.parse(result.detected_issues)
-            : result.detected_issues,
+        detectedIssues: (result as any).detected_issues
+          ? JSON.parse((result as any).detected_issues)
+          : [],
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to get analysis result:', error);
+    res.status(500).json({ error: 'Failed to get analysis result' });
   }
 });
 
 /**
- * GET /api/analysis/queue/status
- * Get analysis queue status
+ * GET /api/analysis/stats - Get analysis statistics
  */
-router.get('/queue/status', async (_req: Request, res: Response) => {
+analysisRoutes.get('/stats/summary', async (req: Request, res: Response) => {
   try {
-    const queue = getDefaultAnalysisQueue();
-    const status = queue.getStatus();
-
-    res.json({
-      success: true,
-      data: status,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * POST /api/analysis/queue/start
- * Start the analysis queue
- */
-router.post('/queue/start', async (_req: Request, res: Response) => {
-  try {
-    const queue = getDefaultAnalysisQueue();
-    queue.start();
-
-    res.json({
-      success: true,
-      message: 'Analysis queue started',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * POST /api/analysis/queue/stop
- * Stop the analysis queue
- */
-router.post('/queue/stop', async (_req: Request, res: Response) => {
-  try {
-    const queue = getDefaultAnalysisQueue();
-    queue.stop();
-
-    res.json({
-      success: true,
-      message: 'Analysis queue stopped',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * GET /api/analysis/stats
- * Get analysis statistics
- */
-router.get('/stats/summary', async (req: Request, res: Response) => {
-  try {
-    const { period = '24h' } = req.query;
     const db = await getSafeOSDatabase();
+    const { streamId, since } = req.query;
 
-    const periodMs: Record<string, number> = {
-      '1h': 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000,
-    };
-    const threshold = new Date(
-      Date.now() - (periodMs[period as string] || periodMs['24h'])
-    ).toISOString();
+    let whereClause = '1=1';
+    const params: any[] = [];
 
-    const totalRow = await db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM analysis_results WHERE created_at >= ?',
-      [threshold]
-    );
+    if (streamId) {
+      whereClause += ' AND stream_id = ?';
+      params.push(streamId);
+    }
 
-    const byConcern = await db.all<{ concern_level: string; count: number }[]>(
+    if (since) {
+      whereClause += ' AND created_at >= ?';
+      params.push(since);
+    }
+
+    // Get counts by concern level
+    const byConcern = await db.all<{ concern_level: string; count: number }>(
       `SELECT concern_level, COUNT(*) as count FROM analysis_results
-       WHERE created_at >= ?
-       GROUP BY concern_level`,
-      [threshold]
+       WHERE ${whereClause} GROUP BY concern_level`,
+      params
     );
 
-    const avgTime = await db.get<{ avg: number }>(
-      'SELECT AVG(processing_time_ms) as avg FROM analysis_results WHERE created_at >= ?',
-      [threshold]
+    // Get average processing time
+    const avgTime = await db.get<{ avg_time: number }>(
+      `SELECT AVG(processing_time_ms) as avg_time FROM analysis_results
+       WHERE ${whereClause}`,
+      params
     );
 
-    const cloudFallbackCount = await db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM analysis_results WHERE created_at >= ? AND is_cloud_fallback = 1',
-      [threshold]
+    // Get cloud fallback rate
+    const cloudFallback = await db.get<{ total: number; cloud: number }>(
+      `SELECT COUNT(*) as total, SUM(is_cloud_fallback) as cloud FROM analysis_results
+       WHERE ${whereClause}`,
+      params
+    );
+
+    // Get total count
+    const total = await db.get<{ count: number }>(
+      `SELECT COUNT(*) as count FROM analysis_results WHERE ${whereClause}`,
+      params
     );
 
     res.json({
-      success: true,
-      data: {
-        totalAnalyses: totalRow?.count || 0,
-        byConcernLevel: Object.fromEntries(
-          byConcern.map((r) => [r.concern_level, r.count])
-        ),
-        avgProcessingTimeMs: avgTime?.avg || 0,
-        cloudFallbackCount: cloudFallbackCount?.count || 0,
+      stats: {
+        total: total?.count || 0,
+        byConcernLevel: Object.fromEntries(byConcern.map((c) => [c.concern_level, c.count])),
+        averageProcessingTime: Math.round(avgTime?.avg_time || 0),
         cloudFallbackRate:
-          totalRow?.count && cloudFallbackCount?.count
-            ? cloudFallbackCount.count / totalRow.count
+          cloudFallback && cloudFallback.total > 0
+            ? ((cloudFallback.cloud || 0) / cloudFallback.total) * 100
             : 0,
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to get analysis stats:', error);
+    res.status(500).json({ error: 'Failed to get analysis stats' });
   }
 });
 
-export default router;
+export default analysisRoutes;

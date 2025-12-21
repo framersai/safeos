@@ -1,228 +1,247 @@
 /**
- * Profiles API Routes
+ * Profile Routes
  *
- * Endpoints for managing monitoring profiles.
+ * API routes for monitoring profiles.
  *
  * @module api/routes/profiles
  */
 
-import { Router, type Request, type Response } from 'express';
-import { getSafeOSDatabase, generateId, now } from '../../db/index.js';
+import { Router, Request, Response } from 'express';
+import { getSafeOSDatabase, generateId, now } from '../../db';
 
-const router = Router();
+// =============================================================================
+// Router
+// =============================================================================
+
+export const profileRoutes = Router();
 
 // =============================================================================
 // Routes
 // =============================================================================
 
 /**
- * GET /api/profiles
- * List all monitoring profiles
+ * GET /api/profiles - List all profiles
  */
-router.get('/', async (_req: Request, res: Response) => {
+profileRoutes.get('/', async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
-    const profiles = await db.all('SELECT * FROM monitoring_profiles ORDER BY created_at DESC');
+    const { scenario } = req.query;
 
-    res.json({
-      success: true,
-      data: profiles.map((p) => ({
-        ...p,
-        settings: typeof p.settings === 'string' ? JSON.parse(p.settings) : p.settings,
-      })),
-    });
+    let query = 'SELECT * FROM monitoring_profiles';
+    const params: any[] = [];
+
+    if (scenario) {
+      query += ' WHERE scenario = ?';
+      params.push(scenario);
+    }
+
+    query += ' ORDER BY is_active DESC, created_at DESC';
+
+    const profiles = await db.all(query, params);
+
+    // Parse settings JSON
+    const parsed = profiles.map((p: any) => ({
+      ...p,
+      settings: JSON.parse(p.settings || '{}'),
+    }));
+
+    res.json({ profiles: parsed });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to list profiles:', error);
+    res.status(500).json({ error: 'Failed to list profiles' });
   }
 });
 
 /**
- * GET /api/profiles/:id
- * Get a specific profile
+ * GET /api/profiles/:id - Get profile by ID
  */
-router.get('/:id', async (req: Request, res: Response) => {
+profileRoutes.get('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
     const db = await getSafeOSDatabase();
+    const { id } = req.params;
 
     const profile = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
 
     if (!profile) {
-      return res.status(404).json({
-        success: false,
-        error: 'Profile not found',
-      });
+      return res.status(404).json({ error: 'Profile not found' });
     }
 
     res.json({
-      success: true,
-      data: {
+      profile: {
         ...profile,
-        settings: typeof profile.settings === 'string' ? JSON.parse(profile.settings) : profile.settings,
+        settings: JSON.parse((profile as any).settings || '{}'),
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to get profile:', error);
+    res.status(500).json({ error: 'Failed to get profile' });
   }
 });
 
 /**
- * POST /api/profiles
- * Create a new profile
+ * POST /api/profiles - Create new profile
  */
-router.post('/', async (req: Request, res: Response) => {
+profileRoutes.post('/', async (req: Request, res: Response) => {
   try {
+    const db = await getSafeOSDatabase();
     const { name, scenario, settings } = req.body;
 
     if (!name || !scenario) {
-      return res.status(400).json({
-        success: false,
-        error: 'Name and scenario are required',
-      });
+      return res.status(400).json({ error: 'Name and scenario are required' });
     }
 
     if (!['pet', 'baby', 'elderly'].includes(scenario)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid scenario. Must be pet, baby, or elderly.',
-      });
+      return res.status(400).json({ error: 'Invalid scenario' });
     }
 
     const id = generateId();
-    const db = await getSafeOSDatabase();
-
-    const defaultSettings = {
-      motionSensitivity: 50,
-      audioSensitivity: 50,
-      analysisInterval: 30,
-      ...settings,
-    };
+    const timestamp = now();
 
     await db.run(
       `INSERT INTO monitoring_profiles (id, name, scenario, settings, is_active, created_at)
        VALUES (?, ?, ?, ?, 0, ?)`,
-      [id, name, scenario, JSON.stringify(defaultSettings), now()]
+      [id, name, scenario, JSON.stringify(settings || {}), timestamp]
     );
+
+    const profile = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
 
     res.status(201).json({
-      success: true,
-      data: {
-        id,
-        name,
-        scenario,
-        settings: defaultSettings,
-        is_active: 0,
-        created_at: now(),
+      profile: {
+        ...profile,
+        settings: JSON.parse((profile as any).settings || '{}'),
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to create profile:', error);
+    res.status(500).json({ error: 'Failed to create profile' });
   }
 });
 
 /**
- * PUT /api/profiles/:id
- * Update a profile
+ * PATCH /api/profiles/:id - Update profile
  */
-router.put('/:id', async (req: Request, res: Response) => {
+profileRoutes.patch('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { name, settings } = req.body;
     const db = await getSafeOSDatabase();
+    const { id } = req.params;
+    const { name, settings, isActive } = req.body;
 
-    // Check exists
-    const existing = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        error: 'Profile not found',
-      });
+    const profile = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
     }
 
-    // Merge settings
-    const existingSettings = typeof existing.settings === 'string'
-      ? JSON.parse(existing.settings)
-      : existing.settings;
-    const mergedSettings = { ...existingSettings, ...settings };
+    const updates: string[] = [];
+    const params: any[] = [];
 
-    await db.run(
-      'UPDATE monitoring_profiles SET name = ?, settings = ? WHERE id = ?',
-      [name || existing.name, JSON.stringify(mergedSettings), id]
-    );
+    if (name !== undefined) {
+      updates.push('name = ?');
+      params.push(name);
+    }
+
+    if (settings !== undefined) {
+      updates.push('settings = ?');
+      params.push(JSON.stringify(settings));
+    }
+
+    if (isActive !== undefined) {
+      // If activating, deactivate other profiles of same scenario
+      if (isActive) {
+        await db.run(
+          'UPDATE monitoring_profiles SET is_active = 0 WHERE scenario = ?',
+          [(profile as any).scenario]
+        );
+      }
+      updates.push('is_active = ?');
+      params.push(isActive ? 1 : 0);
+    }
+
+    if (updates.length > 0) {
+      params.push(id);
+      await db.run(
+        `UPDATE monitoring_profiles SET ${updates.join(', ')} WHERE id = ?`,
+        params
+      );
+    }
+
+    const updated = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
 
     res.json({
-      success: true,
-      data: {
-        ...existing,
-        name: name || existing.name,
-        settings: mergedSettings,
+      profile: {
+        ...updated,
+        settings: JSON.parse((updated as any).settings || '{}'),
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to update profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
 /**
- * POST /api/profiles/:id/activate
- * Set a profile as active
+ * DELETE /api/profiles/:id - Delete profile
  */
-router.post('/:id/activate', async (req: Request, res: Response) => {
+profileRoutes.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
     const db = await getSafeOSDatabase();
-
-    // Deactivate all profiles
-    await db.run('UPDATE monitoring_profiles SET is_active = 0');
-
-    // Activate the selected one
-    await db.run('UPDATE monitoring_profiles SET is_active = 1 WHERE id = ?', [id]);
-
-    res.json({
-      success: true,
-      message: 'Profile activated',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * DELETE /api/profiles/:id
- * Delete a profile
- */
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
-    const db = await getSafeOSDatabase();
+
+    const profile = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    // Don't delete default profiles
+    if (id.startsWith('profile-') && id.endsWith('-default')) {
+      return res.status(400).json({ error: 'Cannot delete default profiles' });
+    }
 
     await db.run('DELETE FROM monitoring_profiles WHERE id = ?', [id]);
 
-    res.json({
-      success: true,
-      message: 'Profile deleted',
-    });
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to delete profile:', error);
+    res.status(500).json({ error: 'Failed to delete profile' });
   }
 });
 
-export default router;
+/**
+ * POST /api/profiles/:id/activate - Activate profile
+ */
+profileRoutes.post('/:id/activate', async (req: Request, res: Response) => {
+  try {
+    const db = await getSafeOSDatabase();
+    const { id } = req.params;
+
+    const profile = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    // Deactivate other profiles of same scenario
+    await db.run(
+      'UPDATE monitoring_profiles SET is_active = 0 WHERE scenario = ?',
+      [(profile as any).scenario]
+    );
+
+    // Activate this profile
+    await db.run(
+      'UPDATE monitoring_profiles SET is_active = 1 WHERE id = ?',
+      [id]
+    );
+
+    const updated = await db.get('SELECT * FROM monitoring_profiles WHERE id = ?', [id]);
+
+    res.json({
+      profile: {
+        ...updated,
+        settings: JSON.parse((updated as any).settings || '{}'),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to activate profile:', error);
+    res.status(500).json({ error: 'Failed to activate profile' });
+  }
+});
+
+export default profileRoutes;

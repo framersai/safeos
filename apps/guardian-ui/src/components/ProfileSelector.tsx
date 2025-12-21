@@ -1,120 +1,147 @@
 'use client';
 
-type Scenario = 'pet' | 'baby' | 'elderly';
+/**
+ * Profile Selector Component
+ *
+ * Select monitoring scenario/profile.
+ *
+ * @module components/ProfileSelector
+ */
+
+import React from 'react';
+import type { MonitoringScenario } from '../stores/monitoring-store';
+
+// =============================================================================
+// Types
+// =============================================================================
 
 interface ProfileSelectorProps {
-  selected: Scenario | null;
-  onSelect: (scenario: Scenario) => void;
+  selected: MonitoringScenario | null;
+  onSelect: (scenario: MonitoringScenario) => void;
+  className?: string;
 }
 
-const PROFILES: {
-  id: Scenario;
-  icon: string;
-  title: string;
-  description: string;
-  features: string[];
-  color: string;
-}[] = [
+// =============================================================================
+// Profile Data
+// =============================================================================
+
+const PROFILES = [
   {
-    id: 'pet',
-    icon: '🐾',
-    title: 'Pet Monitoring',
-    description: 'Watch over your furry friends while you\'re away',
+    id: 'baby' as const,
+    name: 'Baby & Toddler',
+    emoji: '👶',
+    description: 'Monitor infants and toddlers for safety',
     features: [
-      'Activity detection',
-      'Eating/drinking monitoring',
+      'Sleep position monitoring',
+      'Cry detection',
+      'Movement alerts',
+      'Safe sleep reminders',
+    ],
+    color: 'from-pink-500 to-rose-500',
+    borderColor: 'border-pink-500',
+  },
+  {
+    id: 'pet' as const,
+    name: 'Pet Monitoring',
+    emoji: '🐕',
+    description: 'Keep an eye on your furry friends',
+    features: [
+      'Activity monitoring',
       'Distress detection',
       'Inactivity alerts',
+      'Behavior tracking',
     ],
-    color: 'safeos',
+    color: 'from-amber-500 to-orange-500',
+    borderColor: 'border-amber-500',
   },
   {
-    id: 'baby',
-    icon: '👶',
-    title: 'Baby Monitor',
-    description: 'Supplement your supervision with AI monitoring',
-    features: [
-      'Crying detection',
-      'Position monitoring',
-      'Sleep safety alerts',
-      'Motion tracking',
-    ],
-    color: 'blue',
-  },
-  {
-    id: 'elderly',
-    icon: '👴',
-    title: 'Elderly Care',
-    description: 'Additional monitoring for loved ones',
+    id: 'elderly' as const,
+    name: 'Elderly Care',
+    emoji: '👴',
+    description: 'Support senior safety and wellbeing',
     features: [
       'Fall detection',
-      'Inactivity alerts',
-      'Distress detection',
-      'Routine monitoring',
+      'Activity monitoring',
+      'Emergency alerts',
+      'Routine tracking',
     ],
-    color: 'purple',
+    color: 'from-blue-500 to-indigo-500',
+    borderColor: 'border-blue-500',
   },
 ];
 
-export default function ProfileSelector({
+// =============================================================================
+// Component
+// =============================================================================
+
+export function ProfileSelector({
   selected,
   onSelect,
+  className = '',
 }: ProfileSelectorProps) {
   return (
-    <div className="grid gap-4">
-      {PROFILES.map((profile) => {
-        const isSelected = selected === profile.id;
-        const colorClasses = {
-          safeos: 'border-safeos-500 bg-safeos-500/10',
-          blue: 'border-blue-500 bg-blue-500/10',
-          purple: 'border-purple-500 bg-purple-500/10',
-        };
-        const hoverClasses = {
-          safeos: 'hover:border-safeos-500/50',
-          blue: 'hover:border-blue-500/50',
-          purple: 'hover:border-purple-500/50',
-        };
+    <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${className}`}>
+      {PROFILES.map((profile) => (
+        <button
+          key={profile.id}
+          onClick={() => onSelect(profile.id)}
+          className={`relative p-6 rounded-xl text-left transition-all duration-200 ${
+            selected === profile.id
+              ? `ring-2 ${profile.borderColor} bg-gray-800`
+              : 'bg-gray-800/50 hover:bg-gray-800 border border-gray-700'
+          }`}
+        >
+          {/* Selected indicator */}
+          {selected === profile.id && (
+            <div
+              className={`absolute top-3 right-3 w-6 h-6 rounded-full bg-gradient-to-r ${profile.color} flex items-center justify-center`}
+            >
+              <svg
+                className="w-4 h-4 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+          )}
 
-        return (
-          <button
-            key={profile.id}
-            onClick={() => onSelect(profile.id)}
-            className={`profile-card text-left ${
-              isSelected
-                ? colorClasses[profile.color as keyof typeof colorClasses]
-                : hoverClasses[profile.color as keyof typeof hoverClasses]
+          {/* Emoji */}
+          <div className="text-5xl mb-4">{profile.emoji}</div>
+
+          {/* Title */}
+          <h3
+            className={`text-xl font-bold mb-2 ${
+              selected === profile.id ? 'text-white' : 'text-gray-200'
             }`}
           >
-            <div className="flex items-start gap-4">
-              <div className="text-4xl">{profile.icon}</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-white">
-                    {profile.title}
-                  </h3>
-                  {isSelected && (
-                    <span className="text-xs bg-safeos-500 text-white px-2 py-0.5 rounded-full">
-                      Selected
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-white/60 mt-1">{profile.description}</p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {profile.features.map((feature) => (
-                    <span
-                      key={feature}
-                      className="text-xs bg-white/10 text-white/70 px-2 py-1 rounded"
-                    >
-                      {feature}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </button>
-        );
-      })}
+            {profile.name}
+          </h3>
+
+          {/* Description */}
+          <p className="text-gray-400 text-sm mb-4">{profile.description}</p>
+
+          {/* Features */}
+          <ul className="space-y-2">
+            {profile.features.map((feature, index) => (
+              <li key={index} className="flex items-center gap-2 text-sm">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${profile.color}`}
+                />
+                <span className="text-gray-300">{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </button>
+      ))}
     </div>
   );
 }
 
+export default ProfileSelector;

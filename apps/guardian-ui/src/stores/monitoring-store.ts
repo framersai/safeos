@@ -1,7 +1,7 @@
 /**
  * Monitoring Store
  *
- * Zustand store for monitoring state.
+ * Zustand store for monitoring state management.
  *
  * @module stores/monitoring-store
  */
@@ -13,52 +13,69 @@ import { persist } from 'zustand/middleware';
 // Types
 // =============================================================================
 
-export type MonitoringScenario = 'pet' | 'baby' | 'elderly';
-
 export interface Alert {
   id: string;
   streamId: string;
+  alertType: string;
   severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
   message: string;
-  timestamp: string;
+  thumbnailUrl?: string;
+  createdAt: string;
   acknowledged: boolean;
 }
 
+export interface StreamInfo {
+  id: string;
+  scenario: 'pet' | 'baby' | 'elderly';
+  status: 'active' | 'paused' | 'ended';
+  startedAt: string;
+  motionScore?: number;
+  audioLevel?: number;
+}
+
+export interface MonitoringSettings {
+  motionSensitivity: number; // 0-100
+  audioSensitivity: number; // 0-100
+  analysisInterval: number; // seconds
+  enableMotionDetection: boolean;
+  enableAudioDetection: boolean;
+  enableCryDetection: boolean;
+  muted: boolean;
+}
+
 export interface MonitoringState {
-  // Connection state
-  isConnected: boolean;
+  // Stream state
   isStreaming: boolean;
   streamId: string | null;
-  peerId: string | null;
+  scenario: 'pet' | 'baby' | 'elderly' | null;
+  streams: StreamInfo[];
 
-  // Current readings
+  // Real-time metrics
   motionScore: number;
   audioLevel: number;
-  lastFrameTime: number | null;
+  hasCrying: boolean;
 
   // Alerts
   alerts: Alert[];
-  unacknowledgedCount: number;
 
   // Settings
-  scenario: MonitoringScenario;
-  motionSensitivity: number;
-  audioSensitivity: number;
+  settings: MonitoringSettings;
 
   // Actions
-  setConnected: (connected: boolean) => void;
   setStreaming: (streaming: boolean) => void;
-  setStreamId: (streamId: string | null) => void;
-  setPeerId: (peerId: string | null) => void;
+  setStreamId: (id: string | null) => void;
+  setScenario: (scenario: 'pet' | 'baby' | 'elderly' | null) => void;
   setMotionScore: (score: number) => void;
   setAudioLevel: (level: number) => void;
-  updateLastFrameTime: () => void;
+  setHasCrying: (crying: boolean) => void;
   addAlert: (alert: Alert) => void;
-  acknowledgeAlert: (alertId: string) => void;
+  removeAlert: (id: string) => void;
+  acknowledgeAlert: (id: string) => void;
   clearAlerts: () => void;
-  setScenario: (scenario: MonitoringScenario) => void;
-  setMotionSensitivity: (sensitivity: number) => void;
-  setAudioSensitivity: (sensitivity: number) => void;
+  addStream: (stream: StreamInfo) => void;
+  removeStream: (id: string) => void;
+  updateStream: (id: string, update: Partial<StreamInfo>) => void;
+  updateSettings: (settings: Partial<MonitoringSettings>) => void;
   reset: () => void;
 }
 
@@ -66,19 +83,14 @@ export interface MonitoringState {
 // Initial State
 // =============================================================================
 
-const initialState = {
-  isConnected: false,
-  isStreaming: false,
-  streamId: null,
-  peerId: null,
-  motionScore: 0,
-  audioLevel: 0,
-  lastFrameTime: null,
-  alerts: [] as Alert[],
-  unacknowledgedCount: 0,
-  scenario: 'baby' as MonitoringScenario,
+const DEFAULT_SETTINGS: MonitoringSettings = {
   motionSensitivity: 50,
   audioSensitivity: 50,
+  analysisInterval: 30,
+  enableMotionDetection: true,
+  enableAudioDetection: true,
+  enableCryDetection: true,
+  muted: false,
 };
 
 // =============================================================================
@@ -88,55 +100,106 @@ const initialState = {
 export const useMonitoringStore = create<MonitoringState>()(
   persist(
     (set, get) => ({
-      ...initialState,
+      // Initial state
+      isStreaming: false,
+      streamId: null,
+      scenario: null,
+      streams: [],
+      motionScore: 0,
+      audioLevel: 0,
+      hasCrying: false,
+      alerts: [],
+      settings: DEFAULT_SETTINGS,
 
-      setConnected: (connected) => set({ isConnected: connected }),
-
+      // Actions
       setStreaming: (streaming) => set({ isStreaming: streaming }),
 
-      setStreamId: (streamId) => set({ streamId }),
+      setStreamId: (id) => set({ streamId: id }),
 
-      setPeerId: (peerId) => set({ peerId }),
+      setScenario: (scenario) => set({ scenario }),
 
       setMotionScore: (score) => set({ motionScore: score }),
 
       setAudioLevel: (level) => set({ audioLevel: level }),
 
-      updateLastFrameTime: () => set({ lastFrameTime: Date.now() }),
+      setHasCrying: (crying) => set({ hasCrying: crying }),
 
       addAlert: (alert) =>
         set((state) => ({
           alerts: [alert, ...state.alerts].slice(0, 100), // Keep last 100
-          unacknowledgedCount: state.unacknowledgedCount + 1,
         })),
 
-      acknowledgeAlert: (alertId) =>
+      removeAlert: (id) =>
+        set((state) => ({
+          alerts: state.alerts.filter((a) => a.id !== id),
+        })),
+
+      acknowledgeAlert: (id) =>
         set((state) => ({
           alerts: state.alerts.map((a) =>
-            a.id === alertId ? { ...a, acknowledged: true } : a
+            a.id === id ? { ...a, acknowledged: true } : a
           ),
-          unacknowledgedCount: Math.max(0, state.unacknowledgedCount - 1),
         })),
 
-      clearAlerts: () => set({ alerts: [], unacknowledgedCount: 0 }),
+      clearAlerts: () => set({ alerts: [] }),
 
-      setScenario: (scenario) => set({ scenario }),
+      addStream: (stream) =>
+        set((state) => ({
+          streams: [...state.streams, stream],
+        })),
 
-      setMotionSensitivity: (sensitivity) =>
-        set({ motionSensitivity: sensitivity }),
+      removeStream: (id) =>
+        set((state) => ({
+          streams: state.streams.filter((s) => s.id !== id),
+        })),
 
-      setAudioSensitivity: (sensitivity) =>
-        set({ audioSensitivity: sensitivity }),
+      updateStream: (id, update) =>
+        set((state) => ({
+          streams: state.streams.map((s) =>
+            s.id === id ? { ...s, ...update } : s
+          ),
+        })),
 
-      reset: () => set(initialState),
+      updateSettings: (update) =>
+        set((state) => ({
+          settings: { ...state.settings, ...update },
+        })),
+
+      reset: () =>
+        set({
+          isStreaming: false,
+          streamId: null,
+          scenario: null,
+          streams: [],
+          motionScore: 0,
+          audioLevel: 0,
+          hasCrying: false,
+          alerts: [],
+          settings: DEFAULT_SETTINGS,
+        }),
     }),
     {
       name: 'safeos-monitoring',
       partialize: (state) => ({
-        scenario: state.scenario,
-        motionSensitivity: state.motionSensitivity,
-        audioSensitivity: state.audioSensitivity,
+        settings: state.settings,
+        // Don't persist real-time data
       }),
     }
   )
 );
+
+// =============================================================================
+// Selectors (for performance optimization)
+// =============================================================================
+
+export const selectIsStreaming = (state: MonitoringState) => state.isStreaming;
+export const selectStreamId = (state: MonitoringState) => state.streamId;
+export const selectScenario = (state: MonitoringState) => state.scenario;
+export const selectAlerts = (state: MonitoringState) => state.alerts;
+export const selectUnacknowledgedAlerts = (state: MonitoringState) =>
+  state.alerts.filter((a) => !a.acknowledged);
+export const selectSettings = (state: MonitoringState) => state.settings;
+export const selectMotionScore = (state: MonitoringState) => state.motionScore;
+export const selectAudioLevel = (state: MonitoringState) => state.audioLevel;
+
+export default useMonitoringStore;

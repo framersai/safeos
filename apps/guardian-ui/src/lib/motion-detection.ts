@@ -1,8 +1,7 @@
 /**
  * Motion Detection
  *
- * Client-side motion detection using pixel comparison.
- * Runs in the browser to minimize server load and latency.
+ * Client-side motion detection using frame differencing.
  *
  * @module lib/motion-detection
  */
@@ -16,44 +15,42 @@ export interface MotionRegion {
   y: number;
   width: number;
   height: number;
-  score: number;
-}
-
-export interface MotionThresholds {
-  pixelDifferenceThreshold: number;
-  overallMotionThreshold: number;
-  regionSize: number;
+  intensity: number;
 }
 
 // =============================================================================
-// Configuration
+// Constants
 // =============================================================================
 
-export const MOTION_THRESHOLDS: Record<string, MotionThresholds> = {
+/**
+ * Motion thresholds per scenario (percentage of changed pixels)
+ */
+export const MOTION_THRESHOLDS = {
   pet: {
-    pixelDifferenceThreshold: 30,
-    overallMotionThreshold: 0.05,
-    regionSize: 32,
+    low: 5, // Subtle movement
+    medium: 15, // Moderate activity
+    high: 30, // Significant movement
   },
   baby: {
-    pixelDifferenceThreshold: 25,
-    overallMotionThreshold: 0.03, // More sensitive for babies
-    regionSize: 24,
+    low: 3, // Very sensitive for infant monitoring
+    medium: 10, // Normal movement
+    high: 25, // Active movement
   },
   elderly: {
-    pixelDifferenceThreshold: 35,
-    overallMotionThreshold: 0.04,
-    regionSize: 32,
-  },
-  default: {
-    pixelDifferenceThreshold: 30,
-    overallMotionThreshold: 0.05,
-    regionSize: 32,
+    low: 2, // Very sensitive for fall detection
+    medium: 8, // Normal activity
+    high: 20, // Significant movement
   },
 };
 
+// Pixel difference threshold (0-255)
+const PIXEL_THRESHOLD = 30;
+
+// Downsampling factor for performance
+const DOWNSAMPLE = 4;
+
 // =============================================================================
-// Motion Detection
+// Core Detection Functions
 // =============================================================================
 
 /**
@@ -61,210 +58,256 @@ export const MOTION_THRESHOLDS: Record<string, MotionThresholds> = {
  *
  * @param previousFrame - Previous frame ImageData
  * @param currentFrame - Current frame ImageData
- * @param thresholds - Optional custom thresholds
  * @returns Motion score between 0 and 1
  */
 export function detectMotion(
   previousFrame: ImageData,
-  currentFrame: ImageData,
-  thresholds: Partial<MotionThresholds> = {}
+  currentFrame: ImageData
 ): number {
-  const config = { ...MOTION_THRESHOLDS.default, ...thresholds };
-
-  if (
-    previousFrame.width !== currentFrame.width ||
-    previousFrame.height !== currentFrame.height
-  ) {
-    return 0;
-  }
-
-  const prevData = previousFrame.data;
-  const currData = currentFrame.data;
-  const pixelCount = prevData.length / 4;
+  const prev = previousFrame.data;
+  const curr = currentFrame.data;
+  const width = previousFrame.width;
+  const height = previousFrame.height;
 
   let changedPixels = 0;
+  let totalPixels = 0;
 
-  for (let i = 0; i < prevData.length; i += 4) {
-    // Calculate luminance difference (more efficient than full RGB)
-    const prevLum = prevData[i] * 0.299 + prevData[i + 1] * 0.587 + prevData[i + 2] * 0.114;
-    const currLum = currData[i] * 0.299 + currData[i + 1] * 0.587 + currData[i + 2] * 0.114;
+  // Iterate over pixels with downsampling
+  for (let y = 0; y < height; y += DOWNSAMPLE) {
+    for (let x = 0; x < width; x += DOWNSAMPLE) {
+      const i = (y * width + x) * 4;
 
-    const diff = Math.abs(currLum - prevLum);
+      // Calculate grayscale for comparison
+      const prevGray = (prev[i] + prev[i + 1] + prev[i + 2]) / 3;
+      const currGray = (curr[i] + curr[i + 1] + curr[i + 2]) / 3;
 
-    if (diff > config.pixelDifferenceThreshold) {
-      changedPixels++;
+      // Check if pixel changed significantly
+      if (Math.abs(prevGray - currGray) > PIXEL_THRESHOLD) {
+        changedPixels++;
+      }
+      totalPixels++;
     }
   }
 
-  return changedPixels / pixelCount;
+  return totalPixels > 0 ? changedPixels / totalPixels : 0;
 }
 
 /**
  * Calculate motion score with weighted regions
- * (Center of frame weighted higher)
+ *
+ * @param previousFrame - Previous frame ImageData
+ * @param currentFrame - Current frame ImageData
+ * @param weights - Optional weight map (0-1 for each region)
+ * @returns Weighted motion score
  */
 export function calculateMotionScore(
   previousFrame: ImageData,
   currentFrame: ImageData,
-  centerWeight: number = 1.5
+  weights?: number[][]
 ): number {
-  const width = currentFrame.width;
-  const height = currentFrame.height;
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+  const prev = previousFrame.data;
+  const curr = currentFrame.data;
+  const width = previousFrame.width;
+  const height = previousFrame.height;
 
-  const prevData = previousFrame.data;
-  const currData = currentFrame.data;
+  const gridX = 8;
+  const gridY = 6;
+  const cellWidth = Math.floor(width / gridX);
+  const cellHeight = Math.floor(height / gridY);
 
+  let weightedScore = 0;
   let totalWeight = 0;
-  let weightedChange = 0;
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
+  for (let gy = 0; gy < gridY; gy++) {
+    for (let gx = 0; gx < gridX; gx++) {
+      const weight = weights?.[gy]?.[gx] ?? 1;
+      const startX = gx * cellWidth;
+      const startY = gy * cellHeight;
 
-      // Calculate luminance difference
-      const prevLum =
-        prevData[i] * 0.299 + prevData[i + 1] * 0.587 + prevData[i + 2] * 0.114;
-      const currLum =
-        currData[i] * 0.299 + currData[i + 1] * 0.587 + currData[i + 2] * 0.114;
+      let changedPixels = 0;
+      let cellPixels = 0;
 
-      const diff = Math.abs(currLum - prevLum) / 255;
+      for (let y = startY; y < startY + cellHeight; y += DOWNSAMPLE) {
+        for (let x = startX; x < startX + cellWidth; x += DOWNSAMPLE) {
+          const i = (y * width + x) * 4;
 
-      // Weight based on distance from center
-      const distX = x - centerX;
-      const distY = y - centerY;
-      const distance = Math.sqrt(distX * distX + distY * distY);
-      const weight = 1 + (1 - distance / maxDistance) * (centerWeight - 1);
+          const prevGray = (prev[i] + prev[i + 1] + prev[i + 2]) / 3;
+          const currGray = (curr[i] + curr[i + 1] + curr[i + 2]) / 3;
 
+          if (Math.abs(prevGray - currGray) > PIXEL_THRESHOLD) {
+            changedPixels++;
+          }
+          cellPixels++;
+        }
+      }
+
+      const cellScore = cellPixels > 0 ? changedPixels / cellPixels : 0;
+      weightedScore += cellScore * weight;
       totalWeight += weight;
-      weightedChange += diff * weight;
     }
   }
 
-  return totalWeight > 0 ? weightedChange / totalWeight : 0;
+  return totalWeight > 0 ? weightedScore / totalWeight : 0;
 }
 
 /**
- * Detect motion in specific regions
- * Returns array of regions with motion scores
+ * Detect motion regions (areas with significant change)
+ *
+ * @param previousFrame - Previous frame ImageData
+ * @param currentFrame - Current frame ImageData
+ * @param minIntensity - Minimum intensity threshold (0-1)
+ * @returns Array of motion regions
  */
 export function detectRegionalMotion(
   previousFrame: ImageData,
   currentFrame: ImageData,
-  gridSize: number = 4
+  minIntensity: number = 0.1
 ): MotionRegion[] {
-  const width = currentFrame.width;
-  const height = currentFrame.height;
-  const regionWidth = Math.floor(width / gridSize);
-  const regionHeight = Math.floor(height / gridSize);
+  const prev = previousFrame.data;
+  const curr = currentFrame.data;
+  const width = previousFrame.width;
+  const height = previousFrame.height;
+
+  const gridX = 16;
+  const gridY = 12;
+  const cellWidth = Math.floor(width / gridX);
+  const cellHeight = Math.floor(height / gridY);
 
   const regions: MotionRegion[] = [];
 
-  for (let gy = 0; gy < gridSize; gy++) {
-    for (let gx = 0; gx < gridSize; gx++) {
-      const startX = gx * regionWidth;
-      const startY = gy * regionHeight;
+  for (let gy = 0; gy < gridY; gy++) {
+    for (let gx = 0; gx < gridX; gx++) {
+      const startX = gx * cellWidth;
+      const startY = gy * cellHeight;
 
       let changedPixels = 0;
-      let totalPixels = 0;
+      let cellPixels = 0;
 
-      for (let y = startY; y < startY + regionHeight && y < height; y++) {
-        for (let x = startX; x < startX + regionWidth && x < width; x++) {
+      for (let y = startY; y < startY + cellHeight; y += DOWNSAMPLE) {
+        for (let x = startX; x < startX + cellWidth; x += DOWNSAMPLE) {
           const i = (y * width + x) * 4;
 
-          const prevLum =
-            previousFrame.data[i] * 0.299 +
-            previousFrame.data[i + 1] * 0.587 +
-            previousFrame.data[i + 2] * 0.114;
-          const currLum =
-            currentFrame.data[i] * 0.299 +
-            currentFrame.data[i + 1] * 0.587 +
-            currentFrame.data[i + 2] * 0.114;
+          const prevGray = (prev[i] + prev[i + 1] + prev[i + 2]) / 3;
+          const currGray = (curr[i] + curr[i + 1] + curr[i + 2]) / 3;
 
-          if (Math.abs(currLum - prevLum) > 30) {
+          if (Math.abs(prevGray - currGray) > PIXEL_THRESHOLD) {
             changedPixels++;
           }
-          totalPixels++;
+          cellPixels++;
         }
       }
 
-      const score = totalPixels > 0 ? changedPixels / totalPixels : 0;
+      const intensity = cellPixels > 0 ? changedPixels / cellPixels : 0;
 
-      if (score > 0.01) {
+      if (intensity >= minIntensity) {
         regions.push({
           x: startX,
           y: startY,
-          width: regionWidth,
-          height: regionHeight,
-          score,
+          width: cellWidth,
+          height: cellHeight,
+          intensity,
         });
       }
     }
   }
 
-  // Sort by score descending
-  return regions.sort((a, b) => b.score - a.score);
+  return regions;
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Get motion threshold for a scenario
+ */
+export function getThresholdForScenario(
+  scenario: 'pet' | 'baby' | 'elderly'
+): number {
+  return MOTION_THRESHOLDS[scenario]?.medium || 10;
 }
 
 /**
- * Get threshold for a specific scenario
+ * Check if motion exceeds threshold for alert
  */
-export function getThresholdForScenario(scenario: string): number {
-  const thresholds = MOTION_THRESHOLDS[scenario] || MOTION_THRESHOLDS.default;
-  return thresholds.overallMotionThreshold;
-}
-
-/**
- * Smooth motion values to reduce noise
- */
-export class MotionSmoother {
-  private values: number[] = [];
-  private maxValues: number;
-
-  constructor(windowSize: number = 5) {
-    this.maxValues = windowSize;
-  }
-
-  add(value: number): number {
-    this.values.push(value);
-    if (this.values.length > this.maxValues) {
-      this.values.shift();
-    }
-
-    // Return average
-    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
-  }
-
-  reset(): void {
-    this.values = [];
-  }
-
-  getAverage(): number {
-    if (this.values.length === 0) return 0;
-    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
-  }
-
-  getPeak(): number {
-    if (this.values.length === 0) return 0;
-    return Math.max(...this.values);
-  }
-}
-
-/**
- * Detect sudden motion spikes (could indicate fall)
- */
-export function detectSuddenMotion(
-  motionHistory: number[],
-  spikeThreshold: number = 3
+export function shouldTriggerMotionAlert(
+  score: number,
+  scenario: 'pet' | 'baby' | 'elderly',
+  level: 'low' | 'medium' | 'high' = 'medium'
 ): boolean {
-  if (motionHistory.length < 5) return false;
-
-  const recent = motionHistory.slice(-5);
-  const average = recent.slice(0, 4).reduce((a, b) => a + b, 0) / 4;
-  const current = recent[4];
-
-  // Check if current motion is significantly higher than average
-  return average > 0.01 && current > average * spikeThreshold;
+  const threshold = MOTION_THRESHOLDS[scenario]?.[level] || 10;
+  return score * 100 >= threshold;
 }
+
+/**
+ * Normalize motion score to 0-100 scale
+ */
+export function normalizeMotionScore(score: number): number {
+  return Math.round(Math.min(score * 100, 100));
+}
+
+/**
+ * Create motion heatmap from regional data
+ */
+export function createMotionHeatmap(
+  regions: MotionRegion[],
+  width: number,
+  height: number
+): ImageData {
+  const imageData = new ImageData(width, height);
+  const data = imageData.data;
+
+  for (const region of regions) {
+    const color = intensityToColor(region.intensity);
+
+    for (let y = region.y; y < region.y + region.height; y++) {
+      for (let x = region.x; x < region.x + region.width; x++) {
+        const i = (y * width + x) * 4;
+        data[i] = color.r;
+        data[i + 1] = color.g;
+        data[i + 2] = color.b;
+        data[i + 3] = Math.round(color.a * 255);
+      }
+    }
+  }
+
+  return imageData;
+}
+
+/**
+ * Convert intensity to color (green → yellow → red)
+ */
+function intensityToColor(
+  intensity: number
+): { r: number; g: number; b: number; a: number } {
+  const clamped = Math.max(0, Math.min(1, intensity));
+
+  if (clamped < 0.5) {
+    // Green to yellow
+    return {
+      r: Math.round(clamped * 2 * 255),
+      g: 255,
+      b: 0,
+      a: 0.5,
+    };
+  } else {
+    // Yellow to red
+    return {
+      r: 255,
+      g: Math.round((1 - (clamped - 0.5) * 2) * 255),
+      b: 0,
+      a: 0.5,
+    };
+  }
+}
+
+export default {
+  detectMotion,
+  calculateMotionScore,
+  detectRegionalMotion,
+  getThresholdForScenario,
+  shouldTriggerMotionAlert,
+  normalizeMotionScore,
+  createMotionHeatmap,
+  MOTION_THRESHOLDS,
+};

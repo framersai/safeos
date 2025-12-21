@@ -1,49 +1,51 @@
 /**
  * SafeOS API Server
  *
- * Express server with WebSocket support for real-time monitoring.
+ * Express + WebSocket server for SafeOS Guardian.
  *
  * @module api/server
  */
 
-import express, { type Express, type Request, type Response } from 'express';
-import { createServer, type Server } from 'http';
+import express, { Express, Request, Response, NextFunction } from 'express';
+import { createServer, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
-import { getSafeOSDatabase, runMigrations } from '../db/index.js';
-import { getDefaultOllamaClient } from '../lib/ollama/client.js';
-import { getDefaultStreamManager } from '../lib/streams/manager.js';
-import { getDefaultAnalysisQueue } from '../queues/analysis-queue.js';
-import { getDefaultSignalingServer } from '../lib/webrtc/signaling.js';
-import type { SignalingMessage } from '../lib/webrtc/signaling.js';
-
-// Import routes
-import {
-  streamsRouter,
-  alertsRouter,
-  profilesRouter,
-  systemRouter,
-  analysisRouter,
-  notificationsRouter,
-  reviewRouter,
-} from './routes/index.js';
+import { getSafeOSDatabase, runMigrations, generateId, now } from '../db';
+import { AnalysisQueue } from '../queues/analysis-queue';
+import { OllamaClient } from '../lib/ollama/client';
+import { streamRoutes } from './routes/streams';
+import { alertRoutes } from './routes/alerts';
+import { profileRoutes } from './routes/profiles';
+import { analysisRoutes } from './routes/analysis';
+import { systemRoutes } from './routes/system';
+import { notificationRoutes } from './routes/notifications';
+import { reviewRoutes } from './routes/review';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface ServerConfig {
-  port: number;
-  host: string;
-  corsOrigins?: string[];
+interface WSClient {
+  id: string;
+  ws: WebSocket;
+  streamId?: string;
+  subscriptions: Set<string>;
 }
 
-export interface WSMessage {
+interface WSMessage {
   type: string;
-  payload?: any;
   streamId?: string;
-  peerId?: string;
+  channel?: string;
+  payload?: any;
+  timestamp?: number;
 }
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const PORT = parseInt(process.env['SAFEOS_PORT'] || '3001', 10);
+const WS_HEARTBEAT_INTERVAL = 30000;
 
 // =============================================================================
 // Server Class
@@ -53,20 +55,16 @@ export class SafeOSServer {
   private app: Express;
   private server: Server;
   private wss: WebSocketServer;
-  private config: ServerConfig;
-  private clients: Map<WebSocket, { streamId?: string; peerId?: string }> = new Map();
+  private clients: Map<string, WSClient> = new Map();
+  private analysisQueue: AnalysisQueue | null = null;
+  private ollamaClient: OllamaClient;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
 
-  constructor(config?: Partial<ServerConfig>) {
-    this.config = {
-      port: parseInt(process.env['PORT'] || '3000', 10),
-      host: process.env['HOST'] || '0.0.0.0',
-      corsOrigins: process.env['CORS_ORIGINS']?.split(',') || ['*'],
-      ...config,
-    };
-
+  constructor() {
     this.app = express();
     this.server = createServer(this.app);
     this.wss = new WebSocketServer({ server: this.server });
+    this.ollamaClient = new OllamaClient();
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -74,34 +72,24 @@ export class SafeOSServer {
   }
 
   // ---------------------------------------------------------------------------
-  // Setup Methods
+  // Middleware
   // ---------------------------------------------------------------------------
 
   private setupMiddleware(): void {
-    // CORS
-    this.app.use(
-      cors({
-        origin: this.config.corsOrigins,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-      })
-    );
-
-    // JSON parsing
+    this.app.use(cors());
     this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true }));
 
     // Request logging
-    this.app.use((req, res, next) => {
-      const start = Date.now();
-      res.on('finish', () => {
-        const duration = Date.now() - start;
-        if (process.env['NODE_ENV'] !== 'production') {
-          console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
-        }
-      });
+    this.app.use((req: Request, _res: Response, next: NextFunction) => {
+      console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
       next();
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Routes
+  // ---------------------------------------------------------------------------
 
   private setupRoutes(): void {
     // Health check
@@ -109,14 +97,27 @@ export class SafeOSServer {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
-    // API routes
-    this.app.use('/api/streams', streamsRouter);
-    this.app.use('/api/alerts', alertsRouter);
-    this.app.use('/api/profiles', profilesRouter);
-    this.app.use('/api/system', systemRouter);
-    this.app.use('/api/analysis', analysisRouter);
-    this.app.use('/api/notifications', notificationsRouter);
-    this.app.use('/api/review', reviewRouter);
+    // Mount route modules
+    this.app.use('/api/streams', streamRoutes);
+    this.app.use('/api/alerts', alertRoutes);
+    this.app.use('/api/profiles', profileRoutes);
+    this.app.use('/api/analysis', analysisRoutes);
+    this.app.use('/api', systemRoutes);
+    this.app.use('/api/notifications', notificationRoutes);
+    this.app.use('/api/review', reviewRoutes);
+
+    // Ollama status
+    this.app.get('/api/ollama/status', async (_req: Request, res: Response) => {
+      const available = await this.ollamaClient.isHealthy();
+      const models = available ? await this.ollamaClient.listModels() : [];
+      res.json({ available, models });
+    });
+
+    // Ollama models
+    this.app.get('/api/ollama/models', async (_req: Request, res: Response) => {
+      const models = await this.ollamaClient.listModels();
+      res.json({ models });
+    });
 
     // 404 handler
     this.app.use((_req: Request, res: Response) => {
@@ -124,129 +125,234 @@ export class SafeOSServer {
     });
 
     // Error handler
-    this.app.use((err: Error, _req: Request, res: Response, _next: any) => {
+    this.app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
       res.status(500).json({ error: 'Internal server error' });
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // WebSocket
+  // ---------------------------------------------------------------------------
+
   private setupWebSocket(): void {
-    const signaling = getDefaultSignalingServer();
-    const streamManager = getDefaultStreamManager();
-    const analysisQueue = getDefaultAnalysisQueue();
-
     this.wss.on('connection', (ws: WebSocket) => {
-      // Register with signaling server
-      const peerId = signaling.handleConnection(ws);
-      this.clients.set(ws, { peerId });
+      const clientId = generateId();
+      const client: WSClient = {
+        id: clientId,
+        ws,
+        subscriptions: new Set(),
+      };
+      this.clients.set(clientId, client);
 
-      ws.on('message', async (data: Buffer) => {
+      console.log(`WebSocket client connected: ${clientId}`);
+
+      // Send welcome message
+      this.sendToClient(client, {
+        type: 'connected',
+        payload: { clientId },
+      });
+
+      // Handle messages
+      ws.on('message', async (data) => {
         try {
           const message: WSMessage = JSON.parse(data.toString());
-          await this.handleWSMessage(ws, message, signaling, streamManager, analysisQueue);
-        } catch (error) {
-          console.error('WebSocket message error:', error);
-          ws.send(JSON.stringify({ type: 'error', payload: { error: 'Invalid message' } }));
+          await this.handleWSMessage(client, message);
+        } catch (err) {
+          console.error('Failed to parse WebSocket message:', err);
         }
       });
 
+      // Handle close
       ws.on('close', () => {
-        signaling.handleDisconnection(ws);
-        this.clients.delete(ws);
+        console.log(`WebSocket client disconnected: ${clientId}`);
+        this.clients.delete(clientId);
       });
 
-      ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+      // Handle error
+      ws.on('error', (err) => {
+        console.error(`WebSocket error for ${clientId}:`, err);
       });
-
-      // Send welcome message
-      ws.send(JSON.stringify({ type: 'connected', payload: { peerId } }));
     });
+
+    // Start heartbeat
+    this.heartbeatInterval = setInterval(() => {
+      this.clients.forEach((client) => {
+        if (client.ws.readyState === WebSocket.OPEN) {
+          this.sendToClient(client, { type: 'ping' });
+        }
+      });
+    }, WS_HEARTBEAT_INTERVAL);
   }
 
-  private async handleWSMessage(
-    ws: WebSocket,
-    message: WSMessage,
-    signaling: ReturnType<typeof getDefaultSignalingServer>,
-    streamManager: ReturnType<typeof getDefaultStreamManager>,
-    analysisQueue: ReturnType<typeof getDefaultAnalysisQueue>
-  ): Promise<void> {
-    const clientData = this.clients.get(ws);
-
+  private async handleWSMessage(client: WSClient, message: WSMessage): Promise<void> {
     switch (message.type) {
-      // Signaling messages
-      case 'join-room':
-      case 'leave-room':
+      case 'ping':
+        this.sendToClient(client, { type: 'pong' });
+        break;
+
+      case 'pong':
+        // Client responded to heartbeat
+        break;
+
+      case 'subscribe':
+        if (message.channel) {
+          client.subscriptions.add(message.channel);
+          console.log(`Client ${client.id} subscribed to ${message.channel}`);
+        }
+        break;
+
+      case 'unsubscribe':
+        if (message.channel) {
+          client.subscriptions.delete(message.channel);
+        }
+        break;
+
+      case 'join_stream':
+        if (message.streamId) {
+          client.streamId = message.streamId;
+          console.log(`Client ${client.id} joined stream ${message.streamId}`);
+        }
+        break;
+
+      case 'leave_stream':
+        client.streamId = undefined;
+        break;
+
+      case 'frame':
+        await this.handleFrame(client, message);
+        break;
+
+      case 'audio_level':
+        await this.handleAudioLevel(client, message);
+        break;
+
+      // WebRTC signaling
       case 'offer':
       case 'answer':
       case 'ice-candidate':
-      case 'room-info':
-        signaling.handleMessage(ws, message as SignalingMessage);
-        break;
-
-      // Stream management
-      case 'start-stream':
-        const stream = await streamManager.createStream({
-          scenario: message.payload?.scenario || 'baby',
-          userId: message.payload?.userId,
-        });
-        if (clientData) {
-          clientData.streamId = stream.id;
-        }
-        streamManager.attachSocket(stream.id, ws as any);
-        ws.send(JSON.stringify({ type: 'stream-started', payload: { streamId: stream.id } }));
-        break;
-
-      case 'stop-stream':
-        if (clientData?.streamId) {
-          await streamManager.endStream(clientData.streamId);
-          clientData.streamId = undefined;
-        }
-        ws.send(JSON.stringify({ type: 'stream-stopped' }));
-        break;
-
-      // Frame analysis
-      case 'frame':
-        if (clientData?.streamId && message.payload?.frame) {
-          const stream = streamManager.getStream(clientData.streamId);
-          if (stream) {
-            streamManager.incrementFrameCount(clientData.streamId);
-            streamManager.updatePing(clientData.streamId);
-
-            // Queue for analysis if motion/audio above threshold
-            if (message.payload.motionScore > 30 || message.payload.audioLevel > 30) {
-              analysisQueue.enqueue({
-                streamId: clientData.streamId,
-                scenario: stream.scenario,
-                frameData: message.payload.frame,
-                motionScore: message.payload.motionScore || 0,
-                audioLevel: message.payload.audioLevel || 0,
-              });
-            }
-          }
-        }
-        break;
-
-      // Ping
-      case 'ping':
-        if (clientData?.streamId) {
-          streamManager.updatePing(clientData.streamId);
-        }
-        ws.send(JSON.stringify({ type: 'pong', payload: { timestamp: Date.now() } }));
+        this.handleSignaling(client, message);
         break;
 
       default:
-        ws.send(JSON.stringify({ type: 'error', payload: { error: 'Unknown message type' } }));
+        console.log(`Unknown message type: ${message.type}`);
+    }
+  }
+
+  private async handleFrame(client: WSClient, message: WSMessage): Promise<void> {
+    const { streamId, payload } = message;
+    if (!streamId || !payload) return;
+
+    const { imageData, motionScore, audioLevel } = payload;
+
+    // Store frame in buffer
+    const db = await getSafeOSDatabase();
+    const frameId = generateId();
+    await db.run(
+      `INSERT INTO frame_buffer (id, stream_id, frame_data, motion_score, audio_level, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [frameId, streamId, imageData, motionScore || 0, audioLevel || 0, now()]
+    );
+
+    // Queue for analysis if motion/audio detected
+    const motionThreshold = 10; // Adjust based on scenario
+    const audioThreshold = 15;
+
+    if ((motionScore || 0) >= motionThreshold || (audioLevel || 0) >= audioThreshold) {
+      if (this.analysisQueue) {
+        await this.analysisQueue.enqueue({
+          id: generateId(),
+          streamId,
+          frameId,
+          imageData,
+          motionScore: motionScore || 0,
+          audioLevel: audioLevel || 0,
+          scenario: 'baby', // TODO: Get from stream
+          priority: (motionScore || 0) > 50 ? 2 : 1,
+          status: 'pending',
+          createdAt: now(),
+        });
+      }
+    }
+
+    // Broadcast motion/audio levels to subscribers
+    this.broadcastToStream(streamId, {
+      type: 'metrics',
+      streamId,
+      payload: { motionScore, audioLevel },
+    });
+  }
+
+  private async handleAudioLevel(client: WSClient, message: WSMessage): Promise<void> {
+    const { streamId, payload } = message;
+    if (!streamId || !payload) return;
+
+    // Broadcast audio level
+    this.broadcastToStream(streamId, {
+      type: 'audio_level',
+      streamId,
+      payload: { level: payload.level, hasCrying: payload.hasCrying },
+    });
+  }
+
+  private handleSignaling(client: WSClient, message: WSMessage): void {
+    const { type, payload } = message;
+    const targetPeerId = payload?.targetPeerId;
+
+    if (!targetPeerId) return;
+
+    // Find target client and forward message
+    const targetClient = Array.from(this.clients.values()).find(
+      (c) => c.id === targetPeerId
+    );
+
+    if (targetClient && targetClient.ws.readyState === WebSocket.OPEN) {
+      this.sendToClient(targetClient, {
+        type,
+        payload: {
+          ...payload,
+          peerId: client.id,
+        },
+      });
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Public Methods
+  // Broadcasting
   // ---------------------------------------------------------------------------
 
-  /**
-   * Start the server
-   */
+  private sendToClient(client: WSClient, message: WSMessage): void {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(JSON.stringify({ ...message, timestamp: Date.now() }));
+    }
+  }
+
+  public broadcast(channel: string, message: WSMessage): void {
+    this.clients.forEach((client) => {
+      if (client.subscriptions.has(channel)) {
+        this.sendToClient(client, message);
+      }
+    });
+  }
+
+  public broadcastToStream(streamId: string, message: WSMessage): void {
+    this.clients.forEach((client) => {
+      if (client.streamId === streamId) {
+        this.sendToClient(client, message);
+      }
+    });
+  }
+
+  public broadcastToAll(message: WSMessage): void {
+    this.clients.forEach((client) => {
+      this.sendToClient(client, message);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
   async start(): Promise<void> {
     // Initialize database
     const db = await getSafeOSDatabase();
@@ -254,114 +360,90 @@ export class SafeOSServer {
     console.log('Database initialized');
 
     // Check Ollama
-    const ollama = getDefaultOllamaClient();
-    if (await ollama.isHealthy()) {
-      console.log('Ollama is healthy');
-      const result = await ollama.ensureModels();
-      console.log('Models:', result);
-    } else {
-      console.warn('Ollama is not available - will use cloud fallback');
+    const ollamaAvailable = await this.ollamaClient.isHealthy();
+    console.log(`Ollama: ${ollamaAvailable ? 'available' : 'not available'}`);
+
+    if (ollamaAvailable) {
+      // Ensure required models are available
+      await this.ollamaClient.ensureModels(['moondream', 'llava:7b']);
     }
 
-    // Start analysis queue
-    const queue = getDefaultAnalysisQueue();
-    queue.start();
+    // Initialize analysis queue
+    this.analysisQueue = new AnalysisQueue({
+      concurrency: 2,
+      maxRetries: 3,
+      retryDelay: 5000,
+    });
+    await this.analysisQueue.start();
     console.log('Analysis queue started');
 
-    // Start HTTP server
+    // Start server
     return new Promise((resolve) => {
-      this.server.listen(this.config.port, this.config.host, () => {
-        console.log(`SafeOS server running at http://${this.config.host}:${this.config.port}`);
+      this.server.listen(PORT, () => {
+        console.log(`SafeOS server running on port ${PORT}`);
+        console.log(`WebSocket server ready`);
         resolve();
       });
     });
   }
 
-  /**
-   * Stop the server
-   */
   async stop(): Promise<void> {
-    // Stop queue
-    const queue = getDefaultAnalysisQueue();
-    queue.stop();
+    console.log('Shutting down SafeOS server...');
 
-    // Close all WebSocket connections
-    for (const [ws] of this.clients) {
-      ws.close();
+    // Stop heartbeat
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
     }
 
-    // Stop stream manager
-    const streamManager = getDefaultStreamManager();
-    await streamManager.shutdown();
+    // Stop analysis queue
+    if (this.analysisQueue) {
+      await this.analysisQueue.stop();
+    }
+
+    // Close all WebSocket connections
+    this.clients.forEach((client) => {
+      client.ws.close();
+    });
+    this.clients.clear();
 
     // Close server
     return new Promise((resolve, reject) => {
-      this.server.close((err) => {
-        if (err) reject(err);
-        else resolve();
+      this.wss.close(() => {
+        this.server.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
       });
     });
   }
 
-  /**
-   * Broadcast to all connected clients
-   */
-  broadcast(message: WSMessage): void {
-    const data = JSON.stringify(message);
-    for (const [ws] of this.clients) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
-      }
-    }
-  }
-
-  /**
-   * Broadcast to clients watching a specific stream
-   */
-  broadcastToStream(streamId: string, message: WSMessage): void {
-    const data = JSON.stringify(message);
-    for (const [ws, clientData] of this.clients) {
-      if (ws.readyState === WebSocket.OPEN && clientData.streamId === streamId) {
-        ws.send(data);
-      }
-    }
-  }
-
-  /**
-   * Get Express app (for testing)
-   */
   getApp(): Express {
     return this.app;
   }
 }
 
 // =============================================================================
-// Main Entry Point
+// Entry Point
 // =============================================================================
 
-async function main(): Promise<void> {
+// Start server if run directly
+if (require.main === module) {
   const server = new SafeOSServer();
+  server.start().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
 
   // Graceful shutdown
   process.on('SIGINT', async () => {
-    console.log('\nShutting down...');
     await server.stop();
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
-    console.log('\nShutting down...');
     await server.stop();
     process.exit(0);
   });
-
-  await server.start();
 }
 
-// Run if executed directly
-if (process.argv[1]?.includes('server')) {
-  main().catch(console.error);
-}
-
-export { SafeOSServer };
 export default SafeOSServer;

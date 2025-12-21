@@ -1,30 +1,34 @@
 {
-  "name": "@supercloud/guardian-ui",
+  "name": "@safeos/guardian-ui",
   "version": "0.1.0",
   "private": true,
-  "description": "SafeOS Guardian UI - Free AI monitoring for pets, babies, and elderly",
   "scripts": {
-    "dev": "next dev -p 3474",
+    "dev": "next dev -p 3002",
     "build": "next build",
-    "start": "next start -p 3474",
-    "lint": "next lint"
+    "start": "next start -p 3002",
+    "lint": "next lint",
+    "export": "next build && next export"
   },
   "dependencies": {
-    "next": "^14.2.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "zustand": "^4.5.0",
-    "howler": "^2.2.4"
+    "howler": "^2.2.4",
+    "next": "^14.2.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "simple-peer": "^9.11.1",
+    "socket.io-client": "^4.8.1",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "@types/node": "^22.10.1",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "@types/howler": "^2.2.11",
-    "typescript": "5.8.3",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.0",
-    "autoprefixer": "^10.4.0"
+    "@types/howler": "^2.2.12",
+    "@types/node": "^22.9.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/simple-peer": "^9.11.8",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.18",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3"
   }
 }
-

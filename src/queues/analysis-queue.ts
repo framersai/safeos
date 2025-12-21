@@ -1,86 +1,105 @@
 /**
  * Analysis Queue
  *
- * Queue-based system for processing frames with local AI and cloud fallback.
+ * Queue for processing frames with AI analysis.
  *
  * @module queues/analysis-queue
  */
 
-import { getSafeOSDatabase, generateId, now } from '../db/index.js';
-import { getDefaultOllamaClient } from '../lib/ollama/client.js';
-import { getDefaultCloudFallback } from '../lib/analysis/cloud-fallback.js';
-import { getDefaultContentFilter } from '../lib/safety/content-filter.js';
-import { getDefaultNotificationManager } from '../lib/alerts/notification-manager.js';
-import { getProfile } from '../lib/analysis/profiles/index.js';
-import type {
-  AnalysisJob,
-  AnalysisResult,
-  ConcernLevel,
-  MonitoringScenario,
-  Alert,
-} from '../types/index.js';
+import { getSafeOSDatabase, generateId, now } from '../db';
+import { OllamaClient } from '../lib/ollama/client';
+import { cloudFallbackAnalysis } from '../lib/analysis/cloud-fallback';
+import { ContentFilter } from '../lib/safety/content-filter';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface QueueConfig {
-  maxConcurrency: number;
-  maxRetries: number;
-  retryDelayMs: number;
-  processingTimeoutMs: number;
-  priorityBoost: {
-    highMotion: number;
-    highAudio: number;
-    recentConcern: number;
-  };
-  cloudFallbackThreshold: number; // Concern level to trigger cloud
-}
-
-export interface QueueStatus {
-  pending: number;
-  processing: number;
-  completed: number;
-  failed: number;
-  isRunning: boolean;
-}
-
-export interface QueueJob {
+export interface AnalysisJob {
   id: string;
   streamId: string;
-  scenario: MonitoringScenario;
-  frameData: string; // base64
+  frameId?: string;
+  imageData: string;
   motionScore: number;
   audioLevel: number;
+  scenario: 'pet' | 'baby' | 'elderly';
   priority: number;
-  retries: number;
-  createdAt: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
+  retries?: number;
+  createdAt: string;
+}
+
+export interface AnalysisResult {
+  id: string;
+  streamId: string;
+  frameId?: string;
+  concernLevel: 'none' | 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  detectedIssues: string[];
+  processingTimeMs: number;
+  modelUsed: string;
+  isCloudFallback: boolean;
+}
+
+export interface QueueOptions {
+  concurrency?: number;
+  maxRetries?: number;
+  retryDelay?: number;
 }
 
 // =============================================================================
 // Constants
 // =============================================================================
 
-const DEFAULT_CONFIG: QueueConfig = {
-  maxConcurrency: 2,
-  maxRetries: 2,
-  retryDelayMs: 1000,
-  processingTimeoutMs: 60000,
-  priorityBoost: {
-    highMotion: 5,
-    highAudio: 5,
-    recentConcern: 10,
-  },
-  cloudFallbackThreshold: 2, // medium or higher
+const DEFAULT_CONCURRENCY = 2;
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_DELAY = 5000;
+
+// Prompts for different scenarios
+const TRIAGE_PROMPTS: Record<string, string> = {
+  pet: `Analyze this image quickly. Is there a pet visible? 
+Any obvious signs of distress, danger, or concerning behavior?
+Reply with: CONCERN_LEVEL: [none/low/medium/high/critical] and a brief reason.`,
+
+  baby: `Analyze this image quickly. Is there an infant/toddler visible?
+Any obvious signs of distress, unsafe position, or concerning situation?
+Reply with: CONCERN_LEVEL: [none/low/medium/high/critical] and a brief reason.`,
+
+  elderly: `Analyze this image quickly. Is there an elderly person visible?
+Any obvious signs of a fall, distress, or concerning situation?
+Reply with: CONCERN_LEVEL: [none/low/medium/high/critical] and a brief reason.`,
 };
 
-const CONCERN_TO_SEVERITY: Record<ConcernLevel, 'info' | 'low' | 'medium' | 'high' | 'critical'> = {
-  none: 'info',
-  low: 'low',
-  medium: 'medium',
-  high: 'high',
-  critical: 'critical',
+const ANALYSIS_PROMPTS: Record<string, string> = {
+  pet: `Carefully analyze this pet monitoring image:
+1. Is the pet visible and identifiable?
+2. What is the pet's current activity/posture?
+3. Any signs of distress (panting, pacing, hiding)?
+4. Any potential hazards visible?
+5. Any concerning behaviors?
+
+Provide a detailed analysis with CONCERN_LEVEL: [none/low/medium/high/critical]
+and list any DETECTED_ISSUES.`,
+
+  baby: `Carefully analyze this baby monitoring image:
+1. Is the infant/toddler visible?
+2. What is their position (sleeping, awake, moving)?
+3. Any signs of distress (crying face, unusual position)?
+4. Is the sleep environment safe?
+5. Any potential hazards visible?
+
+Provide a detailed analysis with CONCERN_LEVEL: [none/low/medium/high/critical]
+and list any DETECTED_ISSUES.`,
+
+  elderly: `Carefully analyze this elderly care monitoring image:
+1. Is the person visible?
+2. What is their current activity?
+3. Any signs of a fall or inability to get up?
+4. Any signs of distress or calling for help?
+5. Any potential hazards?
+
+Provide a detailed analysis with CONCERN_LEVEL: [none/low/medium/high/critical]
+and list any DETECTED_ISSUES.`,
 };
 
 // =============================================================================
@@ -88,370 +107,384 @@ const CONCERN_TO_SEVERITY: Record<ConcernLevel, 'info' | 'low' | 'medium' | 'hig
 // =============================================================================
 
 export class AnalysisQueue {
-  private config: QueueConfig;
-  private queue: QueueJob[] = [];
-  private processing: Map<string, QueueJob> = new Map();
-  private isRunning = false;
+  private options: Required<QueueOptions>;
+  private ollamaClient: OllamaClient;
+  private contentFilter: ContentFilter;
+  private isRunning: boolean = false;
+  private activeJobs: number = 0;
   private processInterval: NodeJS.Timeout | null = null;
 
-  // Dependencies
-  private ollama = getDefaultOllamaClient();
-  private cloudFallback = getDefaultCloudFallback();
-  private contentFilter = getDefaultContentFilter();
-  private notificationManager = getDefaultNotificationManager();
-
-  // Stats
-  private stats = {
-    totalProcessed: 0,
-    totalFailed: 0,
-    avgProcessingTimeMs: 0,
-    cloudFallbacks: 0,
-    alertsCreated: 0,
-  };
-
-  constructor(config?: Partial<QueueConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Public Methods
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Add a job to the queue
-   */
-  enqueue(job: Omit<QueueJob, 'id' | 'priority' | 'retries' | 'createdAt' | 'status'>): string {
-    const id = generateId();
-    const priority = this.calculatePriority(job);
-
-    const queueJob: QueueJob = {
-      ...job,
-      id,
-      priority,
-      retries: 0,
-      createdAt: now(),
-      status: 'pending',
+  constructor(options: QueueOptions = {}) {
+    this.options = {
+      concurrency: options.concurrency || DEFAULT_CONCURRENCY,
+      maxRetries: options.maxRetries || DEFAULT_MAX_RETRIES,
+      retryDelay: options.retryDelay || DEFAULT_RETRY_DELAY,
     };
-
-    // Insert in priority order
-    const insertIndex = this.queue.findIndex((j) => j.priority < priority);
-    if (insertIndex === -1) {
-      this.queue.push(queueJob);
-    } else {
-      this.queue.splice(insertIndex, 0, queueJob);
-    }
-
-    // Store in database
-    this.storeJob(queueJob).catch(console.error);
-
-    return id;
+    this.ollamaClient = new OllamaClient();
+    this.contentFilter = new ContentFilter();
   }
 
-  /**
-   * Start processing the queue
-   */
-  start(): void {
-    if (this.isRunning) return;
+  // ---------------------------------------------------------------------------
+  // Queue Management
+  // ---------------------------------------------------------------------------
+
+  async start(): Promise<void> {
     this.isRunning = true;
+    console.log('Analysis queue started');
 
-    this.processInterval = setInterval(() => {
-      this.processNext();
-    }, 100);
+    // Process jobs periodically
+    this.processInterval = setInterval(() => this.processJobs(), 1000);
   }
 
-  /**
-   * Stop processing
-   */
-  stop(): void {
+  async stop(): Promise<void> {
     this.isRunning = false;
+
     if (this.processInterval) {
       clearInterval(this.processInterval);
       this.processInterval = null;
     }
-  }
 
-  /**
-   * Get queue status
-   */
-  getStatus(): QueueStatus {
-    return {
-      pending: this.queue.length,
-      processing: this.processing.size,
-      completed: this.stats.totalProcessed,
-      failed: this.stats.totalFailed,
-      isRunning: this.isRunning,
-    };
-  }
-
-  /**
-   * Get config
-   */
-  getConfig(): QueueConfig {
-    return { ...this.config };
-  }
-
-  /**
-   * Update config
-   */
-  updateConfig(config: Partial<QueueConfig>): void {
-    this.config = { ...this.config, ...config };
-  }
-
-  /**
-   * Get stats
-   */
-  getStats() {
-    return { ...this.stats };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Private Methods
-  // ---------------------------------------------------------------------------
-
-  private calculatePriority(job: Omit<QueueJob, 'id' | 'priority' | 'retries' | 'createdAt' | 'status'>): number {
-    let priority = 0;
-
-    // High motion boost
-    if (job.motionScore > 50) {
-      priority += this.config.priorityBoost.highMotion;
+    // Wait for active jobs to complete
+    while (this.activeJobs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    // High audio boost
-    if (job.audioLevel > 50) {
-      priority += this.config.priorityBoost.highAudio;
-    }
-
-    // Baby scenario gets priority
-    if (job.scenario === 'baby') {
-      priority += 3;
-    }
-
-    // Elderly gets medium priority
-    if (job.scenario === 'elderly') {
-      priority += 2;
-    }
-
-    return priority;
+    console.log('Analysis queue stopped');
   }
 
-  private async processNext(): Promise<void> {
-    if (!this.isRunning) return;
-    if (this.processing.size >= this.config.maxConcurrency) return;
-    if (this.queue.length === 0) return;
+  async enqueue(job: AnalysisJob): Promise<void> {
+    const db = await getSafeOSDatabase();
 
-    const job = this.queue.shift();
-    if (!job) return;
-
-    job.status = 'processing';
-    this.processing.set(job.id, job);
-
-    try {
-      await this.processJob(job);
-      this.stats.totalProcessed++;
-    } catch (error) {
-      console.error(`Job ${job.id} failed:`, error);
-      await this.handleJobFailure(job, error);
-    } finally {
-      this.processing.delete(job.id);
-    }
-  }
-
-  private async processJob(job: QueueJob): Promise<void> {
-    const startTime = Date.now();
-    const profile = getProfile(job.scenario);
-
-    // First, run content filter
-    const filterResult = await this.contentFilter.filter(
-      job.frameData,
-      job.streamId
+    await db.run(
+      `INSERT INTO analysis_queue (id, stream_id, scenario, priority, status, retries, created_at)
+       VALUES (?, ?, ?, ?, 'pending', 0, ?)`,
+      [job.id, job.streamId, job.scenario, job.priority, job.createdAt]
     );
 
-    if (filterResult.action === 'block') {
-      // Content blocked - don't analyze further
-      await this.updateJobStatus(job.id, 'completed');
+    // Store frame data in buffer if not already there
+    if (job.imageData && job.frameId) {
+      const existing = await db.get('SELECT id FROM frame_buffer WHERE id = ?', [job.frameId]);
+      if (!existing) {
+        await db.run(
+          `INSERT INTO frame_buffer (id, stream_id, frame_data, motion_score, audio_level, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [job.frameId, job.streamId, job.imageData, job.motionScore, job.audioLevel, job.createdAt]
+        );
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Job Processing
+  // ---------------------------------------------------------------------------
+
+  private async processJobs(): Promise<void> {
+    if (!this.isRunning || this.activeJobs >= this.options.concurrency) {
       return;
     }
 
-    // Run local analysis
-    let concernLevel: ConcernLevel = 'none';
-    let description = '';
-    let issues: string[] = [];
-    let isCloudFallback = false;
-    let model = '';
+    const db = await getSafeOSDatabase();
+
+    // Get next pending job
+    const job = await db.get<any>(
+      `SELECT * FROM analysis_queue 
+       WHERE status = 'pending' 
+       ORDER BY priority DESC, created_at ASC 
+       LIMIT 1`
+    );
+
+    if (!job) return;
+
+    // Mark as processing
+    await db.run(
+      `UPDATE analysis_queue SET status = 'processing' WHERE id = ?`,
+      [job.id]
+    );
+
+    this.activeJobs++;
 
     try {
-      if (await this.ollama.isHealthy()) {
-        // Triage first
-        const triageResult = await this.ollama.triage(job.frameData, profile.triagePrompt);
-
-        if (triageResult.needsDetailedAnalysis) {
-          // Full analysis
-          const analysisResult = await this.ollama.analyze(job.frameData, profile.analysisPrompt);
-          concernLevel = analysisResult.concernLevel;
-          description = analysisResult.description;
-          issues = analysisResult.issues;
-          model = 'llava:7b';
-        } else {
-          concernLevel = triageResult.concernLevel;
-          description = triageResult.summary;
-          model = 'moondream';
-        }
-      } else {
-        throw new Error('Ollama not available');
-      }
+      await this.processJob(job);
+      await db.run(
+        `UPDATE analysis_queue SET status = 'completed' WHERE id = ?`,
+        [job.id]
+      );
     } catch (error) {
-      // Fall back to cloud
-      if (this.cloudFallback.isAvailable()) {
-        const cloudResult = await this.cloudFallback.analyze(job.frameData, job.scenario);
-        concernLevel = cloudResult.concernLevel;
-        description = cloudResult.description;
-        issues = cloudResult.issues;
-        isCloudFallback = true;
-        model = cloudResult.model;
-        this.stats.cloudFallbacks++;
+      console.error(`Failed to process job ${job.id}:`, error);
+
+      const retries = (job.retries || 0) + 1;
+      if (retries >= this.options.maxRetries) {
+        await db.run(
+          `UPDATE analysis_queue SET status = 'failed', retries = ? WHERE id = ?`,
+          [retries, job.id]
+        );
       } else {
-        throw error;
+        // Retry later
+        await db.run(
+          `UPDATE analysis_queue SET status = 'pending', retries = ? WHERE id = ?`,
+          [retries, job.id]
+        );
       }
+    } finally {
+      this.activeJobs--;
     }
-
-    const processingTimeMs = Date.now() - startTime;
-    this.updateAvgProcessingTime(processingTimeMs);
-
-    // Store analysis result
-    const resultId = await this.storeResult({
-      id: generateId(),
-      stream_id: job.streamId,
-      frame_id: job.id,
-      concern_level: concernLevel,
-      description,
-      detected_issues: issues,
-      processing_time_ms: processingTimeMs,
-      model_used: model,
-      is_cloud_fallback: isCloudFallback,
-      created_at: now(),
-    });
-
-    // Create alert if needed
-    if (concernLevel !== 'none' && concernLevel !== 'low') {
-      await this.createAlert(job, concernLevel, description, resultId);
-    }
-
-    await this.updateJobStatus(job.id, 'completed');
   }
 
-  private async handleJobFailure(job: QueueJob, error: unknown): Promise<void> {
-    job.retries++;
+  private async processJob(job: any): Promise<void> {
+    const db = await getSafeOSDatabase();
+    const startTime = Date.now();
 
-    if (job.retries < this.config.maxRetries) {
-      // Re-queue with delay
-      job.status = 'pending';
-      setTimeout(() => {
-        this.queue.unshift(job);
-      }, this.config.retryDelayMs);
+    // Get frame data
+    const frame = await db.get<any>(
+      `SELECT * FROM frame_buffer WHERE stream_id = ? ORDER BY created_at DESC LIMIT 1`,
+      [job.stream_id]
+    );
+
+    if (!frame || !frame.frame_data) {
+      console.log(`No frame data for job ${job.id}`);
+      return;
+    }
+
+    const imageData = frame.frame_data;
+    const scenario = job.scenario as 'pet' | 'baby' | 'elderly';
+
+    let result: AnalysisResult;
+    let modelUsed = 'unknown';
+    let isCloudFallback = false;
+
+    // Check Ollama availability
+    const ollamaAvailable = await this.ollamaClient.isHealthy();
+
+    if (ollamaAvailable) {
+      // Local analysis with Ollama
+      try {
+        // Step 1: Quick triage with Moondream
+        const triageResult = await this.ollamaClient.triage(
+          imageData,
+          TRIAGE_PROMPTS[scenario]
+        );
+        modelUsed = 'moondream';
+
+        const triageConcern = this.parseConcernLevel(triageResult);
+
+        // Step 2: If concern detected, do detailed analysis with LLaVA
+        if (triageConcern !== 'none') {
+          const analysisResult = await this.ollamaClient.analyze(
+            imageData,
+            ANALYSIS_PROMPTS[scenario]
+          );
+          modelUsed = 'llava:7b';
+
+          result = this.parseAnalysisResult(
+            job.stream_id,
+            frame.id,
+            analysisResult,
+            Date.now() - startTime,
+            modelUsed,
+            false
+          );
+        } else {
+          // No concern from triage
+          result = {
+            id: generateId(),
+            streamId: job.stream_id,
+            frameId: frame.id,
+            concernLevel: 'none',
+            description: 'No concerns detected during triage',
+            detectedIssues: [],
+            processingTimeMs: Date.now() - startTime,
+            modelUsed,
+            isCloudFallback: false,
+          };
+        }
+      } catch (error) {
+        console.error('Local analysis failed, falling back to cloud:', error);
+        isCloudFallback = true;
+        result = await this.cloudAnalysis(job, frame, scenario, startTime);
+      }
     } else {
-      job.status = 'failed';
-      this.stats.totalFailed++;
-      await this.updateJobStatus(job.id, 'failed');
+      // Cloud fallback
+      isCloudFallback = true;
+      result = await this.cloudAnalysis(job, frame, scenario, startTime);
     }
-  }
 
-  private async createAlert(
-    job: QueueJob,
-    concernLevel: ConcernLevel,
-    description: string,
-    analysisId: string
-  ): Promise<void> {
-    const id = generateId();
-    const db = await getSafeOSDatabase();
-    const timestamp = now();
-
-    const alert: Alert = {
-      id,
-      stream_id: job.streamId,
-      alert_type: 'analysis',
-      severity: CONCERN_TO_SEVERITY[concernLevel],
-      message: description,
-      metadata: { analysisId, scenario: job.scenario },
-      acknowledged: false,
-      acknowledged_at: null,
-      created_at: timestamp,
-    };
-
-    await db.run(
-      `INSERT INTO alerts (id, stream_id, alert_type, severity, message, metadata, acknowledged, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-      [
-        alert.id,
-        alert.stream_id,
-        alert.alert_type,
-        alert.severity,
-        alert.message,
-        JSON.stringify(alert.metadata),
-        alert.created_at,
-      ]
+    // Content moderation
+    const moderation = await this.contentFilter.moderate(
+      job.stream_id,
+      imageData,
+      result.description
     );
 
-    this.stats.alertsCreated++;
+    if (moderation.action !== 'allow') {
+      console.log(`Content flagged for stream ${job.stream_id}: ${moderation.action}`);
+      // Flag is already created by content filter
+    }
 
-    // Send notifications
-    await this.notificationManager.processAlert(alert);
-  }
-
-  private async storeJob(job: QueueJob): Promise<void> {
-    const db = await getSafeOSDatabase();
+    // Store result
     await db.run(
-      `INSERT INTO analysis_queue (id, stream_id, scenario, priority, status, retries, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [job.id, job.streamId, job.scenario, job.priority, job.status, job.retries, job.createdAt]
-    );
-  }
-
-  private async updateJobStatus(jobId: string, status: 'completed' | 'failed'): Promise<void> {
-    const db = await getSafeOSDatabase();
-    await db.run('UPDATE analysis_queue SET status = ? WHERE id = ?', [status, jobId]);
-  }
-
-  private async storeResult(result: AnalysisResult): Promise<string> {
-    const db = await getSafeOSDatabase();
-    await db.run(
-      `INSERT INTO analysis_results (id, stream_id, frame_id, concern_level, description, detected_issues, processing_time_ms, model_used, is_cloud_fallback, created_at)
+      `INSERT INTO analysis_results 
+       (id, stream_id, frame_id, concern_level, description, detected_issues, 
+        processing_time_ms, model_used, is_cloud_fallback, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         result.id,
-        result.stream_id,
-        result.frame_id,
-        result.concern_level,
+        result.streamId,
+        result.frameId,
+        result.concernLevel,
         result.description,
-        JSON.stringify(result.detected_issues),
-        result.processing_time_ms,
-        result.model_used,
-        result.is_cloud_fallback ? 1 : 0,
-        result.created_at,
+        JSON.stringify(result.detectedIssues),
+        result.processingTimeMs,
+        result.modelUsed,
+        result.isCloudFallback ? 1 : 0,
+        now(),
       ]
     );
-    return result.id;
+
+    // Create alert if concern level is medium or higher
+    if (['medium', 'high', 'critical'].includes(result.concernLevel)) {
+      await this.createAlert(result);
+    }
   }
 
-  private updateAvgProcessingTime(timeMs: number): void {
-    const total = this.stats.totalProcessed + 1;
-    this.stats.avgProcessingTimeMs =
-      (this.stats.avgProcessingTimeMs * this.stats.totalProcessed + timeMs) / total;
+  private async cloudAnalysis(
+    job: any,
+    frame: any,
+    scenario: string,
+    startTime: number
+  ): Promise<AnalysisResult> {
+    const result = await cloudFallbackAnalysis(
+      frame.frame_data,
+      ANALYSIS_PROMPTS[scenario]
+    );
+
+    return this.parseAnalysisResult(
+      job.stream_id,
+      frame.id,
+      result.content,
+      Date.now() - startTime,
+      result.model || 'cloud',
+      true
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Result Parsing
+  // ---------------------------------------------------------------------------
+
+  private parseConcernLevel(
+    response: string
+  ): 'none' | 'low' | 'medium' | 'high' | 'critical' {
+    const match = response.match(/CONCERN_LEVEL:\s*\[?(\w+)\]?/i);
+    if (match) {
+      const level = match[1].toLowerCase();
+      if (['none', 'low', 'medium', 'high', 'critical'].includes(level)) {
+        return level as any;
+      }
+    }
+    return 'none';
+  }
+
+  private parseAnalysisResult(
+    streamId: string,
+    frameId: string | undefined,
+    response: string,
+    processingTimeMs: number,
+    modelUsed: string,
+    isCloudFallback: boolean
+  ): AnalysisResult {
+    const concernLevel = this.parseConcernLevel(response);
+
+    // Parse detected issues
+    const issuesMatch = response.match(/DETECTED_ISSUES:?\s*(.+?)(?=\n\n|\n[A-Z]|$)/is);
+    let detectedIssues: string[] = [];
+    if (issuesMatch) {
+      detectedIssues = issuesMatch[1]
+        .split(/[,\n•\-]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0 && s.length < 200);
+    }
+
+    return {
+      id: generateId(),
+      streamId,
+      frameId,
+      concernLevel,
+      description: response.slice(0, 1000), // Truncate long responses
+      detectedIssues,
+      processingTimeMs,
+      modelUsed,
+      isCloudFallback,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alert Creation
+  // ---------------------------------------------------------------------------
+
+  private async createAlert(result: AnalysisResult): Promise<void> {
+    const db = await getSafeOSDatabase();
+
+    const severityMap: Record<string, string> = {
+      medium: 'medium',
+      high: 'high',
+      critical: 'critical',
+    };
+
+    await db.run(
+      `INSERT INTO alerts 
+       (id, stream_id, alert_type, severity, message, metadata, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        generateId(),
+        result.streamId,
+        'analysis',
+        severityMap[result.concernLevel] || 'medium',
+        result.description.slice(0, 500),
+        JSON.stringify({
+          analysisId: result.id,
+          detectedIssues: result.detectedIssues,
+          modelUsed: result.modelUsed,
+          isCloudFallback: result.isCloudFallback,
+        }),
+        now(),
+      ]
+    );
+
+    console.log(`Alert created for stream ${result.streamId}: ${result.concernLevel}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------------------------
+
+  async getStats(): Promise<{
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+  }> {
+    const db = await getSafeOSDatabase();
+
+    const pending = await db.get<{ count: number }>(
+      "SELECT COUNT(*) as count FROM analysis_queue WHERE status = 'pending'"
+    );
+    const processing = await db.get<{ count: number }>(
+      "SELECT COUNT(*) as count FROM analysis_queue WHERE status = 'processing'"
+    );
+    const completed = await db.get<{ count: number }>(
+      "SELECT COUNT(*) as count FROM analysis_queue WHERE status = 'completed'"
+    );
+    const failed = await db.get<{ count: number }>(
+      "SELECT COUNT(*) as count FROM analysis_queue WHERE status = 'failed'"
+    );
+
+    return {
+      pending: pending?.count || 0,
+      processing: processing?.count || 0,
+      completed: completed?.count || 0,
+      failed: failed?.count || 0,
+    };
   }
 }
 
-// =============================================================================
-// Singleton
-// =============================================================================
-
-let defaultQueue: AnalysisQueue | null = null;
-
-export function getDefaultAnalysisQueue(): AnalysisQueue {
-  if (!defaultQueue) {
-    defaultQueue = new AnalysisQueue();
-  }
-  return defaultQueue;
-}
-
-export function createAnalysisQueue(config?: Partial<QueueConfig>): AnalysisQueue {
-  return new AnalysisQueue(config);
-}
+export default AnalysisQueue;

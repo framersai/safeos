@@ -1,284 +1,209 @@
 /**
- * Streams API Routes
+ * Stream Routes
  *
- * Endpoints for managing monitoring streams.
+ * API routes for stream management.
  *
  * @module api/routes/streams
  */
 
-import { Router, type Request, type Response } from 'express';
-import { getDefaultStreamManager } from '../../lib/streams/manager.js';
-import { getSafeOSDatabase } from '../../db/index.js';
+import { Router, Request, Response } from 'express';
+import { getSafeOSDatabase, generateId, now } from '../../db';
 
-const router = Router();
-const streamManager = getDefaultStreamManager();
+// =============================================================================
+// Router
+// =============================================================================
+
+export const streamRoutes = Router();
 
 // =============================================================================
 // Routes
 // =============================================================================
 
 /**
- * GET /api/streams
- * List all active streams
+ * GET /api/streams - List all streams
  */
-router.get('/', async (_req: Request, res: Response) => {
+streamRoutes.get('/', async (req: Request, res: Response) => {
   try {
-    const streams = streamManager.getActiveStreams();
-    const summary = streamManager.getSummary();
+    const db = await getSafeOSDatabase();
+    const status = req.query.status as string | undefined;
 
-    res.json({
-      success: true,
-      data: streams,
-      meta: summary,
-    });
+    let query = 'SELECT * FROM streams ORDER BY created_at DESC';
+    const params: any[] = [];
+
+    if (status) {
+      query = 'SELECT * FROM streams WHERE status = ? ORDER BY created_at DESC';
+      params.push(status);
+    }
+
+    const streams = await db.all(query, params);
+    res.json({ streams });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to list streams:', error);
+    res.status(500).json({ error: 'Failed to list streams' });
   }
 });
 
 /**
- * GET /api/streams/:id
- * Get a specific stream
+ * GET /api/streams/:id - Get stream by ID
  */
-router.get('/:id', async (req: Request, res: Response) => {
+streamRoutes.get('/:id', async (req: Request, res: Response) => {
   try {
+    const db = await getSafeOSDatabase();
     const { id } = req.params;
-    const stream = streamManager.getStream(id);
+
+    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
 
     if (!stream) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stream not found',
-      });
+      return res.status(404).json({ error: 'Stream not found' });
     }
 
-    const stats = streamManager.getStreamStats(id);
+    // Get alert count
+    const alertResult = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM alerts WHERE stream_id = ? AND acknowledged = 0',
+      [id]
+    );
 
     res.json({
-      success: true,
-      data: {
+      stream: {
         ...stream,
-        stats,
+        alertCount: alertResult?.count || 0,
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to get stream:', error);
+    res.status(500).json({ error: 'Failed to get stream' });
   }
 });
 
 /**
- * POST /api/streams
- * Create a new stream
+ * POST /api/streams - Create new stream
  */
-router.post('/', async (req: Request, res: Response) => {
+streamRoutes.post('/', async (req: Request, res: Response) => {
   try {
-    const { scenario, profileId, motionThreshold, audioThreshold } = req.body;
+    const db = await getSafeOSDatabase();
+    const { scenario, userId } = req.body;
 
     if (!scenario || !['pet', 'baby', 'elderly'].includes(scenario)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid scenario. Must be pet, baby, or elderly.',
-      });
+      return res.status(400).json({ error: 'Invalid scenario' });
     }
 
-    const stream = await streamManager.createStream({
-      scenario,
-      profileId,
-      motionThreshold,
-      audioThreshold,
-    });
+    const id = generateId();
+    const timestamp = now();
 
-    res.status(201).json({
-      success: true,
-      data: stream,
-    });
+    await db.run(
+      `INSERT INTO streams (id, user_id, scenario, status, started_at, created_at)
+       VALUES (?, ?, ?, 'active', ?, ?)`,
+      [id, userId || null, scenario, timestamp, timestamp]
+    );
+
+    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+
+    res.status(201).json({ stream });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to create stream:', error);
+    res.status(500).json({ error: 'Failed to create stream' });
   }
 });
 
 /**
- * POST /api/streams/:id/start
- * Start a stream
+ * PATCH /api/streams/:id - Update stream
  */
-router.post('/:id/start', async (req: Request, res: Response) => {
+streamRoutes.patch('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-
-    if (!streamManager.hasStream(id)) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stream not found',
-      });
-    }
-
-    await streamManager.startStream(id);
-
-    res.json({
-      success: true,
-      message: 'Stream started',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * POST /api/streams/:id/pause
- * Pause a stream
- */
-router.post('/:id/pause', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    if (!streamManager.hasStream(id)) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stream not found',
-      });
-    }
-
-    await streamManager.pauseStream(id);
-
-    res.json({
-      success: true,
-      message: 'Stream paused',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * POST /api/streams/:id/resume
- * Resume a paused stream
- */
-router.post('/:id/resume', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    if (!streamManager.hasStream(id)) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stream not found',
-      });
-    }
-
-    await streamManager.resumeStream(id);
-
-    res.json({
-      success: true,
-      message: 'Stream resumed',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * DELETE /api/streams/:id
- * End/disconnect a stream
- */
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    await streamManager.endStream(id);
-
-    res.json({
-      success: true,
-      message: 'Stream ended',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * PATCH /api/streams/:id/config
- * Update stream configuration
- */
-router.patch('/:id/config', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const config = req.body;
-
-    if (!streamManager.hasStream(id)) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stream not found',
-      });
-    }
-
-    await streamManager.updateStreamConfig(id, config);
-
-    res.json({
-      success: true,
-      message: 'Configuration updated',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * GET /api/streams/history
- * Get stream history from database
- */
-router.get('/history', async (req: Request, res: Response) => {
-  try {
-    const { limit = '50', offset = '0', scenario } = req.query;
-
     const db = await getSafeOSDatabase();
+    const { id } = req.params;
+    const { status } = req.body;
 
-    let query = 'SELECT * FROM streams WHERE status = ?';
-    const params: (string | number)[] = ['disconnected'];
-
-    if (scenario) {
-      query += ' AND scenario = ?';
-      params.push(scenario as string);
+    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+    if (!stream) {
+      return res.status(404).json({ error: 'Stream not found' });
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit as string, 10));
-    params.push(parseInt(offset as string, 10));
+    if (status && ['active', 'paused', 'ended', 'banned'].includes(status)) {
+      const updates: any = { status };
+      if (status === 'ended') {
+        updates.ended_at = now();
+      }
 
-    const streams = await db.all(query, params);
+      await db.run(
+        `UPDATE streams SET status = ?, ended_at = ? WHERE id = ?`,
+        [status, updates.ended_at || null, id]
+      );
+    }
 
-    res.json({
-      success: true,
-      data: streams,
-    });
+    const updated = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+    res.json({ stream: updated });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to update stream:', error);
+    res.status(500).json({ error: 'Failed to update stream' });
   }
 });
 
-export default router;
+/**
+ * DELETE /api/streams/:id - End/delete stream
+ */
+streamRoutes.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const db = await getSafeOSDatabase();
+    const { id } = req.params;
+
+    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+    if (!stream) {
+      return res.status(404).json({ error: 'Stream not found' });
+    }
+
+    // Mark as ended instead of deleting
+    await db.run(
+      `UPDATE streams SET status = 'ended', ended_at = ? WHERE id = ?`,
+      [now(), id]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete stream:', error);
+    res.status(500).json({ error: 'Failed to delete stream' });
+  }
+});
+
+/**
+ * GET /api/streams/:id/stats - Get stream statistics
+ */
+streamRoutes.get('/:id/stats', async (req: Request, res: Response) => {
+  try {
+    const db = await getSafeOSDatabase();
+    const { id } = req.params;
+
+    // Get alert counts by severity
+    const alerts = await db.all<{ severity: string; count: number }>(
+      `SELECT severity, COUNT(*) as count FROM alerts
+       WHERE stream_id = ? GROUP BY severity`,
+      [id]
+    );
+
+    // Get analysis count
+    const analysisResult = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM analysis_results WHERE stream_id = ?',
+      [id]
+    );
+
+    // Get frame count
+    const frameResult = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM frame_buffer WHERE stream_id = ?',
+      [id]
+    );
+
+    res.json({
+      stats: {
+        alerts: Object.fromEntries(alerts.map((a) => [a.severity, a.count])),
+        totalAlerts: alerts.reduce((sum, a) => sum + a.count, 0),
+        analysisCount: analysisResult?.count || 0,
+        frameCount: frameResult?.count || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to get stream stats:', error);
+    res.status(500).json({ error: 'Failed to get stream stats' });
+  }
+});
+
+export default streamRoutes;

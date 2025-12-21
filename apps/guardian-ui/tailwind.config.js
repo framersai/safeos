@@ -9,30 +9,16 @@ module.exports = {
     extend: {
       colors: {
         safeos: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
-        },
-        alert: {
-          info: '#3b82f6',
-          warning: '#f59e0b',
-          urgent: '#ef4444',
-          critical: '#dc2626',
+          primary: '#10B981', // emerald-500
+          secondary: '#06B6D4', // cyan-500
+          dark: '#0F172A', // slate-900
+          muted: '#64748B', // slate-500
         },
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'ping-slow': 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
       },
     },
   },
   plugins: [],
 };
-

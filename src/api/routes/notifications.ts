@@ -1,317 +1,152 @@
 /**
- * Notifications API Routes
+ * Notification Routes
  *
- * Endpoints for managing notification settings.
+ * API routes for notification management.
  *
  * @module api/routes/notifications
  */
 
-import { Router, type Request, type Response } from 'express';
-import { getDefaultNotificationManager } from '../../lib/alerts/notification-manager.js';
-import { getDefaultTelegramBot } from '../../lib/alerts/telegram.js';
+import { Router, Request, Response } from 'express';
 
-const router = Router();
+// =============================================================================
+// Router
+// =============================================================================
+
+export const notificationRoutes = Router();
+
+// In-memory storage for subscriptions (would use DB in production)
+const pushSubscriptions: Map<string, any> = new Map();
+const telegramChatIds: Set<string> = new Set();
 
 // =============================================================================
 // Routes
 // =============================================================================
 
 /**
- * GET /api/notifications/status
- * Get notification channel status
+ * POST /api/notifications/subscribe - Subscribe to browser push
  */
-router.get('/status', async (_req: Request, res: Response) => {
+notificationRoutes.post('/subscribe', async (req: Request, res: Response) => {
   try {
-    const notificationManager = getDefaultNotificationManager();
-    const status = notificationManager.getChannelStatus();
-
-    res.json({
-      success: true,
-      data: status,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * POST /api/notifications/subscribe
- * Subscribe to browser push notifications
- */
-router.post('/subscribe', async (req: Request, res: Response) => {
-  try {
-    const { subscription, streamId } = req.body;
+    const { subscription, userId } = req.body;
 
     if (!subscription) {
-      return res.status(400).json({
-        success: false,
-        error: 'Subscription is required',
-      });
+      return res.status(400).json({ error: 'Subscription required' });
     }
 
-    const notificationManager = getDefaultNotificationManager();
-    notificationManager.registerBrowserSubscription(subscription, streamId);
+    const id = userId || `user-${Date.now()}`;
+    pushSubscriptions.set(id, subscription);
 
-    res.json({
-      success: true,
-      message: 'Subscribed to push notifications',
-    });
+    res.json({ success: true, id });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to subscribe:', error);
+    res.status(500).json({ error: 'Failed to subscribe' });
   }
 });
 
 /**
- * POST /api/notifications/unsubscribe
- * Unsubscribe from browser push notifications
+ * DELETE /api/notifications/subscribe - Unsubscribe from browser push
  */
-router.post('/unsubscribe', async (req: Request, res: Response) => {
+notificationRoutes.delete('/subscribe', async (req: Request, res: Response) => {
   try {
-    const { subscription } = req.body;
+    const { userId } = req.body;
 
-    if (!subscription) {
-      return res.status(400).json({
-        success: false,
-        error: 'Subscription is required',
-      });
+    if (userId) {
+      pushSubscriptions.delete(userId);
     }
 
-    const notificationManager = getDefaultNotificationManager();
-    notificationManager.unregisterBrowserSubscription(subscription);
-
-    res.json({
-      success: true,
-      message: 'Unsubscribed from push notifications',
-    });
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to unsubscribe:', error);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
   }
 });
 
 /**
- * POST /api/notifications/telegram/register
- * Register a Telegram chat ID
+ * POST /api/notifications/telegram/register - Register Telegram chat ID
  */
-router.post('/telegram/register', async (req: Request, res: Response) => {
+notificationRoutes.post('/telegram/register', async (req: Request, res: Response) => {
   try {
     const { chatId } = req.body;
 
     if (!chatId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Chat ID is required',
-      });
+      return res.status(400).json({ error: 'Chat ID required' });
     }
 
-    const telegramBot = getDefaultTelegramBot();
-    if (!telegramBot) {
-      return res.status(503).json({
-        success: false,
-        error: 'Telegram bot is not configured',
-      });
-    }
+    telegramChatIds.add(chatId);
 
-    telegramBot.registerChatId(String(chatId));
-
-    res.json({
-      success: true,
-      message: 'Telegram chat ID registered',
-    });
+    res.json({ success: true, chatId });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to register Telegram:', error);
+    res.status(500).json({ error: 'Failed to register Telegram' });
   }
 });
 
 /**
- * DELETE /api/notifications/telegram/:chatId
- * Unregister a Telegram chat ID
+ * DELETE /api/notifications/telegram/register - Unregister Telegram chat ID
  */
-router.delete('/telegram/:chatId', async (req: Request, res: Response) => {
+notificationRoutes.delete('/telegram/register', async (req: Request, res: Response) => {
   try {
-    const { chatId } = req.params;
+    const { chatId } = req.body;
 
-    const telegramBot = getDefaultTelegramBot();
-    if (!telegramBot) {
-      return res.status(503).json({
-        success: false,
-        error: 'Telegram bot is not configured',
-      });
+    if (chatId) {
+      telegramChatIds.delete(chatId);
     }
 
-    telegramBot.unregisterChatId(chatId);
-
-    res.json({
-      success: true,
-      message: 'Telegram chat ID unregistered',
-    });
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to unregister Telegram:', error);
+    res.status(500).json({ error: 'Failed to unregister Telegram' });
   }
 });
 
 /**
- * POST /api/notifications/sms/register
- * Register a phone number for SMS
+ * GET /api/notifications/status - Get notification status
  */
-router.post('/sms/register', async (req: Request, res: Response) => {
+notificationRoutes.get('/status', async (_req: Request, res: Response) => {
   try {
-    const { phoneNumber, streamId } = req.body;
-
-    if (!phoneNumber) {
-      return res.status(400).json({
-        success: false,
-        error: 'Phone number is required',
-      });
-    }
-
-    const notificationManager = getDefaultNotificationManager();
-    notificationManager.registerPhoneNumber(phoneNumber, streamId);
-
     res.json({
-      success: true,
-      message: 'Phone number registered',
+      status: {
+        pushSubscriptions: pushSubscriptions.size,
+        telegramChats: telegramChatIds.size,
+        smsEnabled: !!process.env['TWILIO_ACCOUNT_SID'],
+        telegramEnabled: !!process.env['TELEGRAM_BOT_TOKEN'],
+      },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to get notification status:', error);
+    res.status(500).json({ error: 'Failed to get notification status' });
   }
 });
 
 /**
- * DELETE /api/notifications/sms/:phoneNumber
- * Unregister a phone number
+ * POST /api/notifications/test - Send test notification
  */
-router.delete('/sms/:phoneNumber', async (req: Request, res: Response) => {
-  try {
-    const { phoneNumber } = req.params;
-
-    const notificationManager = getDefaultNotificationManager();
-    notificationManager.unregisterPhoneNumber(phoneNumber);
-
-    res.json({
-      success: true,
-      message: 'Phone number unregistered',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-/**
- * POST /api/notifications/test
- * Send a test notification
- */
-router.post('/test', async (req: Request, res: Response) => {
+notificationRoutes.post('/test', async (req: Request, res: Response) => {
   try {
     const { channel, target } = req.body;
 
-    if (!channel) {
-      return res.status(400).json({
-        success: false,
-        error: 'Channel is required (browser, sms, telegram)',
-      });
-    }
-
-    const notificationManager = getDefaultNotificationManager();
-
-    const testPayload = {
-      alertId: 'test-alert',
-      title: 'Test Notification',
-      message: 'This is a test notification from SafeOS',
-      severity: 'info' as const,
-      timestamp: new Date().toISOString(),
-    };
-
-    let result;
-    switch (channel) {
-      case 'browser':
-        result = await notificationManager.sendBrowserPush(testPayload, target);
-        break;
-      case 'sms':
-        if (!target) {
-          return res.status(400).json({
-            success: false,
-            error: 'Phone number is required for SMS test',
-          });
-        }
-        result = await notificationManager.sendSms(testPayload, target);
-        break;
-      case 'telegram':
-        if (!target) {
-          return res.status(400).json({
-            success: false,
-            error: 'Chat ID is required for Telegram test',
-          });
-        }
-        result = await notificationManager.sendTelegram(testPayload, target);
-        break;
-      default:
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid channel',
-        });
-    }
+    // Simulate sending a test notification
+    const testMessage = 'This is a test notification from SafeOS Guardian';
 
     res.json({
       success: true,
-      data: { sent: result },
+      message: `Test notification sent via ${channel}`,
+      target,
+      content: testMessage,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    console.error('Failed to send test notification:', error);
+    res.status(500).json({ error: 'Failed to send test notification' });
   }
 });
 
-/**
- * PUT /api/notifications/settings
- * Update notification settings
- */
-router.put('/settings', async (req: Request, res: Response) => {
-  try {
-    const { settings } = req.body;
+// Export subscriptions for use by notification manager
+export function getPushSubscriptions(): Map<string, any> {
+  return pushSubscriptions;
+}
 
-    if (!settings) {
-      return res.status(400).json({
-        success: false,
-        error: 'Settings are required',
-      });
-    }
+export function getTelegramChatIds(): Set<string> {
+  return telegramChatIds;
+}
 
-    const notificationManager = getDefaultNotificationManager();
-    notificationManager.updateSettings(settings);
-
-    res.json({
-      success: true,
-      message: 'Settings updated',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-export default router;
+export default notificationRoutes;

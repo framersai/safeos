@@ -2,162 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 15, 23, 42;
-  --background-end-rgb: 30, 41, 59;
-}
-
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-    135deg,
-    rgb(var(--background-start-rgb)) 0%,
-    rgb(var(--background-end-rgb)) 100%
-  );
-  min-height: 100vh;
-}
-
-/* Camera feed styling */
-.camera-container {
-  position: relative;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #000;
-}
-
-.camera-container video {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.camera-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-}
-
-/* Alert pulse animation */
-@keyframes alert-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+/* Custom base styles */
+@layer base {
+  body {
+    @apply bg-slate-900 text-white antialiased;
   }
-  50% {
-    box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
   }
 }
 
-.alert-pulse {
-  animation: alert-pulse 2s infinite;
+/* Custom component styles */
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg font-medium hover:opacity-90 transition-opacity;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors;
+  }
+
+  .card {
+    @apply bg-slate-800/50 rounded-xl border border-slate-700/50;
+  }
+
+  .input {
+    @apply w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent;
+  }
 }
 
-/* Motion indicator */
-.motion-indicator {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 20px;
-  font-size: 12px;
-}
+/* Animation classes */
+@layer utilities {
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+  }
 
-.motion-bar {
-  width: 60px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
-  overflow: hidden;
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
 }
-
-.motion-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
-  transition: width 0.1s ease-out;
-}
-
-/* Audio level meter */
-.audio-meter {
-  display: flex;
-  gap: 2px;
-  align-items: flex-end;
-  height: 24px;
-}
-
-.audio-bar {
-  width: 4px;
-  background: #22c55e;
-  border-radius: 2px;
-  transition: height 0.05s ease-out;
-}
-
-.audio-bar.warning {
-  background: #eab308;
-}
-
-.audio-bar.danger {
-  background: #ef4444;
-}
-
-/* Profile cards */
-.profile-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 24px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.profile-card:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(34, 197, 94, 0.5);
-  transform: translateY(-2px);
-}
-
-.profile-card.selected {
-  background: rgba(34, 197, 94, 0.1);
-  border-color: #22c55e;
-}
-
-/* Disclaimer styling */
-.disclaimer-box {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 12px;
-  padding: 20px;
-  font-family: monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-

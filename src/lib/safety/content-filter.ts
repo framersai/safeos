@@ -6,319 +6,343 @@
  * @module lib/safety/content-filter
  */
 
-import { getDefaultOllamaClient } from '../ollama/client.js';
-import { getSafeOSDatabase, generateId, now } from '../../db/index.js';
-import type { ModerationTier, ModerationResult, ContentFlag } from '../../types/index.js';
+import { getSafeOSDatabase, generateId, now } from '../../db';
+import { OllamaClient } from '../ollama/client';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface ContentFilterConfig {
-  enabled: boolean;
-  enableLocalScreening: boolean;
-  enableCloudReview: boolean;
-  autoBlockTier4: boolean;
-  categories: ContentCategory[];
-}
-
-export interface ContentCategory {
-  id: string;
-  name: string;
-  keywords: string[];
-  tier: ModerationTier;
-  autoEscalate: boolean;
-}
-
-export interface FilterResult {
-  passed: boolean;
-  tier: ModerationTier;
+export interface ModerationResult {
+  tier: 0 | 1 | 2 | 3 | 4;
   action: 'allow' | 'blur' | 'block' | 'escalate';
   categories: string[];
   confidence: number;
-  flagId?: string;
+  reason?: string;
+}
+
+export interface ContentFlag {
+  id: string;
+  streamId: string;
+  analysisId?: string;
+  category: string;
+  tier: number;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'escalated' | 'banned';
+  metadata?: Record<string, any>;
 }
 
 // =============================================================================
 // Constants
 // =============================================================================
 
-const DEFAULT_CATEGORIES: ContentCategory[] = [
-  {
-    id: 'csam',
-    name: 'Child Safety',
-    keywords: ['child abuse', 'exploitation', 'inappropriate'],
-    tier: 4,
-    autoEscalate: true,
-  },
-  {
-    id: 'violence',
-    name: 'Violence',
-    keywords: ['violence', 'blood', 'injury', 'assault', 'weapon'],
-    tier: 3,
-    autoEscalate: true,
-  },
-  {
-    id: 'abuse',
-    name: 'Abuse/Neglect',
-    keywords: ['abuse', 'neglect', 'harm', 'danger', 'unsafe'],
-    tier: 3,
-    autoEscalate: true,
-  },
-  {
-    id: 'adult',
-    name: 'Adult Content',
-    keywords: ['nudity', 'explicit', 'sexual'],
-    tier: 2,
-    autoEscalate: false,
-  },
-  {
-    id: 'fraud',
-    name: 'Fraud/Misuse',
-    keywords: ['fake', 'staged', 'misleading'],
-    tier: 2,
-    autoEscalate: false,
-  },
+/**
+ * Content categories for moderation
+ */
+const CONTENT_CATEGORIES = [
+  'violence',
+  'nudity',
+  'abuse',
+  'neglect',
+  'gore',
+  'weapons',
+  'drugs',
+  'self_harm',
+  'child_safety',
+  'elder_abuse',
+  'animal_abuse',
 ];
 
-const MODERATION_PROMPT = `You are a content safety moderator for a baby/pet/elderly monitoring service.
-Analyze this image and determine if it contains any of the following concerns:
+/**
+ * Moderation tiers:
+ * - Tier 0: Safe - no concerns
+ * - Tier 1: Minor - blur and continue
+ * - Tier 2: Moderate - flag for review
+ * - Tier 3: Severe - block and alert
+ * - Tier 4: Critical - block, alert, and report
+ */
+const TIER_ACTIONS: Record<number, 'allow' | 'blur' | 'block' | 'escalate'> = {
+  0: 'allow',
+  1: 'blur',
+  2: 'block',
+  3: 'escalate',
+  4: 'escalate',
+};
 
-1. TIER 1 (Low): Suspicious but likely benign (unusual positioning, odd activity)
-2. TIER 2 (Medium): Content policy violation (adult content, misuse of service)
-3. TIER 3 (High): Potential harm/abuse (unsafe conditions, signs of neglect or distress)
-4. TIER 4 (Critical): Severe violation requiring immediate action (illegal content, imminent danger)
+const MODERATION_PROMPT = `You are a content safety moderator. Analyze this image for concerning content.
 
-Respond in JSON format:
-{
-  "tier": 0-4,
-  "action": "allow" | "blur" | "block" | "escalate",
-  "categories": ["category1", "category2"],
-  "confidence": 0.0-1.0,
-  "reason": "brief explanation"
-}
+Categories to check:
+- violence: Physical harm or threats
+- nudity: Inappropriate exposure
+- abuse: Child, elder, or animal abuse
+- neglect: Signs of neglect (especially for dependents)
+- gore: Graphic injuries or blood
+- weapons: Dangerous weapons
+- drugs: Drug use or paraphernalia
+- self_harm: Signs of self-harm
+- child_safety: Unsafe situations for children
+- elder_abuse: Abuse or neglect of elderly
+- animal_abuse: Abuse or neglect of animals
 
-If the image appears normal and safe, respond with tier 0 and action "allow".
-Be thorough but avoid false positives - this is for legitimate monitoring of loved ones.`;
+Respond in this format:
+TIER: [0-4]
+CATEGORIES: [comma-separated list or "none"]
+CONFIDENCE: [0-100]
+REASON: [brief explanation]
+
+Tier definitions:
+0 = Safe, no concerns
+1 = Minor concern, may blur
+2 = Moderate, needs review
+3 = Severe, block content
+4 = Critical, report to authorities
+
+Be conservative - when in doubt, flag for review.`;
 
 // =============================================================================
 // ContentFilter Class
 // =============================================================================
 
 export class ContentFilter {
-  private config: ContentFilterConfig;
-  private ollama = getDefaultOllamaClient();
+  private ollamaClient: OllamaClient;
 
-  // Stats
-  private stats = {
-    totalFiltered: 0,
-    byTier: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 } as Record<number, number>,
-    blocked: 0,
-    escalated: 0,
-  };
-
-  constructor(config?: Partial<ContentFilterConfig>) {
-    this.config = {
-      enabled: true,
-      enableLocalScreening: true,
-      enableCloudReview: true,
-      autoBlockTier4: true,
-      categories: DEFAULT_CATEGORIES,
-      ...config,
-    };
+  constructor() {
+    this.ollamaClient = new OllamaClient();
   }
 
-  // ---------------------------------------------------------------------------
-  // Public Methods
-  // ---------------------------------------------------------------------------
-
   /**
-   * Filter content (image) for safety concerns
+   * Moderate content
    */
-  async filter(
-    imageBase64: string,
+  async moderate(
     streamId: string,
-    analysisId?: string
-  ): Promise<FilterResult> {
-    if (!this.config.enabled) {
-      return { passed: true, tier: 0, action: 'allow', categories: [], confidence: 1 };
-    }
+    imageBase64: string,
+    analysisText?: string
+  ): Promise<ModerationResult> {
+    // Try local AI moderation first
+    const ollamaAvailable = await this.ollamaClient.isHealthy();
 
-    this.stats.totalFiltered++;
+    if (ollamaAvailable) {
+      try {
+        const result = await this.localModeration(imageBase64);
 
-    try {
-      // Local AI screening
-      if (this.config.enableLocalScreening && (await this.ollama.isHealthy())) {
-        const result = await this.localScreen(imageBase64);
-
+        // Create flag if needed
         if (result.tier > 0) {
-          // Create flag for review
-          const flagId = await this.createFlag(streamId, analysisId, result);
-          result.flagId = flagId;
+          await this.createFlag(streamId, result);
         }
-
-        this.stats.byTier[result.tier]++;
-        if (result.action === 'block') this.stats.blocked++;
-        if (result.action === 'escalate') this.stats.escalated++;
 
         return result;
+      } catch (error) {
+        console.error('Local moderation failed:', error);
+        // Fall through to rule-based
       }
-
-      // If no local AI, pass through (would use cloud in production)
-      return { passed: true, tier: 0, action: 'allow', categories: [], confidence: 0.5 };
-    } catch (error) {
-      console.error('Content filter error:', error);
-      // On error, allow but flag for review
-      return {
-        passed: true,
-        tier: 1,
-        action: 'allow',
-        categories: ['error'],
-        confidence: 0,
-      };
     }
+
+    // Fallback to rule-based moderation
+    const result = this.ruleBasedModeration(analysisText || '');
+
+    if (result.tier > 0) {
+      await this.createFlag(streamId, result);
+    }
+
+    return result;
   }
 
   /**
-   * Quick text-based screening (for descriptions/transcripts)
+   * Local AI moderation using Ollama
    */
-  screenText(text: string): FilterResult {
-    const lowerText = text.toLowerCase();
-    let maxTier: ModerationTier = 0;
-    const matchedCategories: string[] = [];
+  private async localModeration(imageBase64: string): Promise<ModerationResult> {
+    const response = await this.ollamaClient.analyze(
+      imageBase64,
+      MODERATION_PROMPT
+    );
 
-    for (const category of this.config.categories) {
-      for (const keyword of category.keywords) {
-        if (lowerText.includes(keyword)) {
-          matchedCategories.push(category.id);
-          if (category.tier > maxTier) {
-            maxTier = category.tier as ModerationTier;
-          }
-          break;
-        }
+    return this.parseModeration(response);
+  }
+
+  /**
+   * Rule-based moderation (fallback)
+   */
+  private ruleBasedModeration(text: string): ModerationResult {
+    const lowerText = text.toLowerCase();
+    const categories: string[] = [];
+    let maxTier = 0;
+
+    // Check for concerning keywords
+    const checks: Array<{ keywords: string[]; category: string; tier: number }> = [
+      { keywords: ['blood', 'bleeding', 'injury', 'wound'], category: 'gore', tier: 2 },
+      { keywords: ['weapon', 'knife', 'gun', 'firearm'], category: 'weapons', tier: 2 },
+      { keywords: ['abuse', 'hit', 'strike', 'beat'], category: 'abuse', tier: 3 },
+      { keywords: ['neglect', 'abandoned', 'alone', 'unattended'], category: 'neglect', tier: 2 },
+      { keywords: ['danger', 'hazard', 'unsafe', 'risk'], category: 'child_safety', tier: 2 },
+      { keywords: ['fall', 'fallen', 'collapsed', 'unconscious'], category: 'violence', tier: 2 },
+    ];
+
+    for (const check of checks) {
+      if (check.keywords.some((kw) => lowerText.includes(kw))) {
+        categories.push(check.category);
+        maxTier = Math.max(maxTier, check.tier);
       }
     }
 
-    const action = this.getActionForTier(maxTier);
-
     return {
-      passed: action === 'allow',
-      tier: maxTier,
-      action,
-      categories: matchedCategories,
-      confidence: matchedCategories.length > 0 ? 0.7 : 1,
+      tier: maxTier as 0 | 1 | 2 | 3 | 4,
+      action: TIER_ACTIONS[maxTier],
+      categories,
+      confidence: 0.5, // Low confidence for rule-based
+      reason: categories.length > 0
+        ? `Detected keywords in categories: ${categories.join(', ')}`
+        : 'No concerning content detected',
     };
   }
 
   /**
-   * Get config
+   * Parse moderation response
    */
-  getConfig(): ContentFilterConfig {
-    return { ...this.config };
-  }
+  private parseModeration(response: string): ModerationResult {
+    let tier: 0 | 1 | 2 | 3 | 4 = 0;
+    let categories: string[] = [];
+    let confidence = 0;
+    let reason = '';
 
-  /**
-   * Update config
-   */
-  updateConfig(config: Partial<ContentFilterConfig>): void {
-    this.config = { ...this.config, ...config };
-  }
-
-  /**
-   * Get stats
-   */
-  getStats() {
-    return { ...this.stats };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Private Methods
-  // ---------------------------------------------------------------------------
-
-  private async localScreen(imageBase64: string): Promise<FilterResult> {
-    const response = await this.ollama.analyzeImage(imageBase64, MODERATION_PROMPT);
-
-    try {
-      // Try to parse JSON from response
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        const tier = Math.min(4, Math.max(0, parsed.tier || 0)) as ModerationTier;
-
-        return {
-          passed: tier < 3,
-          tier,
-          action: parsed.action || this.getActionForTier(tier),
-          categories: parsed.categories || [],
-          confidence: parsed.confidence || 0.7,
-        };
+    // Parse tier
+    const tierMatch = response.match(/TIER:\s*(\d)/i);
+    if (tierMatch) {
+      const parsedTier = parseInt(tierMatch[1], 10);
+      if (parsedTier >= 0 && parsedTier <= 4) {
+        tier = parsedTier as 0 | 1 | 2 | 3 | 4;
       }
-    } catch {
-      // Parse from natural language
     }
 
-    // Default: assume safe
-    return { passed: true, tier: 0, action: 'allow', categories: [], confidence: 0.5 };
-  }
-
-  private getActionForTier(tier: ModerationTier): 'allow' | 'blur' | 'block' | 'escalate' {
-    switch (tier) {
-      case 0:
-        return 'allow';
-      case 1:
-        return 'allow'; // Flag but allow
-      case 2:
-        return 'blur'; // Blur sensitive areas
-      case 3:
-        return 'escalate'; // Escalate for review
-      case 4:
-        return this.config.autoBlockTier4 ? 'block' : 'escalate';
-      default:
-        return 'allow';
+    // Parse categories
+    const categoriesMatch = response.match(/CATEGORIES:\s*(.+?)(?=\n|$)/i);
+    if (categoriesMatch) {
+      const catStr = categoriesMatch[1].toLowerCase();
+      if (catStr !== 'none') {
+        categories = catStr
+          .split(/[,\s]+/)
+          .map((c) => c.trim())
+          .filter((c) => CONTENT_CATEGORIES.includes(c));
+      }
     }
+
+    // Parse confidence
+    const confidenceMatch = response.match(/CONFIDENCE:\s*(\d+)/i);
+    if (confidenceMatch) {
+      confidence = parseInt(confidenceMatch[1], 10) / 100;
+    }
+
+    // Parse reason
+    const reasonMatch = response.match(/REASON:\s*(.+?)(?=\n\n|$)/is);
+    if (reasonMatch) {
+      reason = reasonMatch[1].trim();
+    }
+
+    return {
+      tier,
+      action: TIER_ACTIONS[tier],
+      categories,
+      confidence,
+      reason,
+    };
   }
 
-  private async createFlag(
+  /**
+   * Create content flag for review
+   */
+  async createFlag(
     streamId: string,
-    analysisId: string | undefined,
-    result: FilterResult
-  ): Promise<string> {
-    const id = generateId();
+    result: ModerationResult,
+    analysisId?: string
+  ): Promise<ContentFlag> {
     const db = await getSafeOSDatabase();
-    const timestamp = now();
+
+    const flag: ContentFlag = {
+      id: generateId(),
+      streamId,
+      analysisId,
+      category: result.categories.join(',') || 'unknown',
+      tier: result.tier,
+      reason: result.reason || 'Flagged by content filter',
+      status: result.tier >= 3 ? 'escalated' : 'pending',
+      metadata: {
+        confidence: result.confidence,
+        categories: result.categories,
+      },
+    };
 
     await db.run(
-      `INSERT INTO content_flags (id, stream_id, analysis_id, category, tier, reason, status, metadata, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      `INSERT INTO content_flags 
+       (id, stream_id, analysis_id, category, tier, reason, status, metadata, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        id,
-        streamId,
-        analysisId || null,
-        result.categories.join(','),
-        result.tier,
-        `Auto-flagged: ${result.action}`,
-        JSON.stringify({ confidence: result.confidence }),
-        timestamp,
+        flag.id,
+        flag.streamId,
+        flag.analysisId || null,
+        flag.category,
+        flag.tier,
+        flag.reason,
+        flag.status,
+        JSON.stringify(flag.metadata),
+        now(),
       ]
     );
 
-    return id;
+    console.log(`Content flag created: ${flag.id} (tier ${flag.tier})`);
+
+    return flag;
+  }
+
+  /**
+   * Get pending flags for review
+   */
+  async getPendingFlags(limit: number = 20): Promise<ContentFlag[]> {
+    const db = await getSafeOSDatabase();
+
+    const flags = await db.all<any>(
+      `SELECT * FROM content_flags 
+       WHERE status IN ('pending', 'escalated')
+       ORDER BY tier DESC, created_at ASC
+       LIMIT ?`,
+      [limit]
+    );
+
+    return flags.map((f) => ({
+      ...f,
+      metadata: f.metadata ? JSON.parse(f.metadata) : {},
+    }));
+  }
+
+  /**
+   * Review a flag
+   */
+  async reviewFlag(
+    flagId: string,
+    action: 'approved' | 'rejected' | 'escalated' | 'banned',
+    notes?: string
+  ): Promise<void> {
+    const db = await getSafeOSDatabase();
+
+    await db.run(
+      `UPDATE content_flags 
+       SET status = ?, reviewed_at = ?, reviewer_notes = ?
+       WHERE id = ?`,
+      [action, now(), notes || null, flagId]
+    );
+
+    // If banned, also ban the stream
+    if (action === 'banned') {
+      const flag = await db.get<any>(
+        'SELECT stream_id FROM content_flags WHERE id = ?',
+        [flagId]
+      );
+      if (flag) {
+        await db.run(
+          'UPDATE streams SET status = ? WHERE id = ?',
+          ['banned', flag.stream_id]
+        );
+      }
+    }
   }
 }
 
-// =============================================================================
-// Singleton
-// =============================================================================
-
-let defaultFilter: ContentFilter | null = null;
-
-export function getDefaultContentFilter(): ContentFilter {
-  if (!defaultFilter) {
-    defaultFilter = new ContentFilter();
-  }
-  return defaultFilter;
-}
-
-export function createContentFilter(config?: Partial<ContentFilterConfig>): ContentFilter {
-  return new ContentFilter(config);
-}
+export default ContentFilter;

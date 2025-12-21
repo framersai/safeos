@@ -1,359 +1,661 @@
+/**
+ * Setup Page
+ *
+ * Onboarding flow with disclaimers and configuration.
+ *
+ * @module app/setup/page
+ */
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useOnboardingStore } from '@/stores/onboarding-store';
+import {
+  useOnboardingStore,
+  getOnboardingSteps,
+  areDisclaimersAccepted,
+} from '../../stores/onboarding-store';
+import {
+  CRITICAL_DISCLAIMER,
+  getScenarioDisclaimer,
+  ACKNOWLEDGMENT_TEXT,
+} from '../../lib/disclaimers';
 
 // =============================================================================
-// Disclaimers (imported from backend - duplicated here for client)
+// Types
 // =============================================================================
 
-const CRITICAL_DISCLAIMER = `
-⚠️ IMPORTANT SAFETY NOTICE - PLEASE READ CAREFULLY ⚠️
-
-SafeOS is a SUPPLEMENTARY monitoring tool provided FREE OF CHARGE by SuperCloud as part of our humanitarian mission.
-
-This service is NOT intended to replace:
-• Professional medical care or monitoring
-• Parental supervision or childcare
-• Professional elderly care services
-• Veterinary care or pet supervision
-• Emergency services (911)
-• Any form of professional caregiving
-
-LIMITATIONS:
-• AI systems can make mistakes
-• Technology can fail (power outages, network issues)
-• Detection is not 100% accurate
-• There may be delays in alerts
-• This service may be unavailable at times
-
-By using SafeOS, you acknowledge that:
-1. You remain FULLY RESPONSIBLE for the care and safety of those you monitor
-2. This is a supplementary tool, not a primary care solution
-3. You will NOT leave dependents unsupervised based solely on this service
-4. You will maintain appropriate professional care arrangements
-5. You will respond promptly to any concerns, regardless of alerts
-
-USE AT YOUR OWN RISK.
-In case of emergency, ALWAYS call 911.
-`.trim();
-
-const CONSENT_ITEMS = [
-  {
-    id: 'not_replacement',
-    required: true,
-    text: 'I understand SafeOS is NOT a replacement for professional care, parental supervision, or emergency services.',
-  },
-  {
-    id: 'responsibility',
-    required: true,
-    text: 'I remain fully responsible for the safety and care of those I monitor.',
-  },
-  {
-    id: 'liability',
-    required: true,
-    text: 'I waive all liability claims and accept this service is provided as-is without warranty.',
-  },
-  {
-    id: 'ai_moderation',
-    required: true,
-    text: 'I consent to AI-powered content moderation and understand flagged content may be human-reviewed.',
-  },
-  {
-    id: 'emergency',
-    required: true,
-    text: 'I will call 911 or emergency services for actual emergencies, not rely on this service.',
-  },
-  {
-    id: 'privacy',
-    required: false,
-    text: 'I have read and understand the privacy policy and how my data is handled.',
-  },
-  {
-    id: 'abuse_policy',
-    required: true,
-    text: 'I understand that abuse of this service will result in account termination and potential law enforcement referral.',
-  },
-];
-
-const SCENARIOS = [
-  {
-    id: 'pet',
-    icon: '🐾',
-    name: 'Pet Monitoring',
-    description: 'Watch over dogs, cats, and other pets while you\'re away',
-    features: ['Distress detection', 'Activity monitoring', 'Eating/drinking alerts', 'Accident detection'],
-  },
-  {
-    id: 'baby',
-    icon: '👶',
-    name: 'Baby & Toddler',
-    description: 'Monitor infants and young children with cry detection',
-    features: ['Cry detection', 'Movement alerts', 'Sleep monitoring', 'Safety zone warnings'],
-  },
-  {
-    id: 'elderly',
-    icon: '🧓',
-    name: 'Elderly Care',
-    description: 'Support seniors with fall detection and activity monitoring',
-    features: ['Fall detection', 'Inactivity alerts', 'Distress detection', 'Routine monitoring'],
-  },
-];
+interface StepProps {
+  onNext: () => void;
+  onBack?: () => void;
+}
 
 // =============================================================================
-// Setup Page Component
+// Setup Page
 // =============================================================================
 
 export default function SetupPage() {
   const router = useRouter();
-  const {
-    step,
-    acceptedDisclaimers,
-    selectedScenarios,
-    setStep,
-    acceptDisclaimer,
-    selectScenario,
-    completeOnboarding,
-    isOnboardingComplete,
-  } = useOnboardingStore();
+  const store = useOnboardingStore();
+  const steps = getOnboardingSteps();
+  const [error, setError] = useState<string | null>(null);
 
-  const [scrolledToBottom, setScrolledToBottom] = useState(false);
-  const [allRequiredAccepted, setAllRequiredAccepted] = useState(false);
+  const currentStepConfig = steps[store.currentStep];
 
-  // Check if already onboarded
-  useEffect(() => {
-    if (isOnboardingComplete) {
-      router.push('/monitor');
-    }
-  }, [isOnboardingComplete, router]);
-
-  // Check if all required disclaimers are accepted
-  useEffect(() => {
-    const requiredIds = CONSENT_ITEMS.filter((item) => item.required).map((item) => item.id);
-    const allAccepted = requiredIds.every((id) => acceptedDisclaimers.includes(id));
-    setAllRequiredAccepted(allAccepted);
-  }, [acceptedDisclaimers]);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-    if (atBottom) {
-      setScrolledToBottom(true);
+  const handleNext = () => {
+    if (store.currentStep < steps.length - 1) {
+      store.completeStep(store.currentStep);
+      store.setStep(store.currentStep + 1);
+    } else {
+      // Complete onboarding
+      store.setComplete(true);
+      router.push('/');
     }
   };
 
-  const handleComplete = () => {
-    if (selectedScenarios.length === 0) {
-      alert('Please select at least one monitoring scenario');
-      return;
+  const handleBack = () => {
+    if (store.currentStep > 0) {
+      store.setStep(store.currentStep - 1);
     }
-    completeOnboarding();
-    router.push('/monitor');
+  };
+
+  const renderStep = () => {
+    switch (store.currentStep) {
+      case 0:
+        return <WelcomeStep onNext={handleNext} />;
+      case 1:
+        return <DisclaimerStep onNext={handleNext} onBack={handleBack} />;
+      case 2:
+        return <ScenarioStep onNext={handleNext} onBack={handleBack} />;
+      case 3:
+        return <PermissionsStep onNext={handleNext} onBack={handleBack} />;
+      case 4:
+        return <NotificationsStep onNext={handleNext} onBack={handleBack} />;
+      case 5:
+        return <ReadyStep onNext={handleNext} onBack={handleBack} />;
+      default:
+        return <WelcomeStep onNext={handleNext} />;
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#0f0f18] to-[#0a0a0f] text-white">
-      {/* Progress Bar */}
-      <div className="fixed top-0 left-0 right-0 h-1 bg-white/10 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Progress bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 bg-slate-800 z-50">
         <div
-          className="h-full bg-gradient-to-r from-safeos-500 to-safeos-400 transition-all duration-500"
-          style={{ width: `${(step / 3) * 100}%` }}
+          className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-300"
+          style={{ width: `${((store.currentStep + 1) / steps.length) * 100}%` }}
         />
       </div>
 
-      {/* Header */}
-      <header className="pt-8 pb-4">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-safeos-400 to-cyan-400 bg-clip-text text-transparent">
-            SafeOS Setup
-          </h1>
-          <p className="text-white/60 mt-2">
-            Step {step} of 3
-          </p>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
-        {/* Step 1: Welcome & Disclaimer */}
-        {step === 1 && (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-4">🛡️</div>
-              <h2 className="text-2xl font-semibold mb-2">Welcome to SafeOS</h2>
-              <p className="text-white/60">
-                A free humanitarian monitoring service by SuperCloud
-              </p>
-            </div>
-
-            {/* Disclaimer Box */}
+      {/* Step indicator */}
+      <div className="container mx-auto px-4 pt-12">
+        <div className="flex justify-center gap-2 mb-8">
+          {steps.map((step, idx) => (
             <div
-              className="bg-white/5 border border-white/10 rounded-xl p-4 h-80 overflow-y-auto font-mono text-sm text-white/70"
-              onScroll={handleScroll}
-            >
-              <pre className="whitespace-pre-wrap">{CRITICAL_DISCLAIMER}</pre>
-            </div>
-
-            {!scrolledToBottom && (
-              <p className="text-center text-amber-400 text-sm animate-pulse">
-                ↓ Scroll to read the entire disclaimer
-              </p>
-            )}
-
-            <button
-              onClick={() => setStep(2)}
-              disabled={!scrolledToBottom}
-              className={`w-full py-4 rounded-xl font-semibold text-lg transition ${
-                scrolledToBottom
-                  ? 'bg-safeos-500 hover:bg-safeos-600 text-white'
-                  : 'bg-white/10 text-white/40 cursor-not-allowed'
+              key={step.id}
+              className={`w-3 h-3 rounded-full transition-colors ${
+                idx === store.currentStep
+                  ? 'bg-emerald-500'
+                  : idx < store.currentStep
+                    ? 'bg-emerald-500/50'
+                    : 'bg-slate-700'
               }`}
-            >
-              I Have Read the Disclaimer
-            </button>
-          </div>
-        )}
-
-        {/* Step 2: Consent Checkboxes */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-4">✅</div>
-              <h2 className="text-2xl font-semibold mb-2">Confirm Your Understanding</h2>
-              <p className="text-white/60">
-                Please acknowledge each item to continue
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {CONSENT_ITEMS.map((item) => (
-                <label
-                  key={item.id}
-                  className={`flex items-start gap-3 p-4 rounded-xl border transition cursor-pointer ${
-                    acceptedDisclaimers.includes(item.id)
-                      ? 'bg-safeos-500/10 border-safeos-500/30'
-                      : 'bg-white/5 border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={acceptedDisclaimers.includes(item.id)}
-                    onChange={() => acceptDisclaimer(item.id)}
-                    className="mt-1 w-5 h-5 rounded accent-safeos-500"
-                  />
-                  <div>
-                    <span className="text-white/90">{item.text}</span>
-                    {item.required && (
-                      <span className="text-red-400 text-xs ml-1">*</span>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setStep(1)}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl"
-              >
-                Back
-              </button>
-              <button
-                onClick={() => setStep(3)}
-                disabled={!allRequiredAccepted}
-                className={`flex-1 py-3 rounded-xl font-semibold transition ${
-                  allRequiredAccepted
-                    ? 'bg-safeos-500 hover:bg-safeos-600 text-white'
-                    : 'bg-white/10 text-white/40 cursor-not-allowed'
-                }`}
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Scenario Selection */}
-        {step === 3 && (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-4">🎯</div>
-              <h2 className="text-2xl font-semibold mb-2">Choose Your Scenario</h2>
-              <p className="text-white/60">
-                Select what you'll be monitoring (you can change this later)
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {SCENARIOS.map((scenario) => (
-                <button
-                  key={scenario.id}
-                  onClick={() => selectScenario(scenario.id as 'pet' | 'baby' | 'elderly')}
-                  className={`w-full p-5 rounded-xl border text-left transition ${
-                    selectedScenarios.includes(scenario.id as 'pet' | 'baby' | 'elderly')
-                      ? 'bg-safeos-500/10 border-safeos-500/50 ring-1 ring-safeos-500/30'
-                      : 'bg-white/5 border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="text-4xl">{scenario.icon}</div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-1">{scenario.name}</h3>
-                      <p className="text-white/60 text-sm mb-3">{scenario.description}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {scenario.features.map((feature) => (
-                          <span
-                            key={feature}
-                            className="px-2 py-0.5 bg-white/10 rounded text-xs text-white/70"
-                          >
-                            {feature}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {selectedScenarios.includes(scenario.id as 'pet' | 'baby' | 'elderly') && (
-                      <div className="text-safeos-400 text-2xl">✓</div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setStep(2)}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl"
-              >
-                Back
-              </button>
-              <button
-                onClick={handleComplete}
-                disabled={selectedScenarios.length === 0}
-                className={`flex-1 py-3 rounded-xl font-semibold transition ${
-                  selectedScenarios.length > 0
-                    ? 'bg-gradient-to-r from-safeos-500 to-cyan-500 hover:from-safeos-600 hover:to-cyan-600 text-white'
-                    : 'bg-white/10 text-white/40 cursor-not-allowed'
-                }`}
-              >
-                Start Monitoring 🚀
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="mt-12 text-center text-white/40 text-sm">
-          <p>
-            SafeOS is a free service by{' '}
-            <a href="https://supercloud.ai" className="text-safeos-400 hover:underline">
-              SuperCloud
-            </a>
-          </p>
-          <p className="mt-1">
-            10% of revenue dedicated to humanity, 10% to wildlife
-          </p>
+            />
+          ))}
         </div>
-      </main>
+
+        {/* Step title */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-white">{currentStepConfig?.name}</h1>
+          <p className="text-slate-400 mt-2">{currentStepConfig?.description}</p>
+        </div>
+      </div>
+
+      {/* Step content */}
+      <div className="container mx-auto px-4 pb-12">{renderStep()}</div>
+
+      {/* Error display */}
+      {error && (
+        <div className="fixed bottom-4 left-4 right-4 bg-red-500/20 border border-red-500/50 rounded-lg p-4 text-red-400 text-center">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Step Components
+// =============================================================================
+
+function WelcomeStep({ onNext }: StepProps) {
+  return (
+    <div className="max-w-2xl mx-auto text-center">
+      {/* Logo */}
+      <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center mx-auto mb-8">
+        <span className="text-5xl">🛡️</span>
+      </div>
+
+      <h2 className="text-3xl font-bold text-white mb-4">
+        Welcome to SafeOS Guardian
+      </h2>
+
+      <p className="text-slate-300 text-lg mb-6">
+        A free humanitarian monitoring service brought to you by SuperCloud's
+        10% for Humanity initiative.
+      </p>
+
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <FeatureCard icon="🐕" title="Pet Monitoring" />
+        <FeatureCard icon="👶" title="Baby Watch" />
+        <FeatureCard icon="👴" title="Elderly Care" />
+      </div>
+
+      <p className="text-slate-400 text-sm mb-8">
+        This service uses AI to monitor camera feeds and alert you to potential
+        concerns. It's designed to supplement—never replace—proper care and
+        supervision.
+      </p>
+
+      <button
+        onClick={onNext}
+        className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
+      >
+        Get Started
+      </button>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title }: { icon: string; title: string }) {
+  return (
+    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+      <span className="text-3xl mb-2 block">{icon}</span>
+      <span className="text-sm text-slate-300">{title}</span>
+    </div>
+  );
+}
+
+function DisclaimerStep({ onNext, onBack }: StepProps) {
+  const store = useOnboardingStore();
+  const [acknowledged, setAcknowledged] = useState(false);
+
+  const canProceed = acknowledged;
+
+  const handleAccept = () => {
+    store.acceptDisclaimer('main');
+    onNext();
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      {/* Disclaimer content */}
+      <div className="bg-slate-800/50 rounded-xl border border-red-500/30 p-6 mb-6 max-h-[400px] overflow-y-auto">
+        <pre className="text-sm text-slate-300 whitespace-pre-wrap font-sans">
+          {CRITICAL_DISCLAIMER}
+        </pre>
+      </div>
+
+      {/* Acknowledgment checkbox */}
+      <div className="bg-slate-800/30 rounded-xl p-4 mb-6">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acknowledged}
+            onChange={(e) => setAcknowledged(e.target.checked)}
+            className="mt-1 w-5 h-5 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500"
+          />
+          <span className="text-sm text-slate-300 whitespace-pre-line">
+            {ACKNOWLEDGMENT_TEXT}
+          </span>
+        </label>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex justify-between">
+        <button
+          onClick={onBack}
+          className="px-6 py-2 text-slate-400 hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
+        <button
+          onClick={handleAccept}
+          disabled={!canProceed}
+          className={`px-8 py-3 rounded-xl font-medium transition-all ${
+            canProceed
+              ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:opacity-90'
+              : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+          }`}
+        >
+          I Accept & Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScenarioStep({ onNext, onBack }: StepProps) {
+  const store = useOnboardingStore();
+
+  const scenarios = [
+    {
+      id: 'pet' as const,
+      icon: '🐕',
+      title: 'Pet Monitoring',
+      description: 'Watch over your furry friends when you\'re away',
+      features: ['Movement detection', 'Bark/sound alerts', 'Inactivity warnings'],
+    },
+    {
+      id: 'baby' as const,
+      icon: '👶',
+      title: 'Baby Watch',
+      description: 'Supplemental monitoring for infants and toddlers',
+      features: ['Cry detection', 'Movement tracking', 'Sleep monitoring'],
+    },
+    {
+      id: 'elderly' as const,
+      icon: '👴',
+      title: 'Elderly Care',
+      description: 'Peace of mind for aging loved ones',
+      features: ['Activity monitoring', 'Fall indicators', 'Help detection'],
+    },
+  ];
+
+  const handleSelect = (scenario: 'pet' | 'baby' | 'elderly') => {
+    store.setScenario(scenario);
+    store.acceptDisclaimer('scenario');
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {scenarios.map((scenario) => (
+          <button
+            key={scenario.id}
+            onClick={() => handleSelect(scenario.id)}
+            className={`text-left p-6 rounded-xl border transition-all ${
+              store.selectedScenario === scenario.id
+                ? 'bg-emerald-500/20 border-emerald-500'
+                : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600'
+            }`}
+          >
+            <span className="text-4xl mb-4 block">{scenario.icon}</span>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              {scenario.title}
+            </h3>
+            <p className="text-sm text-slate-400 mb-4">{scenario.description}</p>
+            <ul className="space-y-1">
+              {scenario.features.map((feature) => (
+                <li key={feature} className="text-xs text-slate-500 flex items-center gap-2">
+                  <span className="text-emerald-400">✓</span>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </button>
+        ))}
+      </div>
+
+      {/* Scenario-specific disclaimer */}
+      {store.selectedScenario && (
+        <div className="bg-slate-800/30 rounded-xl p-4 mb-6">
+          <pre className="text-xs text-slate-400 whitespace-pre-wrap font-sans">
+            {getScenarioDisclaimer(store.selectedScenario)}
+          </pre>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="flex justify-between">
+        <button
+          onClick={onBack}
+          className="px-6 py-2 text-slate-400 hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
+        <button
+          onClick={onNext}
+          disabled={!store.selectedScenario}
+          className={`px-8 py-3 rounded-xl font-medium transition-all ${
+            store.selectedScenario
+              ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:opacity-90'
+              : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+          }`}
+        >
+          Continue →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PermissionsStep({ onNext, onBack }: StepProps) {
+  const store = useOnboardingStore();
+  const [requesting, setRequesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const requestPermissions = async () => {
+    setRequesting(true);
+    setError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+
+      // Stop tracks immediately (we just needed permission)
+      stream.getTracks().forEach((track) => track.stop());
+
+      store.setCameraPermission(true);
+      store.setMicrophonePermission(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Permission denied';
+      setError(message);
+
+      // Check which permissions we have
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoStream.getTracks().forEach((track) => track.stop());
+        store.setCameraPermission(true);
+      } catch {
+        store.setCameraPermission(false);
+      }
+
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioStream.getTracks().forEach((track) => track.stop());
+        store.setMicrophonePermission(true);
+      } catch {
+        store.setMicrophonePermission(false);
+      }
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const canProceed = store.cameraPermissionGranted;
+
+  return (
+    <div className="max-w-2xl mx-auto text-center">
+      <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-6">
+        <span className="text-4xl">📷</span>
+      </div>
+
+      <h2 className="text-xl font-semibold text-white mb-4">
+        Camera & Microphone Access
+      </h2>
+
+      <p className="text-slate-400 mb-8">
+        SafeOS Guardian needs access to your camera and microphone to monitor
+        your space. All processing happens locally on your device for privacy.
+      </p>
+
+      {/* Permission status */}
+      <div className="bg-slate-800/50 rounded-xl p-6 mb-6 space-y-4">
+        <PermissionItem
+          icon="📷"
+          title="Camera"
+          granted={store.cameraPermissionGranted}
+          required
+        />
+        <PermissionItem
+          icon="🎤"
+          title="Microphone"
+          granted={store.microphonePermissionGranted}
+          required={false}
+        />
+      </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Request button */}
+      {!canProceed && (
+        <button
+          onClick={requestPermissions}
+          disabled={requesting}
+          className="px-8 py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50 mb-8"
+        >
+          {requesting ? 'Requesting...' : 'Grant Permissions'}
+        </button>
+      )}
+
+      {/* Navigation */}
+      <div className="flex justify-between">
+        <button
+          onClick={onBack}
+          className="px-6 py-2 text-slate-400 hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
+        <button
+          onClick={onNext}
+          disabled={!canProceed}
+          className={`px-8 py-3 rounded-xl font-medium transition-all ${
+            canProceed
+              ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:opacity-90'
+              : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+          }`}
+        >
+          Continue →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PermissionItem({
+  icon,
+  title,
+  granted,
+  required,
+}: {
+  icon: string;
+  title: string;
+  granted: boolean;
+  required: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">{icon}</span>
+        <div className="text-left">
+          <span className="text-white font-medium">{title}</span>
+          {required && <span className="text-xs text-red-400 ml-2">Required</span>}
+        </div>
+      </div>
+      <div
+        className={`px-3 py-1 rounded-full text-xs font-medium ${
+          granted
+            ? 'bg-emerald-500/20 text-emerald-400'
+            : 'bg-slate-700 text-slate-400'
+        }`}
+      >
+        {granted ? '✓ Granted' : 'Pending'}
+      </div>
+    </div>
+  );
+}
+
+function NotificationsStep({ onNext, onBack }: StepProps) {
+  const store = useOnboardingStore();
+
+  const requestBrowserPush = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      store.setNotifications({ browserPushEnabled: permission === 'granted' });
+    } catch (error) {
+      console.error('Failed to request notification permission:', error);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="text-center mb-8">
+        <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4">
+          <span className="text-4xl">🔔</span>
+        </div>
+        <p className="text-slate-400">
+          Configure how you want to receive alerts when something needs attention.
+        </p>
+      </div>
+
+      <div className="space-y-4 mb-8">
+        {/* Browser Push */}
+        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🌐</span>
+              <div>
+                <h4 className="text-white font-medium">Browser Notifications</h4>
+                <p className="text-xs text-slate-400">Get alerts in your browser</p>
+              </div>
+            </div>
+            {store.browserPushEnabled ? (
+              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs">
+                Enabled
+              </span>
+            ) : (
+              <button
+                onClick={requestBrowserPush}
+                className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* SMS (Twilio) */}
+        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📱</span>
+              <div>
+                <h4 className="text-white font-medium">SMS Alerts</h4>
+                <p className="text-xs text-slate-400">Receive text message alerts</p>
+              </div>
+            </div>
+            <span className="text-xs text-slate-500">Coming soon</span>
+          </div>
+        </div>
+
+        {/* Telegram */}
+        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">✈️</span>
+              <div>
+                <h4 className="text-white font-medium">Telegram Bot</h4>
+                <p className="text-xs text-slate-400">Get alerts via Telegram</p>
+              </div>
+            </div>
+            <span className="text-xs text-slate-500">Configure in settings</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex justify-between">
+        <button
+          onClick={onBack}
+          className="px-6 py-2 text-slate-400 hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
+        <button
+          onClick={onNext}
+          className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
+        >
+          Continue →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReadyStep({ onNext, onBack }: StepProps) {
+  const store = useOnboardingStore();
+
+  const scenarioLabels = {
+    pet: 'Pet Monitoring',
+    baby: 'Baby Watch',
+    elderly: 'Elderly Care',
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto text-center">
+      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center mx-auto mb-8">
+        <span className="text-5xl">✓</span>
+      </div>
+
+      <h2 className="text-3xl font-bold text-white mb-4">You're All Set!</h2>
+
+      <p className="text-slate-400 text-lg mb-8">
+        SafeOS Guardian is ready to help monitor your{' '}
+        {store.selectedScenario === 'pet'
+          ? 'pets'
+          : store.selectedScenario === 'baby'
+            ? 'little ones'
+            : 'loved ones'}
+        .
+      </p>
+
+      {/* Summary */}
+      <div className="bg-slate-800/50 rounded-xl p-6 mb-8 text-left">
+        <h3 className="text-white font-semibold mb-4">Configuration Summary</h3>
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-slate-400">Monitoring Type</span>
+            <span className="text-white">
+              {store.selectedScenario ? scenarioLabels[store.selectedScenario] : 'Not set'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-400">Camera Access</span>
+            <span className={store.cameraPermissionGranted ? 'text-emerald-400' : 'text-red-400'}>
+              {store.cameraPermissionGranted ? 'Granted' : 'Denied'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-400">Browser Notifications</span>
+            <span className={store.browserPushEnabled ? 'text-emerald-400' : 'text-slate-500'}>
+              {store.browserPushEnabled ? 'Enabled' : 'Not enabled'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Important reminder */}
+      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-8 text-left">
+        <p className="text-yellow-400 text-sm">
+          <strong>Remember:</strong> SafeOS Guardian is a supplementary tool. Always ensure
+          proper supervision and care for your loved ones.
+        </p>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex justify-between">
+        <button
+          onClick={onBack}
+          className="px-6 py-2 text-slate-400 hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
+        <button
+          onClick={onNext}
+          className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
+        >
+          Start Monitoring 🚀
+        </button>
+      </div>
     </div>
   );
 }

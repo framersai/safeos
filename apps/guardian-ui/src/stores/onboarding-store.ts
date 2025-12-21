@@ -1,7 +1,7 @@
 /**
  * Onboarding Store
  *
- * Zustand store for onboarding and setup state.
+ * Zustand store for onboarding and consent management.
  *
  * @module stores/onboarding-store
  */
@@ -13,85 +13,67 @@ import { persist } from 'zustand/middleware';
 // Types
 // =============================================================================
 
-export type SetupStep =
-  | 'welcome'
-  | 'disclaimer'
-  | 'scenario'
-  | 'permissions'
-  | 'notifications'
-  | 'complete';
-
-export type MonitoringScenario = 'pet' | 'baby' | 'elderly';
-
 export interface OnboardingState {
-  // Progress
-  currentStep: SetupStep;
-  completedSteps: SetupStep[];
+  // Onboarding progress
+  currentStep: number;
+  completedSteps: number[];
   isComplete: boolean;
 
   // Disclaimers
-  hasAcceptedMainDisclaimer: boolean;
-  hasAcceptedScenarioDisclaimer: boolean;
+  acceptedDisclaimers: {
+    main: boolean;
+    scenario: boolean;
+    privacy: boolean;
+    terms: boolean;
+  };
   disclaimerAcceptedAt: string | null;
 
-  // Selections
-  selectedScenario: MonitoringScenario | null;
+  // Profile selection
+  selectedScenario: 'pet' | 'baby' | 'elderly' | null;
   profileName: string;
 
-  // Permissions
-  hasCameraPermission: boolean;
-  hasMicrophonePermission: boolean;
-  hasNotificationPermission: boolean;
-
   // Notifications
-  notificationChannels: {
-    browser: boolean;
-    sms: boolean;
-    telegram: boolean;
-  };
-  phoneNumber: string | null;
+  notificationsEnabled: boolean;
+  browserPushEnabled: boolean;
+  smsEnabled: boolean;
+  telegramEnabled: boolean;
   telegramChatId: string | null;
 
+  // Camera permissions
+  cameraPermissionGranted: boolean;
+  microphonePermissionGranted: boolean;
+
   // Actions
-  setStep: (step: SetupStep) => void;
-  completeStep: (step: SetupStep) => void;
-  acceptMainDisclaimer: () => void;
-  acceptScenarioDisclaimer: () => void;
-  selectScenario: (scenario: MonitoringScenario) => void;
+  setStep: (step: number) => void;
+  completeStep: (step: number) => void;
+  setComplete: (complete: boolean) => void;
+  acceptDisclaimer: (type: keyof OnboardingState['acceptedDisclaimers']) => void;
+  acceptAllDisclaimers: () => void;
+  setScenario: (scenario: 'pet' | 'baby' | 'elderly' | null) => void;
   setProfileName: (name: string) => void;
+  setNotifications: (settings: Partial<NotificationSettings>) => void;
   setCameraPermission: (granted: boolean) => void;
   setMicrophonePermission: (granted: boolean) => void;
-  setNotificationPermission: (granted: boolean) => void;
-  setNotificationChannel: (channel: 'browser' | 'sms' | 'telegram', enabled: boolean) => void;
-  setPhoneNumber: (phone: string) => void;
-  setTelegramChatId: (chatId: string) => void;
-  completeOnboarding: () => void;
-  resetOnboarding: () => void;
+  reset: () => void;
+}
+
+interface NotificationSettings {
+  notificationsEnabled: boolean;
+  browserPushEnabled: boolean;
+  smsEnabled: boolean;
+  telegramEnabled: boolean;
+  telegramChatId: string | null;
 }
 
 // =============================================================================
 // Initial State
 // =============================================================================
 
-const initialState = {
-  currentStep: 'welcome' as SetupStep,
-  completedSteps: [] as SetupStep[],
-  isComplete: false,
-  hasAcceptedMainDisclaimer: false,
-  hasAcceptedScenarioDisclaimer: false,
-  disclaimerAcceptedAt: null as string | null,
-  selectedScenario: null as MonitoringScenario | null,
-  profileName: '',
-  hasCameraPermission: false,
-  hasMicrophonePermission: false,
-  hasNotificationPermission: false,
-  notificationChannels: {
-    browser: true,
-    sms: false,
-    telegram: false,
-  },
-  phoneNumber: null as string | null,
-  telegramChatId: null as string | null,
+const INITIAL_DISCLAIMERS = {
+  main: false,
+  scenario: false,
+  privacy: false,
+  terms: false,
 };
 
 // =============================================================================
@@ -101,8 +83,23 @@ const initialState = {
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set, get) => ({
-      ...initialState,
+      // Initial state
+      currentStep: 0,
+      completedSteps: [],
+      isComplete: false,
+      acceptedDisclaimers: INITIAL_DISCLAIMERS,
+      disclaimerAcceptedAt: null,
+      selectedScenario: null,
+      profileName: '',
+      notificationsEnabled: true,
+      browserPushEnabled: false,
+      smsEnabled: false,
+      telegramEnabled: false,
+      telegramChatId: null,
+      cameraPermissionGranted: false,
+      microphonePermissionGranted: false,
 
+      // Actions
       setStep: (step) => set({ currentStep: step }),
 
       completeStep: (step) =>
@@ -110,64 +107,138 @@ export const useOnboardingStore = create<OnboardingState>()(
           completedSteps: state.completedSteps.includes(step)
             ? state.completedSteps
             : [...state.completedSteps, step],
+          currentStep: Math.max(state.currentStep, step + 1),
         })),
 
-      acceptMainDisclaimer: () =>
+      setComplete: (complete) => set({ isComplete: complete }),
+
+      acceptDisclaimer: (type) =>
+        set((state) => ({
+          acceptedDisclaimers: {
+            ...state.acceptedDisclaimers,
+            [type]: true,
+          },
+          disclaimerAcceptedAt: new Date().toISOString(),
+        })),
+
+      acceptAllDisclaimers: () =>
         set({
-          hasAcceptedMainDisclaimer: true,
+          acceptedDisclaimers: {
+            main: true,
+            scenario: true,
+            privacy: true,
+            terms: true,
+          },
           disclaimerAcceptedAt: new Date().toISOString(),
         }),
 
-      acceptScenarioDisclaimer: () =>
-        set({ hasAcceptedScenarioDisclaimer: true }),
-
-      selectScenario: (scenario) =>
-        set({
-          selectedScenario: scenario,
-          hasAcceptedScenarioDisclaimer: false, // Reset when changing scenario
-        }),
+      setScenario: (scenario) => set({ selectedScenario: scenario }),
 
       setProfileName: (name) => set({ profileName: name }),
 
-      setCameraPermission: (granted) =>
-        set({ hasCameraPermission: granted }),
-
-      setMicrophonePermission: (granted) =>
-        set({ hasMicrophonePermission: granted }),
-
-      setNotificationPermission: (granted) =>
-        set({ hasNotificationPermission: granted }),
-
-      setNotificationChannel: (channel, enabled) =>
+      setNotifications: (settings) =>
         set((state) => ({
-          notificationChannels: {
-            ...state.notificationChannels,
-            [channel]: enabled,
-          },
+          notificationsEnabled: settings.notificationsEnabled ?? state.notificationsEnabled,
+          browserPushEnabled: settings.browserPushEnabled ?? state.browserPushEnabled,
+          smsEnabled: settings.smsEnabled ?? state.smsEnabled,
+          telegramEnabled: settings.telegramEnabled ?? state.telegramEnabled,
+          telegramChatId: settings.telegramChatId ?? state.telegramChatId,
         })),
 
-      setPhoneNumber: (phone) => set({ phoneNumber: phone }),
+      setCameraPermission: (granted) => set({ cameraPermissionGranted: granted }),
 
-      setTelegramChatId: (chatId) => set({ telegramChatId: chatId }),
+      setMicrophonePermission: (granted) => set({ microphonePermissionGranted: granted }),
 
-      completeOnboarding: () =>
+      reset: () =>
         set({
-          isComplete: true,
-          currentStep: 'complete',
-          completedSteps: [
-            'welcome',
-            'disclaimer',
-            'scenario',
-            'permissions',
-            'notifications',
-            'complete',
-          ],
+          currentStep: 0,
+          completedSteps: [],
+          isComplete: false,
+          acceptedDisclaimers: INITIAL_DISCLAIMERS,
+          disclaimerAcceptedAt: null,
+          selectedScenario: null,
+          profileName: '',
+          notificationsEnabled: true,
+          browserPushEnabled: false,
+          smsEnabled: false,
+          telegramEnabled: false,
+          telegramChatId: null,
+          cameraPermissionGranted: false,
+          microphonePermissionGranted: false,
         }),
-
-      resetOnboarding: () => set(initialState),
     }),
     {
       name: 'safeos-onboarding',
     }
   )
 );
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Get onboarding steps configuration
+ */
+export function getOnboardingSteps() {
+  return [
+    {
+      id: 0,
+      name: 'Welcome',
+      description: 'Introduction to SafeOS Guardian',
+      required: true,
+    },
+    {
+      id: 1,
+      name: 'Safety Disclaimer',
+      description: 'Read and accept important safety information',
+      required: true,
+    },
+    {
+      id: 2,
+      name: 'Select Scenario',
+      description: 'Choose what you want to monitor',
+      required: true,
+    },
+    {
+      id: 3,
+      name: 'Camera Access',
+      description: 'Grant camera and microphone permissions',
+      required: true,
+    },
+    {
+      id: 4,
+      name: 'Notifications',
+      description: 'Set up alert notifications',
+      required: false,
+    },
+    {
+      id: 5,
+      name: 'Ready',
+      description: 'Start monitoring',
+      required: false,
+    },
+  ];
+}
+
+/**
+ * Check if all required disclaimers are accepted
+ */
+export function areDisclaimersAccepted(
+  disclaimers: OnboardingState['acceptedDisclaimers']
+): boolean {
+  return disclaimers.main && disclaimers.scenario;
+}
+
+/**
+ * Check if onboarding can be skipped (returning user)
+ */
+export function canSkipOnboarding(state: OnboardingState): boolean {
+  return (
+    state.isComplete &&
+    areDisclaimersAccepted(state.acceptedDisclaimers) &&
+    state.selectedScenario !== null
+  );
+}
+
+export default useOnboardingStore;

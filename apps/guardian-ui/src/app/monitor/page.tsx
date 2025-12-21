@@ -1,333 +1,293 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Monitor Page
+ *
+ * Live monitoring interface.
+ *
+ * @module app/monitor/page
+ */
+
+import React, { useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useOnboardingStore } from '@/stores/onboarding-store';
-import { useMonitoringStore } from '@/stores/monitoring-store';
-import { useWebSocket } from '@/lib/websocket';
-import CameraFeed from '@/components/CameraFeed';
-import AlertPanel from '@/components/AlertPanel';
+import { CameraFeed } from '../../components/CameraFeed';
+import { AlertPanel } from '../../components/AlertPanel';
+import { useMonitoringStore } from '../../stores/monitoring-store';
+import { useOnboardingStore } from '../../stores/onboarding-store';
+import { useWebSocket, type WSMessage } from '../../lib/websocket';
 
 // =============================================================================
-// Monitor Page
+// Constants
+// =============================================================================
+
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
+
+// =============================================================================
+// Component
 // =============================================================================
 
 export default function MonitorPage() {
-  const router = useRouter();
-  const { isOnboardingComplete, primaryScenario, selectedScenarios } =
-    useOnboardingStore();
   const {
+    isConnected,
     isStreaming,
     streamId,
+    scenario,
     motionScore,
     audioLevel,
-    startStream,
-    stopStream,
-    updateStreamStatus,
+    setConnected,
+    setStreaming,
+    setStreamId,
+    setMotionScore,
+    setAudioLevel,
+    addAlert,
   } = useMonitoringStore();
 
-  const [isStarting, setIsStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeScenario, setActiveScenario] = useState(primaryScenario || 'pet');
+  const { selectedScenario } = useOnboardingStore();
 
-  // WebSocket connection
-  const { isConnected, sendFrame, connect } = useWebSocket({
-    onMessage: (message) => {
-      if (message.type === 'analysis') {
-        console.log('[Monitor] Analysis result:', message.payload);
+  // ---------------------------------------------------------------------------
+  // WebSocket
+  // ---------------------------------------------------------------------------
+
+  const handleMessage = useCallback(
+    (message: WSMessage) => {
+      switch (message.type) {
+        case 'stream-started':
+          setStreaming(true);
+          setStreamId(message.payload?.streamId);
+          break;
+        case 'stream-stopped':
+          setStreaming(false);
+          setStreamId(null);
+          break;
+        case 'alert':
+          addAlert({
+            id: message.payload?.id || Date.now().toString(),
+            streamId: message.payload?.streamId || '',
+            severity: message.payload?.severity || 'medium',
+            message: message.payload?.message || 'Alert detected',
+            timestamp: message.payload?.timestamp || new Date().toISOString(),
+            acknowledged: false,
+          });
+          break;
+        case 'pong':
+          // Heartbeat received
+          break;
       }
     },
-    onConnect: () => {
-      if (streamId) {
-        updateStreamStatus('active');
-      }
-    },
-    onDisconnect: () => {
-      if (isStreaming) {
-        updateStreamStatus('disconnected');
-      }
-    },
-  });
-
-  // Check onboarding
-  useEffect(() => {
-    if (!isOnboardingComplete) {
-      router.push('/setup');
-    }
-  }, [isOnboardingComplete, router]);
-
-  // Start monitoring
-  const handleStart = async () => {
-    setIsStarting(true);
-    setError(null);
-
-    try {
-      // Create stream on backend
-      const res = await fetch('/api/streams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario: activeScenario }),
-      });
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create stream');
-      }
-
-      // Update local state
-      startStream(data.data.id, activeScenario as 'pet' | 'baby' | 'elderly');
-      updateStreamStatus('active');
-
-      // Ensure WebSocket connected
-      if (!isConnected) {
-        connect();
-      }
-    } catch (err) {
-      console.error('Failed to start monitoring:', err);
-      setError(err instanceof Error ? err.message : 'Failed to start');
-    } finally {
-      setIsStarting(false);
-    }
-  };
-
-  // Stop monitoring
-  const handleStop = async () => {
-    if (!streamId) return;
-
-    try {
-      // End stream on backend
-      await fetch(`/api/streams/${streamId}`, { method: 'DELETE' });
-    } catch (err) {
-      console.error('Failed to stop stream:', err);
-    }
-
-    stopStream();
-  };
-
-  // Handle frame from camera
-  const handleFrame = useCallback(
-    (data: {
-      frameBase64: string;
-      motionScore: number;
-      audioLevel: number;
-      cryingDetected?: boolean;
-    }) => {
-      if (!streamId || !isConnected) return;
-
-      sendFrame({
-        streamId,
-        ...data,
-      });
-    },
-    [streamId, isConnected, sendFrame]
+    [setStreaming, setStreamId, addAlert]
   );
 
-  const scenarioIcons: Record<string, string> = {
-    pet: '🐾',
-    baby: '👶',
-    elderly: '🧓',
+  const { send, isConnected: wsConnected, reconnect } = useWebSocket({
+    url: WS_URL,
+    onMessage: handleMessage,
+    onConnect: () => setConnected(true),
+    onDisconnect: () => setConnected(false),
+  });
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+
+  const startStream = () => {
+    send({
+      type: 'start-stream',
+      payload: { scenario: selectedScenario || scenario },
+    });
   };
 
-  return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
-      {/* Header */}
-      <header className="border-b border-white/10 bg-white/5 backdrop-blur-xl sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="text-white/60 hover:text-white">
-                ← Dashboard
-              </Link>
-              <h1 className="text-lg font-semibold">Live Monitor</h1>
-            </div>
+  const stopStream = () => {
+    send({ type: 'stop-stream' });
+  };
 
-            <div className="flex items-center gap-4">
+  const handleFrame = (frame: string, motion: number, audio: number) => {
+    if (!isStreaming) return;
+
+    send({
+      type: 'frame',
+      payload: {
+        frame,
+        motionScore: motion,
+        audioLevel: audio,
+      },
+    });
+  };
+
+  const handleMotion = (score: number) => {
+    setMotionScore(score);
+  };
+
+  const handleAudio = (level: number) => {
+    setAudioLevel(level);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Effects
+  // ---------------------------------------------------------------------------
+
+  // Heartbeat
+  useEffect(() => {
+    if (!wsConnected) return;
+
+    const interval = setInterval(() => {
+      send({ type: 'ping' });
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [wsConnected, send]);
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Header */}
+      <header className="border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              <Link href="/" className="text-2xl hover:scale-110 transition-transform">
+                🛡️
+              </Link>
+              <h1 className="text-xl font-bold text-white">Live Monitor</h1>
+
               {/* Connection status */}
               <div
-                className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs ${
-                  isConnected
+                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+                  wsConnected
                     ? 'bg-green-500/20 text-green-400'
                     : 'bg-red-500/20 text-red-400'
                 }`}
               >
-                <span
+                <div
                   className={`w-2 h-2 rounded-full ${
-                    isConnected ? 'bg-green-400' : 'bg-red-400'
+                    wsConnected ? 'bg-green-400' : 'bg-red-400'
                   }`}
                 />
-                {isConnected ? 'Connected' : 'Disconnected'}
+                {wsConnected ? 'Connected' : 'Disconnected'}
               </div>
+            </div>
 
-              {/* Settings */}
-              <Link
-                href="/settings"
-                className="p-2 hover:bg-white/10 rounded-lg transition"
-              >
-                ⚙️
-              </Link>
+            <div className="flex items-center gap-4">
+              {!wsConnected && (
+                <button
+                  onClick={reconnect}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Reconnect
+                </button>
+              )}
+
+              {wsConnected && !isStreaming && (
+                <button
+                  onClick={startStream}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  Start Monitoring
+                </button>
+              )}
+
+              {isStreaming && (
+                <button
+                  onClick={stopStream}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                >
+                  Stop Monitoring
+                </button>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Camera Feed - Main Area */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Scenario Selector */}
-            {!isStreaming && (
-              <div className="flex gap-2">
-                {selectedScenarios.map((scenario) => (
-                  <button
-                    key={scenario}
-                    onClick={() => setActiveScenario(scenario)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                      activeScenario === scenario
-                        ? 'bg-safeos-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
-                  >
-                    <span>{scenarioIcons[scenario]}</span>
-                    <span className="capitalize">{scenario}</span>
-                  </button>
-                ))}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Camera Feed */}
+          <div className="lg:col-span-2">
+            <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden">
+              <div className="p-4 border-b border-gray-700">
+                <h2 className="font-semibold text-white">Camera Feed</h2>
               </div>
-            )}
-
-            {/* Camera Feed */}
-            <div className="relative">
-              {isStreaming ? (
-                <CameraFeed
-                  scenario={activeScenario as 'pet' | 'baby' | 'elderly'}
-                  onFrame={handleFrame}
-                  className="aspect-video"
-                />
-              ) : (
-                <div className="aspect-video bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
-                  <div className="text-center">
-                    <div className="text-6xl mb-4">{scenarioIcons[activeScenario]}</div>
-                    <p className="text-white/60 mb-2">
-                      Ready to monitor: <span className="capitalize">{activeScenario}</span>
-                    </p>
-                    {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-                  </div>
-                </div>
-              )}
+              <CameraFeed
+                scenario={selectedScenario || scenario}
+                onFrame={handleFrame}
+                onMotion={handleMotion}
+                onAudio={handleAudio}
+                showDebug={true}
+                className="aspect-video"
+              />
             </div>
 
-            {/* Controls */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                {isStreaming && (
-                  <>
-                    {/* Motion Score */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/40 text-sm">Motion</span>
-                      <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${
-                            motionScore > 0.1 ? 'bg-orange-500' : 'bg-green-500'
-                          }`}
-                          style={{ width: `${Math.min(100, motionScore * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-white/60 text-xs w-10">
-                        {Math.round(motionScore * 100)}%
-                      </span>
-                    </div>
-
-                    {/* Audio Level */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/40 text-sm">Audio</span>
-                      <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${
-                            audioLevel > 0.2 ? 'bg-yellow-500' : 'bg-blue-500'
-                          }`}
-                          style={{ width: `${Math.min(100, audioLevel * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-white/60 text-xs w-10">
-                        {Math.round(audioLevel * 100)}%
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Start/Stop Button */}
-              {isStreaming ? (
-                <button
-                  onClick={handleStop}
-                  className="px-6 py-3 bg-red-500 hover:bg-red-600 rounded-xl font-medium flex items-center gap-2"
-                >
-                  <span>⏹</span>
-                  Stop Monitoring
-                </button>
-              ) : (
-                <button
-                  onClick={handleStart}
-                  disabled={isStarting}
-                  className="px-6 py-3 bg-gradient-to-r from-safeos-500 to-cyan-500 hover:from-safeos-600 hover:to-cyan-600 rounded-xl font-medium flex items-center gap-2 disabled:opacity-50"
-                >
-                  {isStarting ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Starting...
-                    </>
-                  ) : (
-                    <>
-                      <span>▶️</span>
-                      Start Monitoring
-                    </>
-                  )}
-                </button>
-              )}
+            {/* Stats */}
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <StatCard
+                label="Motion"
+                value={motionScore.toFixed(1)}
+                unit="%"
+                color={motionScore > 30 ? 'yellow' : 'green'}
+              />
+              <StatCard
+                label="Audio"
+                value={audioLevel.toFixed(1)}
+                unit="%"
+                color={audioLevel > 30 ? 'yellow' : 'green'}
+              />
+              <StatCard
+                label="Stream"
+                value={isStreaming ? 'Active' : 'Inactive'}
+                color={isStreaming ? 'green' : 'gray'}
+              />
+              <StatCard
+                label="Mode"
+                value={selectedScenario || scenario}
+                color="blue"
+              />
             </div>
           </div>
 
-          {/* Sidebar - Alerts & Status */}
-          <div className="space-y-6">
-            {/* Alert Panel */}
-            <AlertPanel maxAlerts={5} showControls={true} />
-
-            {/* Stream Info */}
-            {isStreaming && streamId && (
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <h3 className="font-semibold mb-3">Stream Info</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-white/60">Stream ID</span>
-                    <span className="font-mono text-xs">{streamId.slice(0, 8)}...</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/60">Scenario</span>
-                    <span className="capitalize">{activeScenario}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/60">WebSocket</span>
-                    <span className={isConnected ? 'text-green-400' : 'text-red-400'}>
-                      {isConnected ? 'Connected' : 'Disconnected'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Quick Tips */}
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <h3 className="font-semibold mb-3">💡 Tips</h3>
-              <ul className="space-y-2 text-sm text-white/60">
-                <li>• Position camera with clear view of subject</li>
-                <li>• Good lighting improves detection accuracy</li>
-                <li>• Alerts appear when motion/sound detected</li>
-                <li>• Configure notifications in Settings</li>
-              </ul>
-            </div>
+          {/* Alert Panel */}
+          <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden min-h-[400px]">
+            <AlertPanel />
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+// =============================================================================
+// Sub-Components
+// =============================================================================
+
+function StatCard({
+  label,
+  value,
+  unit,
+  color,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  color: 'green' | 'yellow' | 'red' | 'blue' | 'gray';
+}) {
+  const colorClasses = {
+    green: 'bg-green-500/20 text-green-400',
+    yellow: 'bg-yellow-500/20 text-yellow-400',
+    red: 'bg-red-500/20 text-red-400',
+    blue: 'bg-blue-500/20 text-blue-400',
+    gray: 'bg-gray-500/20 text-gray-400',
+  };
+
+  return (
+    <div
+      className={`p-4 rounded-lg ${colorClasses[color]} border border-current/20`}
+    >
+      <div className="text-xs uppercase mb-1">{label}</div>
+      <div className="text-xl font-bold capitalize">
+        {value}
+        {unit && <span className="text-sm ml-1">{unit}</span>}
+      </div>
     </div>
   );
 }

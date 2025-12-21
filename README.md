@@ -1,149 +1,387 @@
-# SafeOS
+# SafeOS Guardian
 
-**Free AI Monitoring Service for Pets, Babies & Elderly Care**
+<div align="center">
+  <h3>🛡️ Free AI-Powered Monitoring for Pets, Babies, and Elderly Care</h3>
+  <p>Part of SuperCloud's 10% for Humanity Initiative</p>
 
-Part of SuperCloud's humanitarian mission: 10% to humanity, 10% to animals/nature.
+  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+  [![Ollama](https://img.shields.io/badge/Ollama-Local%20AI-purple.svg)](https://ollama.com/)
+</div>
 
-## Overview
+---
 
-SafeOS is a privacy-first AI monitoring service that **supplements (never replaces)** human care. It runs locally on your computer for zero-cost operation, with cloud fallback when needed.
+## ⚠️ CRITICAL DISCLAIMER
 
-## Features
+**SafeOS Guardian is NOT a replacement for:**
+- Parental or caregiver supervision
+- Medical monitoring equipment
+- Professional elderly care
+- Veterinary monitoring systems
 
-- **Local-First AI**: Uses Ollama for on-device vision analysis (Moondream, LLaVA)
-- **Privacy-Focused**: Rolling 5-minute buffer, no permanent storage
-- **Multi-Scenario**: Pet monitoring, baby/toddler watching, elderly care
-- **Smart Detection**: Motion + audio analysis with configurable thresholds
-- **Alert Escalation**: Volume ramping from gentle chime to full alarm
-- **Multi-Channel Notifications**: Browser Push, Twilio SMS, Telegram
+This is a **FREE SUPPLEMENTARY TOOL** designed to assist caregivers, not replace them.
 
-## Important Disclaimers
+**NEVER leave dependents unattended with only this system.**
 
-```
-SAFEOS IS A SUPPLEMENTARY MONITORING TOOL ONLY.
+---
 
-This service:
-- Does NOT replace in-person care, supervision, or medical attention
-- Does NOT guarantee detection of all events or emergencies
-- May experience delays, outages, or missed detections
+## 🌟 Features
 
-You MUST maintain appropriate human supervision at all times.
-```
+### Local-First AI Processing
+- **Ollama Integration**: Runs vision AI locally on your Mac (M3 optimized)
+- **Moondream**: Fast triage model (~500ms response)
+- **LLaVA 7B**: Detailed analysis when concerns detected
+- **Cloud Fallback**: OpenRouter → OpenAI → Anthropic for complex cases
 
-## Quick Start
+### Monitoring Scenarios
+| Scenario | What It Watches For |
+|----------|---------------------|
+| 🐕 **Pets** | Eating, bathroom, distress, illness, unusual stillness |
+| 👶 **Baby/Toddler** | Crying, movement, breathing patterns, safety hazards |
+| 👴 **Elderly** | Falls, confusion, distress, prolonged inactivity |
 
-### 1. Install Ollama (Required)
+### Privacy-First Design
+- **Rolling Buffer**: Only keeps 5-10 minutes of footage
+- **Local Processing**: AI runs on your machine
+- **No Cloud Storage**: Frames analyzed and discarded
+- **Anonymization**: Blurred content for any human review
+
+### Smart Alerting
+- **Volume-Ramping Escalation**: Starts quiet, gets louder
+- **Multi-Channel Notifications**: Browser Push, SMS, Telegram
+- **Acknowledge to Silence**: One tap to confirm you're aware
+
+### Client-Side Intelligence
+- **Motion Detection**: Pixel-diff analysis in browser
+- **Audio Analysis**: Cry detection, distress sounds
+- **Bandwidth Efficient**: Only sends frames when motion detected
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+1. **Ollama** (for local AI):
+   ```bash
+   # macOS
+   brew install ollama
+   
+   # Start Ollama
+   ollama serve
+   ```
+
+2. **Pull Required Models**:
+   ```bash
+   ollama pull moondream    # Fast triage (~1.7GB)
+   ollama pull llava:7b     # Detailed analysis (~4GB)
+   ```
+
+3. **Node.js 20+** and **pnpm**
+
+### Installation
 
 ```bash
-# Install Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
+# From monorepo root
+pnpm install
 
-# Pull required models
-ollama pull moondream    # Fast triage (~830MB)
-ollama pull llava:7b     # Detailed analysis (~4.5GB)
-
-# Start Ollama server
-ollama serve
-```
-
-### 2. Start SafeOS API
-
-```bash
+# Navigate to SafeOS
 cd packages/safeos
-npm install
-npm run api
+
+# Install dependencies
+pnpm install
 ```
 
-### 3. Start Guardian UI
+### Running
 
 ```bash
-cd packages/safeos/apps/guardian-ui
-npm install
-npm run dev
+# Start API server (port 3001)
+pnpm run api
+
+# In another terminal, start UI (port 3000)
+pnpm run ui
+
+# Or run both with Ollama check
+pnpm run dev
 ```
 
-### 4. Open in Browser
+Open [http://localhost:3000](http://localhost:3000) to access the Guardian UI.
 
-Navigate to `http://localhost:3000` and follow the onboarding flow.
+---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  FRONTEND (Guardian UI - Next.js)                               │
-│  Camera Feed + Motion Detection + Audio Monitor + Alert Panel   │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │ WebSocket + REST
-┌─────────────────────────▼───────────────────────────────────────┐
-│  BACKEND (Express + WebSocket)                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
-│  │ REST API     │  │ Analysis     │  │ sql-storage-adapter    │ │
-│  │ + WebSocket  │  │ Queue        │  │ (5-min rolling buffer) │ │
-│  └──────────────┘  └──────────────┘  └────────────────────────┘ │
-│                              │                                   │
-│  ┌───────────────────────────▼──────────────────────────────┐   │
-│  │  WORKER POOL                                              │   │
-│  │  Local (Ollama) → Cloud Fallback (OpenRouter/OpenAI)     │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Guardian UI (Next.js)                     │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
+│  │ CameraFeed  │ │ AudioMonitor│ │     AlertPanel          ││
+│  │ (WebRTC)    │ │ (Web Audio) │ │ (Escalation Manager)    ││
+│  └──────┬──────┘ └──────┬──────┘ └────────────┬────────────┘│
+│         │               │                      │             │
+│    ┌────▼───────────────▼──────────────────────▼────┐       │
+│    │              WebSocket Client                   │       │
+│    └────────────────────┬───────────────────────────┘       │
+└─────────────────────────┼───────────────────────────────────┘
+                          │ WS (frames + alerts)
+┌─────────────────────────▼───────────────────────────────────┐
+│                    SafeOS API (Express)                      │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │                  WebSocket Server                        ││
+│  │  - Frame ingestion    - Alert broadcast                  ││
+│  │  - WebRTC signaling   - Stream management                ││
+│  └──────────────────────────┬──────────────────────────────┘│
+│                             │                                │
+│  ┌──────────────────────────▼──────────────────────────────┐│
+│  │                   Analysis Queue                         ││
+│  │  - Priority-based processing                             ││
+│  │  - Concurrency limits (3 concurrent)                     ││
+│  │  - Retry with backoff                                    ││
+│  └──────────────────────────┬──────────────────────────────┘│
+│                             │                                │
+│  ┌──────────────────────────▼──────────────────────────────┐│
+│  │                   Frame Analyzer                         ││
+│  │  1. Triage (Moondream) → quick/cheap                     ││
+│  │  2. Analysis (LLaVA) → detailed if concerning            ││
+│  │  3. Cloud Fallback → if local fails/complex              ││
+│  └──────────────────────────┬──────────────────────────────┘│
+│                             │                                │
+│  ┌──────────────────────────▼──────────────────────────────┐│
+│  │              Content Filter (4-Tier)                     ││
+│  │  1. Local AI screening                                   ││
+│  │  2. Pattern matching                                     ││
+│  │  3. Cloud AI verification                                ││
+│  │  4. Human review (anonymized)                            ││
+│  └──────────────────────────┬──────────────────────────────┘│
+│                             │                                │
+│  ┌──────────────────────────▼──────────────────────────────┐│
+│  │              Notification Manager                        ││
+│  │  - Browser Push     - Twilio SMS     - Telegram Bot      ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
+│                    Ollama (Local LLM)                        │
+│  ┌─────────────────┐  ┌─────────────────────────────────────┐│
+│  │   Moondream     │  │           LLaVA 7B                  ││
+│  │   (Triage)      │  │     (Detailed Analysis)             ││
+│  │   ~500ms        │  │         ~2-5s                       ││
+│  └─────────────────┘  └─────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Monitoring Profiles
+---
 
-| Profile | Motion Threshold | Audio Sensitivity | Alert Speed |
-|---------|-----------------|-------------------|-------------|
-| Pet     | 20%             | Low               | Normal      |
-| Baby    | 10%             | High (crying)     | Fast        |
-| Elderly | 15%             | Medium (distress) | Immediate   |
+## 📁 Project Structure
 
-## Environment Variables
+```
+packages/safeos/
+├── src/                          # Backend source
+│   ├── api/                      # Express API server
+│   │   ├── server.ts             # Main server setup
+│   │   └── routes/               # API route handlers
+│   ├── db/                       # Database layer
+│   │   └── index.ts              # sql-storage-adapter setup
+│   ├── lib/                      # Core libraries
+│   │   ├── analysis/             # Vision analysis
+│   │   │   ├── frame-analyzer.ts # Main analyzer
+│   │   │   ├── cloud-fallback.ts # Cloud LLM fallback
+│   │   │   └── profiles/         # Scenario-specific prompts
+│   │   ├── alerts/               # Alert system
+│   │   │   ├── escalation.ts     # Volume ramping
+│   │   │   ├── notification-manager.ts
+│   │   │   ├── browser-push.ts
+│   │   │   ├── twilio.ts
+│   │   │   └── telegram.ts
+│   │   ├── audio/                # Audio analysis
+│   │   │   └── analyzer.ts       # Cry/distress detection
+│   │   ├── ollama/               # Ollama client
+│   │   │   └── client.ts
+│   │   ├── safety/               # Content moderation
+│   │   │   ├── content-filter.ts
+│   │   │   └── disclaimers.ts
+│   │   ├── streams/              # Stream management
+│   │   │   └── manager.ts
+│   │   ├── review/               # Human review system
+│   │   │   └── human-review.ts
+│   │   └── webrtc/               # WebRTC signaling
+│   │       └── signaling.ts
+│   ├── queues/                   # Job queues
+│   │   ├── analysis-queue.ts
+│   │   └── review-queue.ts
+│   ├── types/                    # TypeScript types
+│   │   └── index.ts
+│   └── index.ts                  # Entry point
+│
+├── apps/guardian-ui/             # Frontend (Next.js)
+│   ├── src/
+│   │   ├── app/                  # Next.js pages
+│   │   │   ├── page.tsx          # Dashboard
+│   │   │   ├── monitor/          # Live monitoring
+│   │   │   ├── setup/            # Onboarding
+│   │   │   ├── settings/         # User settings
+│   │   │   ├── history/          # Alert history
+│   │   │   └── profiles/         # Profile management
+│   │   ├── components/           # React components
+│   │   │   ├── CameraFeed.tsx
+│   │   │   ├── AlertPanel.tsx
+│   │   │   ├── Dashboard.tsx
+│   │   │   └── ...
+│   │   ├── lib/                  # Client utilities
+│   │   │   ├── motion-detection.ts
+│   │   │   ├── audio-levels.ts
+│   │   │   ├── websocket.ts
+│   │   │   └── webrtc-client.ts
+│   │   └── stores/               # Zustand stores
+│   │       ├── monitoring-store.ts
+│   │       └── onboarding-store.ts
+│   └── ...config files
+│
+├── tests/                        # Test suites
+│   ├── unit/                     # Unit tests
+│   └── integration/              # Integration tests
+│
+├── package.json
+├── tsconfig.json
+├── vitest.config.ts
+└── README.md
+```
 
-```bash
-# Ollama (local)
+---
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file:
+
+```env
+# Ollama (required for local AI)
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_TRIAGE_MODEL=moondream
-OLLAMA_ANALYSIS_MODEL=llava:7b
 
-# Cloud fallback (optional)
+# Cloud Fallback (optional but recommended)
 OPENROUTER_API_KEY=sk-or-...
 OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
 
 # Notifications (optional)
-TWILIO_ACCOUNT_SID=...
+TWILIO_ACCOUNT_SID=AC...
 TWILIO_AUTH_TOKEN=...
-TWILIO_FROM=+1234567890
+TWILIO_FROM_NUMBER=+1...
+
 TELEGRAM_BOT_TOKEN=...
 
-# SafeOS
-SAFEOS_PORT=8474
-SAFEOS_BUFFER_MINUTES=5
+# Browser Push (optional)
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
 ```
 
-## Cost Estimates
+### Analysis Thresholds
 
-| Component | Cost |
-|-----------|------|
-| Local inference (Ollama) | $0 |
-| Cloud fallback (5% of requests) | ~$10-20/month |
-| Twilio SMS | $0.01/message |
-| Telegram | Free |
+Customize in `src/lib/analysis/profiles/`:
 
-**Total: ~$15-30/month** for moderate usage with mostly local inference.
+```typescript
+// Example: Increase sensitivity for elderly monitoring
+export const elderlyProfile = {
+  motionThreshold: 0.2,        // Lower = more sensitive
+  audioThreshold: 0.3,
+  inactivityAlertMinutes: 30,  // Alert after 30 min no motion
+  // ...
+};
+```
 
-## Legal & Safety
+---
 
-SafeOS includes:
-- Mandatory onboarding disclaimers
-- AI-based abuse detection
-- Content moderation tiers
-- Anonymized human review for flagged content
-- IP logging for extreme cases (law enforcement compliance)
+## 🧪 Testing
 
-## License
+```bash
+# Run all tests
+pnpm test
 
-MIT - Part of the SuperCloud project
+# Run with coverage
+pnpm test:coverage
 
-## Contributing
+# Run specific test file
+pnpm test tests/unit/frame-analyzer.test.ts
 
-SafeOS is part of SuperCloud's humanitarian initiative. Contributions welcome!
+# Watch mode
+pnpm test:watch
+```
 
+---
+
+## 🚀 Deployment
+
+### Local Development (Mac)
+
+```bash
+# Ensure Ollama is running
+ollama serve
+
+# Start SafeOS
+pnpm run dev
+```
+
+### GitHub Pages (Frontend Only)
+
+The Guardian UI can be deployed statically:
+
+```bash
+cd apps/guardian-ui
+pnpm build
+# Deploy 'out' folder to GitHub Pages
+```
+
+Configure `NEXT_PUBLIC_API_URL` to point to your backend.
+
+### Linode/Cloud (Full Stack)
+
+```bash
+# Build
+pnpm build
+
+# Start with PM2
+pm2 start dist/index.js --name safeos-api
+
+# Or use Docker
+docker build -t safeos .
+docker run -p 3001:3001 safeos
+```
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
+
+### Key Principles
+
+1. **Privacy First**: Never store more data than necessary
+2. **Fail Safe**: Default to alerting if uncertain
+3. **Local Processing**: Prefer Ollama over cloud
+4. **Accessibility**: Design for all users
+
+---
+
+## 📜 License
+
+MIT License - Part of SuperCloud's humanitarian mission.
+
+---
+
+## 🙏 Acknowledgments
+
+- **SuperCloud Team**: For dedicating 10% to humanity
+- **Ollama**: For making local AI accessible
+- **Open Source Community**: For the tools that make this possible
+
+---
+
+<div align="center">
+  <p>
+    <strong>Remember:</strong> This tool supplements, never replaces, human care.
+  </p>
+  <p>
+    Built with ❤️ by SuperCloud for humanity's most vulnerable.
+  </p>
+</div>
