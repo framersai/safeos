@@ -1,495 +1,327 @@
 /**
  * WebRTC Signaling Server
  *
- * Handles WebRTC peer connection signaling for P2P video streaming.
- * Reduces server load by enabling direct browser-to-browser streaming.
- *
- * Flow:
- * 1. Client A creates offer, sends to signaling server
- * 2. Server relays offer to Client B
- * 3. Client B creates answer, sends back
- * 4. ICE candidates exchanged via signaling
- * 5. P2P connection established
+ * Handles WebRTC signaling for peer-to-peer streaming.
  *
  * @module lib/webrtc/signaling
  */
 
-import { WebSocket, WebSocketServer } from 'ws';
-import type { Server as HttpServer } from 'http';
-import { EventEmitter } from 'events';
-import { generateId, now } from '../../db/index.js';
+import type { WebSocket } from 'ws';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export type SignalingMessageType =
-  | 'join'
-  | 'leave'
-  | 'offer'
-  | 'answer'
-  | 'ice-candidate'
-  | 'peer-joined'
-  | 'peer-left'
-  | 'room-info'
-  | 'error';
-
 export interface SignalingMessage {
-  type: SignalingMessageType;
+  type: 'offer' | 'answer' | 'ice-candidate' | 'join-room' | 'leave-room' | 'room-info';
   roomId?: string;
   peerId?: string;
   targetPeerId?: string;
-  payload?: unknown;
-  timestamp: string;
+  payload?: any;
 }
 
 export interface Peer {
   id: string;
-  ws: WebSocket;
-  roomId: string | null;
-  joinedAt: string;
+  socket: WebSocket;
+  roomId: string;
+  joinedAt: Date;
   isViewer: boolean;
   metadata?: Record<string, unknown>;
 }
 
 export interface Room {
   id: string;
-  name: string;
-  streamerId: string | null;
-  viewers: Set<string>;
-  createdAt: string;
-  lastActivity: string;
-  maxViewers: number;
-}
-
-export interface SignalingServerConfig {
-  path?: string;
-  maxRooms?: number;
-  maxViewersPerRoom?: number;
-  roomTimeout?: number; // ms before empty room is cleaned up
+  createdAt: Date;
+  broadcaster?: Peer;
+  viewers: Map<string, Peer>;
+  metadata?: Record<string, unknown>;
 }
 
 // =============================================================================
-// Signaling Server
+// SignalingServer Class
 // =============================================================================
 
-export class SignalingServer extends EventEmitter {
-  private wss: WebSocketServer | null = null;
-  private peers: Map<string, Peer> = new Map();
+export class SignalingServer {
   private rooms: Map<string, Room> = new Map();
-  private peersByWs: WeakMap<WebSocket, string> = new WeakMap();
-  private config: Required<SignalingServerConfig>;
-  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+  private peers: Map<string, Peer> = new Map();
+  private socketToPeer: Map<WebSocket, string> = new Map();
 
-  constructor(config: SignalingServerConfig = {}) {
-    super();
-    this.config = {
-      path: config.path ?? '/signaling',
-      maxRooms: config.maxRooms ?? 1000,
-      maxViewersPerRoom: config.maxViewersPerRoom ?? 50,
-      roomTimeout: config.roomTimeout ?? 300000, // 5 minutes
-    };
-  }
+  // Stats
+  private stats = {
+    totalConnections: 0,
+    activeRooms: 0,
+    activePeers: 0,
+    messagesRelayed: 0,
+  };
 
-  // ===========================================================================
-  // Server Lifecycle
-  // ===========================================================================
+  // ---------------------------------------------------------------------------
+  // Public Methods
+  // ---------------------------------------------------------------------------
 
   /**
-   * Attach signaling server to an HTTP server
+   * Handle a new WebSocket connection
    */
-  attach(server: HttpServer): void {
-    this.wss = new WebSocketServer({
-      server,
-      path: this.config.path,
-    });
+  handleConnection(socket: WebSocket, peerId?: string): string {
+    const id = peerId || this.generatePeerId();
 
-    this.wss.on('connection', (ws: WebSocket) => {
-      this.handleConnection(ws);
-    });
-
-    // Start cleanup interval for stale rooms
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupStaleRooms();
-    }, 60000);
-
-    console.log(`[Signaling] Server attached on ${this.config.path}`);
-  }
-
-  /**
-   * Detach and cleanup
-   */
-  detach(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
-
-    // Disconnect all peers
-    for (const peer of this.peers.values()) {
-      this.sendMessage(peer.ws, {
-        type: 'error',
-        payload: { message: 'Server shutting down' },
-        timestamp: now(),
-      });
-      peer.ws.close();
-    }
-
-    this.peers.clear();
-    this.rooms.clear();
-
-    if (this.wss) {
-      this.wss.close();
-      this.wss = null;
-    }
-
-    console.log('[Signaling] Server detached');
-  }
-
-  // ===========================================================================
-  // Connection Handling
-  // ===========================================================================
-
-  private handleConnection(ws: WebSocket): void {
-    const peerId = generateId();
-
+    // Create peer record
     const peer: Peer = {
-      id: peerId,
-      ws,
-      roomId: null,
-      joinedAt: now(),
+      id,
+      socket,
+      roomId: '',
+      joinedAt: new Date(),
       isViewer: true,
     };
 
-    this.peers.set(peerId, peer);
-    this.peersByWs.set(ws, peerId);
+    this.peers.set(id, peer);
+    this.socketToPeer.set(socket, id);
+    this.stats.totalConnections++;
+    this.stats.activePeers++;
 
-    console.log(`[Signaling] Peer connected: ${peerId}`);
-    this.emit('peer:connected', { peerId });
-
-    // Send peer their ID
-    this.sendMessage(ws, {
-      type: 'room-info',
-      peerId,
-      payload: { message: 'Connected to signaling server' },
-      timestamp: now(),
-    });
-
-    ws.on('message', (data: Buffer) => {
-      try {
-        const message = JSON.parse(data.toString()) as SignalingMessage;
-        this.handleMessage(peer, message);
-      } catch (error) {
-        this.sendError(ws, 'Invalid message format');
-      }
-    });
-
-    ws.on('close', () => {
-      this.handleDisconnect(peer);
-    });
-
-    ws.on('error', (error) => {
-      console.error(`[Signaling] Peer ${peerId} error:`, error);
-    });
+    return id;
   }
 
-  private handleMessage(peer: Peer, message: SignalingMessage): void {
+  /**
+   * Handle WebSocket disconnection
+   */
+  handleDisconnection(socket: WebSocket): void {
+    const peerId = this.socketToPeer.get(socket);
+    if (!peerId) return;
+
+    const peer = this.peers.get(peerId);
+    if (peer && peer.roomId) {
+      this.leaveRoom(peerId);
+    }
+
+    this.peers.delete(peerId);
+    this.socketToPeer.delete(socket);
+    this.stats.activePeers--;
+  }
+
+  /**
+   * Handle an incoming signaling message
+   */
+  handleMessage(socket: WebSocket, message: SignalingMessage): void {
+    const peerId = this.socketToPeer.get(socket);
+    if (!peerId) return;
+
     switch (message.type) {
-      case 'join':
-        this.handleJoin(peer, message);
+      case 'join-room':
+        this.joinRoom(peerId, message.roomId!, message.payload?.isViewer ?? true);
         break;
 
-      case 'leave':
-        this.handleLeave(peer);
+      case 'leave-room':
+        this.leaveRoom(peerId);
         break;
 
       case 'offer':
       case 'answer':
       case 'ice-candidate':
-        this.handleRelay(peer, message);
+        this.relayToTarget(peerId, message);
         break;
 
-      default:
-        this.sendError(peer.ws, `Unknown message type: ${message.type}`);
+      case 'room-info':
+        this.sendRoomInfo(peerId);
+        break;
     }
   }
 
-  private handleDisconnect(peer: Peer): void {
-    // Leave room if in one
-    if (peer.roomId) {
-      this.leaveRoom(peer);
-    }
-
-    this.peers.delete(peer.id);
-    console.log(`[Signaling] Peer disconnected: ${peer.id}`);
-    this.emit('peer:disconnected', { peerId: peer.id });
-  }
-
-  // ===========================================================================
-  // Room Management
-  // ===========================================================================
-
-  private handleJoin(peer: Peer, message: SignalingMessage): void {
-    const roomId = message.roomId;
-    const isStreamer = (message.payload as { isStreamer?: boolean })?.isStreamer ?? false;
-
-    if (!roomId) {
-      this.sendError(peer.ws, 'Room ID required');
-      return;
-    }
+  /**
+   * Join a room
+   */
+  joinRoom(peerId: string, roomId: string, isViewer: boolean = true): void {
+    const peer = this.peers.get(peerId);
+    if (!peer) return;
 
     // Leave current room if in one
     if (peer.roomId) {
-      this.leaveRoom(peer);
+      this.leaveRoom(peerId);
     }
 
     // Get or create room
     let room = this.rooms.get(roomId);
-
     if (!room) {
-      if (this.rooms.size >= this.config.maxRooms) {
-        this.sendError(peer.ws, 'Maximum rooms reached');
-        return;
-      }
-
       room = {
         id: roomId,
-        name: roomId,
-        streamerId: null,
-        viewers: new Set(),
-        createdAt: now(),
-        lastActivity: now(),
-        maxViewers: this.config.maxViewersPerRoom,
+        createdAt: new Date(),
+        viewers: new Map(),
       };
       this.rooms.set(roomId, room);
-      console.log(`[Signaling] Room created: ${roomId}`);
+      this.stats.activeRooms++;
     }
 
-    // Join as streamer or viewer
-    if (isStreamer) {
-      if (room.streamerId && room.streamerId !== peer.id) {
-        this.sendError(peer.ws, 'Room already has a streamer');
-        return;
-      }
-      room.streamerId = peer.id;
-      peer.isViewer = false;
-    } else {
-      if (room.viewers.size >= room.maxViewers) {
-        this.sendError(peer.ws, 'Room is full');
-        return;
-      }
-      room.viewers.add(peer.id);
-      peer.isViewer = true;
-    }
-
+    // Add peer to room
     peer.roomId = roomId;
-    room.lastActivity = now();
+    peer.isViewer = isViewer;
 
-    // Notify peer of join success
-    this.sendMessage(peer.ws, {
-      type: 'room-info',
-      roomId,
-      peerId: peer.id,
-      payload: {
-        isStreamer: !peer.isViewer,
-        streamerId: room.streamerId,
-        viewerCount: room.viewers.size,
-      },
-      timestamp: now(),
-    });
-
-    // Notify other peers
-    this.broadcastToRoom(room, peer.id, {
-      type: 'peer-joined',
-      roomId,
-      peerId: peer.id,
-      payload: { isStreamer: !peer.isViewer },
-      timestamp: now(),
-    });
-
-    console.log(
-      `[Signaling] Peer ${peer.id} joined room ${roomId} as ${peer.isViewer ? 'viewer' : 'streamer'}`
-    );
-    this.emit('peer:joined', { peerId: peer.id, roomId, isStreamer: !peer.isViewer });
-  }
-
-  private handleLeave(peer: Peer): void {
-    if (!peer.roomId) {
-      return;
+    if (isViewer) {
+      room.viewers.set(peerId, peer);
+    } else {
+      // Broadcaster
+      if (room.broadcaster) {
+        // Notify old broadcaster they're being replaced
+        this.sendToPeer(room.broadcaster.id, {
+          type: 'room-info',
+          payload: { replaced: true },
+        });
+      }
+      room.broadcaster = peer;
     }
 
-    this.leaveRoom(peer);
+    // Notify peer of room state
+    this.sendRoomInfo(peerId);
 
-    this.sendMessage(peer.ws, {
+    // Notify other peers in room
+    this.broadcastToRoom(roomId, {
       type: 'room-info',
-      payload: { message: 'Left room' },
-      timestamp: now(),
-    });
+      payload: {
+        event: 'peer-joined',
+        peerId,
+        isViewer,
+      },
+    }, peerId);
   }
 
-  private leaveRoom(peer: Peer): void {
-    const roomId = peer.roomId;
-    if (!roomId) return;
+  /**
+   * Leave current room
+   */
+  leaveRoom(peerId: string): void {
+    const peer = this.peers.get(peerId);
+    if (!peer || !peer.roomId) return;
 
+    const room = this.rooms.get(peer.roomId);
+    if (room) {
+      if (room.broadcaster?.id === peerId) {
+        room.broadcaster = undefined;
+      } else {
+        room.viewers.delete(peerId);
+      }
+
+      // Notify others
+      this.broadcastToRoom(room.id, {
+        type: 'room-info',
+        payload: {
+          event: 'peer-left',
+          peerId,
+        },
+      }, peerId);
+
+      // Clean up empty room
+      if (!room.broadcaster && room.viewers.size === 0) {
+        this.rooms.delete(room.id);
+        this.stats.activeRooms--;
+      }
+    }
+
+    peer.roomId = '';
+  }
+
+  /**
+   * Get room info
+   */
+  getRoomInfo(roomId: string): {
+    exists: boolean;
+    hasBroadcaster: boolean;
+    viewerCount: number;
+  } {
     const room = this.rooms.get(roomId);
     if (!room) {
-      peer.roomId = null;
-      return;
+      return { exists: false, hasBroadcaster: false, viewerCount: 0 };
     }
-
-    // Remove from room
-    if (room.streamerId === peer.id) {
-      room.streamerId = null;
-    }
-    room.viewers.delete(peer.id);
-
-    peer.roomId = null;
-    room.lastActivity = now();
-
-    // Notify other peers
-    this.broadcastToRoom(room, null, {
-      type: 'peer-left',
-      roomId,
-      peerId: peer.id,
-      timestamp: now(),
-    });
-
-    // Clean up empty room
-    if (!room.streamerId && room.viewers.size === 0) {
-      this.rooms.delete(roomId);
-      console.log(`[Signaling] Room deleted: ${roomId}`);
-    }
-
-    console.log(`[Signaling] Peer ${peer.id} left room ${roomId}`);
-    this.emit('peer:left', { peerId: peer.id, roomId });
-  }
-
-  // ===========================================================================
-  // Message Relay
-  // ===========================================================================
-
-  private handleRelay(peer: Peer, message: SignalingMessage): void {
-    const targetPeerId = message.targetPeerId;
-
-    if (!targetPeerId) {
-      this.sendError(peer.ws, 'Target peer ID required');
-      return;
-    }
-
-    const targetPeer = this.peers.get(targetPeerId);
-
-    if (!targetPeer) {
-      this.sendError(peer.ws, 'Target peer not found');
-      return;
-    }
-
-    // Verify both peers are in the same room
-    if (peer.roomId !== targetPeer.roomId) {
-      this.sendError(peer.ws, 'Peers not in same room');
-      return;
-    }
-
-    // Relay the message
-    this.sendMessage(targetPeer.ws, {
-      type: message.type,
-      roomId: peer.roomId || undefined,
-      peerId: peer.id, // Sender's ID
-      payload: message.payload,
-      timestamp: now(),
-    });
-
-    // Update room activity
-    if (peer.roomId) {
-      const room = this.rooms.get(peer.roomId);
-      if (room) {
-        room.lastActivity = now();
-      }
-    }
-  }
-
-  // ===========================================================================
-  // Utility Methods
-  // ===========================================================================
-
-  private sendMessage(ws: WebSocket, message: SignalingMessage): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
-  }
-
-  private sendError(ws: WebSocket, error: string): void {
-    this.sendMessage(ws, {
-      type: 'error',
-      payload: { error },
-      timestamp: now(),
-    });
-  }
-
-  private broadcastToRoom(room: Room, excludePeerId: string | null, message: SignalingMessage): void {
-    // Send to streamer
-    if (room.streamerId && room.streamerId !== excludePeerId) {
-      const streamer = this.peers.get(room.streamerId);
-      if (streamer) {
-        this.sendMessage(streamer.ws, message);
-      }
-    }
-
-    // Send to viewers
-    for (const viewerId of room.viewers) {
-      if (viewerId !== excludePeerId) {
-        const viewer = this.peers.get(viewerId);
-        if (viewer) {
-          this.sendMessage(viewer.ws, message);
-        }
-      }
-    }
-  }
-
-  private cleanupStaleRooms(): void {
-    const now_time = Date.now();
-
-    for (const [roomId, room] of this.rooms) {
-      const lastActivityTime = new Date(room.lastActivity).getTime();
-
-      if (
-        now_time - lastActivityTime > this.config.roomTimeout &&
-        !room.streamerId &&
-        room.viewers.size === 0
-      ) {
-        this.rooms.delete(roomId);
-        console.log(`[Signaling] Cleaned up stale room: ${roomId}`);
-      }
-    }
-  }
-
-  // ===========================================================================
-  // Stats
-  // ===========================================================================
-
-  getStats(): {
-    peerCount: number;
-    roomCount: number;
-    rooms: Array<{ id: string; streamer: boolean; viewers: number }>;
-  } {
-    const rooms = Array.from(this.rooms.values()).map((room) => ({
-      id: room.id,
-      streamer: !!room.streamerId,
-      viewers: room.viewers.size,
-    }));
 
     return {
-      peerCount: this.peers.size,
-      roomCount: this.rooms.size,
-      rooms,
+      exists: true,
+      hasBroadcaster: !!room.broadcaster,
+      viewerCount: room.viewers.size,
     };
   }
 
-  getRoom(roomId: string): Room | undefined {
-    return this.rooms.get(roomId);
+  /**
+   * Get stats
+   */
+  getStats() {
+    return { ...this.stats };
   }
 
-  getPeer(peerId: string): Peer | undefined {
-    return this.peers.get(peerId);
+  // ---------------------------------------------------------------------------
+  // Private Methods
+  // ---------------------------------------------------------------------------
+
+  private relayToTarget(fromPeerId: string, message: SignalingMessage): void {
+    const fromPeer = this.peers.get(fromPeerId);
+    if (!fromPeer || !fromPeer.roomId) return;
+
+    const targetPeerId = message.targetPeerId;
+    if (targetPeerId) {
+      // Direct relay to specific peer
+      this.sendToPeer(targetPeerId, {
+        ...message,
+        peerId: fromPeerId,
+      });
+    } else {
+      // Broadcast to room
+      this.broadcastToRoom(fromPeer.roomId, {
+        ...message,
+        peerId: fromPeerId,
+      }, fromPeerId);
+    }
+
+    this.stats.messagesRelayed++;
+  }
+
+  private sendRoomInfo(peerId: string): void {
+    const peer = this.peers.get(peerId);
+    if (!peer || !peer.roomId) return;
+
+    const room = this.rooms.get(peer.roomId);
+    if (!room) return;
+
+    this.sendToPeer(peerId, {
+      type: 'room-info',
+      roomId: room.id,
+      payload: {
+        hasBroadcaster: !!room.broadcaster,
+        broadcasterId: room.broadcaster?.id,
+        viewerCount: room.viewers.size,
+        viewerIds: Array.from(room.viewers.keys()),
+      },
+    });
+  }
+
+  private sendToPeer(peerId: string, message: SignalingMessage): void {
+    const peer = this.peers.get(peerId);
+    if (!peer || peer.socket.readyState !== 1) return; // 1 = OPEN
+
+    try {
+      peer.socket.send(JSON.stringify(message));
+    } catch (error) {
+      console.error('Failed to send to peer:', error);
+    }
+  }
+
+  private broadcastToRoom(
+    roomId: string,
+    message: SignalingMessage,
+    excludePeerId?: string
+  ): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    // Send to broadcaster if not excluded
+    if (room.broadcaster && room.broadcaster.id !== excludePeerId) {
+      this.sendToPeer(room.broadcaster.id, message);
+    }
+
+    // Send to all viewers except excluded
+    for (const [viewerId] of room.viewers) {
+      if (viewerId !== excludePeerId) {
+        this.sendToPeer(viewerId, message);
+      }
+    }
+  }
+
+  private generatePeerId(): string {
+    return `peer-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   }
 }
 
@@ -506,7 +338,6 @@ export function getDefaultSignalingServer(): SignalingServer {
   return defaultServer;
 }
 
-export function createSignalingServer(config?: SignalingServerConfig): SignalingServer {
-  return new SignalingServer(config);
+export function createSignalingServer(): SignalingServer {
+  return new SignalingServer();
 }
-

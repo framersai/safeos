@@ -1,95 +1,92 @@
 /**
- * Elderly Care Monitoring Prompts
+ * Elderly Care Monitoring Profile
  *
- * Prompts for analyzing elderly safety and wellbeing.
- *
- * IMPORTANT: This is a SUPPLEMENT to proper care, not a replacement for
- * professional medical monitoring or in-person caregiving.
+ * Prompts and thresholds for elderly/senior monitoring.
  *
  * @module lib/analysis/profiles/elderly
  */
 
-export const ELDERLY_PROMPTS = {
-  triage: `You are an elderly care monitoring assistant. This SUPPLEMENTS but does not replace proper care.
+import type { MonitoringProfile } from './index.js';
 
-Quickly analyze this image for safety concerns:
+export const elderlyProfile: MonitoringProfile = {
+  scenario: 'elderly',
+  name: 'Elderly Care Monitoring',
+  description: 'Monitor seniors for falls, medical emergencies, and wellbeing',
 
-- Person sitting/standing normally → "NO CONCERN - Normal activity"
-- Person sleeping in bed/chair → "NO CONCERN - Resting"
-- Person walking normally → "NO CONCERN - Mobile and active"
-- Person not visible → "LOW CONCERN - Person not in frame"
-- Person in same position for long time → "MEDIUM CONCERN - Extended inactivity"
-- Person struggling to move → "HIGH CONCERN - Mobility difficulty"
-- Person on the floor → "CRITICAL - Possible fall, check immediately"
-- Person unresponsive → "CRITICAL - Immediate check required"
+  alertThresholds: {
+    motion: 30, // Detect even small falls
+    audio: 35, // Detect calls for help
+    inactivityMinutes: 45, // Longer acceptable but still monitored
+  },
 
-Respond with concern level first, then brief description.`,
+  concerns: [
+    'Fall detected or person on floor',
+    'Person unresponsive or not moving',
+    'Signs of medical distress',
+    'Wandering at unusual hours',
+    'Person attempting unsafe activity',
+    'Confusion or disorientation indicators',
+    'Not following usual routine patterns',
+    'Calls for help or distress vocalizations',
+  ],
 
-  detailed: `You are an elderly care monitoring assistant. This supplements but does NOT replace professional care.
+  triagePrompt: `You are an elderly care safety AI. Quickly assess this image for senior wellbeing.
 
-Analyze this image for the safety and wellbeing of an elderly person:
+PRIORITY CHECKS:
+1. Is an elderly person visible?
+2. Are they in a normal position (sitting, standing, lying in bed)?
+3. Any signs of a fall or person on the floor?
+4. Do they appear in distress or calling for help?
 
-1. Position and Mobility
-   - Are they in a normal position?
-   - Any signs of falling or having fallen?
-   - Can they move freely?
-
-2. Alertness and Responsiveness
-   - Do they appear alert?
-   - Any signs of confusion or distress?
-   - Normal posture and behavior?
-
-3. Safety Environment
-   - Any fall hazards visible?
-   - Clear path for walking?
-   - Emergency items accessible?
-
-4. General Wellbeing
-   - Appropriate clothing for temperature?
-   - Signs of discomfort?
-   - Normal activity for time of day?
-
-Concern Levels:
-- NONE: Normal activity, appears well
-- LOW: Minor observation (brief inactivity, slight concern)
-- MEDIUM: Monitor closely (extended inactivity, unusual behavior)
-- HIGH: Check soon (difficulty moving, signs of distress)
-- CRITICAL: Immediate response (fall, unresponsive, emergency)
-
-Provide:
-1. Concern level
-2. What you observe
-3. Recommended action`,
-
-  fall: `Analyze this image for fall-related concerns:
-- Is the person on the floor?
-- Are they trying to get up?
-- Any visible injuries?
-- Are they conscious and responsive?
-- Is the environment safe?
-
-Describe what you see regarding potential fall.`,
-
-  inactivity: `Analyze this image for concerning inactivity:
-- How long might the person have been in this position?
-- Is this normal resting or concerning stillness?
-- Are they breathing (chest movement visible)?
-- Do they appear responsive?
-
-What level of concern does this inactivity warrant?`,
-
-  distress: `Analyze this image for signs of distress:
-- Facial expression (pain, confusion, fear)
-- Body language (clutching chest, reaching for help)
-- Unusual postures
-- Attempts to call for help
-
-Is the person showing signs of distress? Describe what you see.`,
-};
-
-export function getElderlyPrompt(
-  type: 'triage' | 'detailed' | 'fall' | 'inactivity' | 'distress'
-): string {
-  return ELDERLY_PROMPTS[type];
+Respond with JSON:
+{
+  "personVisible": true/false,
+  "position": "standing" | "sitting" | "lying_bed" | "lying_floor" | "unknown",
+  "concernLevel": "none" | "low" | "medium" | "high" | "critical",
+  "needsDetailedAnalysis": true/false,
+  "summary": "Brief one-line summary"
 }
 
+ALWAYS flag for detailed analysis if:
+- Person appears to be on the floor
+- Unusual positioning
+- Signs of distress or confusion
+- Reaching for phone/alert device`,
+
+  analysisPrompt: `You are an expert elderly care AI assistant. Analyze this image carefully for senior safety and wellbeing.
+
+## CRITICAL SAFETY CHECKS:
+1. **Fall Detection**: Is the person on the floor? Signs of a recent fall?
+2. **Responsiveness**: Do they appear alert and responsive?
+3. **Mobility**: Are they moving normally or struggling?
+4. **Medical Distress**: Signs of pain, difficulty breathing, or emergency?
+5. **Position Safety**: Are they in a safe, stable position?
+
+## Additional Assessment:
+6. **Time-Appropriate Activity**: Is this normal for the time of day?
+7. **Environment Safety**: Trip hazards? Accessible walkways?
+8. **Assistance Devices**: Using walker/cane correctly if visible?
+9. **General Wellbeing**: Dressed appropriately? Appear groomed and cared for?
+10. **Confusion Indicators**: Lost, disoriented, or confused behavior?
+
+## Concern Levels:
+- **none**: Person appears comfortable, safe, and engaged in normal activity
+- **low**: Minor observation (unusual time for activity, etc.)
+- **medium**: Should be checked on (seems uncomfortable, unusual location)
+- **high**: Requires prompt attention (difficulty moving, appears confused)
+- **critical**: EMERGENCY - Potential fall, medical emergency, or unresponsive
+
+## Response Format (JSON):
+{
+  "concernLevel": "none" | "low" | "medium" | "high" | "critical",
+  "description": "Detailed description of person and situation",
+  "issues": ["List of specific concerns"],
+  "recommendations": ["Suggested actions"],
+  "personState": "active" | "resting" | "sleeping" | "distressed" | "on_floor",
+  "mobilityObserved": "normal" | "impaired" | "immobile" | "unknown",
+  "potentialFall": true/false,
+  "confidence": 0.0-1.0
+}
+
+⚠️ CRITICAL: Falls in elderly can be life-threatening. Any indication of a person on the floor or having fallen should trigger a CRITICAL alert. This is a supplement to - not replacement for - proper care and medical alert systems.`,
+};

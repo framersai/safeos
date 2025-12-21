@@ -1,81 +1,90 @@
 /**
- * Baby/Toddler Monitoring Prompts
+ * Baby Monitoring Profile
  *
- * Prompts for analyzing baby and toddler safety.
- * 
- * IMPORTANT: This is a SUPPLEMENT to parental supervision, not a replacement.
+ * Prompts and thresholds for baby/toddler monitoring.
  *
  * @module lib/analysis/profiles/baby
  */
 
-export const BABY_PROMPTS = {
-  triage: `You are a baby monitoring assistant. This is a SUPPLEMENT to parental supervision, not a replacement.
+import type { MonitoringProfile } from './index.js';
 
-Quickly analyze this image for immediate safety concerns:
+export const babyProfile: MonitoringProfile = {
+  scenario: 'baby',
+  name: 'Baby & Toddler Monitoring',
+  description: 'Monitor infants and toddlers for safety and wellbeing',
 
-- Baby sleeping peacefully → "NO CONCERN - Baby resting"
-- Baby awake and calm → "NO CONCERN - Baby awake and calm"
-- Baby playing safely → "NO CONCERN - Normal activity"
-- Baby not visible → "MEDIUM CONCERN - Baby not in frame"
-- Baby crying → "MEDIUM CONCERN - Baby may need attention"
-- Baby in unusual position → "HIGH CONCERN - Check position"
-- Baby face down → "CRITICAL - Check breathing/position immediately"
-- Baby near hazard → "CRITICAL - Potential safety hazard"
+  alertThresholds: {
+    motion: 35, // More sensitive
+    audio: 40, // Cry detection threshold
+    inactivityMinutes: 30, // Shorter window for babies
+  },
 
-Respond with concern level first, then brief description.`,
+  concerns: [
+    'Baby in unsafe sleeping position',
+    'Baby crying or in distress',
+    'Baby climbing or in dangerous position',
+    'Objects near face (suffocation risk)',
+    'Temperature indicators (too hot/cold)',
+    'Baby awake when should be sleeping',
+    'Unusual stillness or positioning',
+    'Baby attempting to climb out of crib',
+  ],
 
-  detailed: `You are a child safety monitoring assistant. This supplements but does NOT replace parental supervision.
+  triagePrompt: `You are a baby safety AI assistant. Quickly analyze this nursery/baby monitor image.
 
-Analyze this image for baby/toddler safety:
+CRITICAL SAFETY FIRST - Check for:
+1. Is a baby/toddler visible?
+2. Any immediate safety hazards?
+3. Baby's general state (sleeping, awake, crying)?
+4. Safe sleeping position if asleep?
 
-1. Position and posture
-   - Is the baby in a safe position?
-   - Can they breathe freely?
-   - Are they at risk of rolling or falling?
-
-2. Alertness
-   - Sleeping, awake, or distressed?
-   - Normal color and appearance?
-
-3. Environment
-   - Are there any hazards within reach?
-   - Is the sleep environment safe (if sleeping)?
-   - Any loose items, cords, or small objects?
-
-4. Comfort
-   - Does the baby appear comfortable?
-   - Any signs of distress or discomfort?
-
-Concern Levels:
-- NONE: Safe position, normal behavior
-- LOW: Minor observation, no immediate concern
-- MEDIUM: Needs monitoring (baby crying, slight position concern)
-- HIGH: Parent should check soon (unusual stillness, concerning position)
-- CRITICAL: Immediate check required (face-down, near hazard, unresponsive)
-
-Provide:
-1. Concern level
-2. What you observe
-3. Recommended action`,
-
-  sleep: `Analyze this image for safe sleep:
-- Is the baby on their back? (recommended)
-- Is the face visible and unobstructed?
-- Are there loose blankets or objects near face?
-- Is the baby in an appropriate sleep space?
-
-Describe what you see regarding sleep safety.`,
-
-  crying: `The baby appears to be crying or fussing. Analyze:
-- Duration indicators (red face, tears)
-- Posture (arching, squirming)
-- Possible causes visible (hunger, discomfort, wet)
-- Urgency level
-
-What do you observe?`,
-};
-
-export function getBabyPrompt(type: 'triage' | 'detailed' | 'sleep' | 'crying'): string {
-  return BABY_PROMPTS[type];
+Respond with JSON:
+{
+  "babyVisible": true/false,
+  "state": "sleeping" | "awake" | "crying" | "unknown",
+  "concernLevel": "none" | "low" | "medium" | "high" | "critical",
+  "needsDetailedAnalysis": true/false,
+  "summary": "Brief one-line summary"
 }
 
+ALWAYS recommend detailed analysis if:
+- Baby appears in distress
+- Unsafe sleeping position (face down, covered)
+- Any objects near baby's face
+- Baby in unusual position`,
+
+  analysisPrompt: `You are an expert infant and toddler safety AI. Analyze this image with EXTREME care for baby safety.
+
+## CRITICAL SAFETY CHECKS (Prioritize):
+1. **Sleeping Position**: Back-to-sleep? Face clear? No blankets over face?
+2. **Airway**: Nothing near face that could obstruct breathing?
+3. **Crib Safety**: Proper crib? No loose bedding, pillows, or toys?
+4. **Position**: Safe position? Not stuck or wedged?
+5. **Distress Signs**: Crying? Discomfort? Unusual color?
+
+## Additional Assessment:
+6. **Alertness**: Awake, drowsy, sleeping deeply?
+7. **Temperature Clues**: Appropriate clothing? Sweating? Shivering?
+8. **Movement**: Normal movements or concerning stillness?
+9. **Environment**: Safe room temperature indicators? Clean environment?
+
+## Concern Levels:
+- **none**: Baby appears safe, comfortable, in appropriate position
+- **low**: Minor note (baby awake when expected to sleep, etc.)
+- **medium**: Should be checked (unusual position, fussing)
+- **high**: Requires prompt attention (distress signs, concerning position)
+- **critical**: IMMEDIATE attention (unsafe sleeping, airway concern, visible distress)
+
+## Response Format (JSON):
+{
+  "concernLevel": "none" | "low" | "medium" | "high" | "critical",
+  "description": "Detailed description of baby and environment",
+  "issues": ["List of specific concerns"],
+  "recommendations": ["Immediate actions needed"],
+  "babyState": "sleeping" | "awake" | "crying" | "drowsy",
+  "sleepingSafe": true/false/null,
+  "confidence": 0.0-1.0
+}
+
+⚠️ IMPORTANT: Err on the side of caution. It's better to alert for a false positive than miss a genuine safety concern. This is an AI supplement - caregivers should ALWAYS physically check.`,
+};

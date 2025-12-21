@@ -1,42 +1,45 @@
 /**
- * System Routes
+ * System API Routes
  *
- * API endpoints for system health, Ollama status, and configuration.
+ * Endpoints for system status and configuration.
  *
  * @module api/routes/system
  */
 
 import { Router, type Request, type Response } from 'express';
-import { getSafeOSDatabase, now } from '../../db/index.js';
+import { getSafeOSDatabase } from '../../db/index.js';
 import { getDefaultOllamaClient } from '../../lib/ollama/client.js';
+import { getDefaultStreamManager } from '../../lib/streams/manager.js';
 import { getDefaultAnalysisQueue } from '../../queues/analysis-queue.js';
-import { getDefaultEscalationManager } from '../../lib/alerts/escalation.js';
+import { getDefaultNotificationManager } from '../../lib/alerts/notification-manager.js';
+import { getDefaultCloudFallback } from '../../lib/analysis/cloud-fallback.js';
 import { getDefaultContentFilter } from '../../lib/safety/content-filter.js';
-import { getDefaultFrameAnalyzer } from '../../lib/analysis/frame-analyzer.js';
-import { getDefaultTelegramService } from '../../lib/alerts/telegram.js';
-import { getDefaultTwilioService } from '../../lib/alerts/twilio.js';
-import { getDefaultPushService } from '../../lib/alerts/browser-push.js';
-import { getDefaultSignalingServer } from '../../lib/webrtc/signaling.js';
-import type { ApiResponse } from '../../types/index.js';
-
-// =============================================================================
-// Router
-// =============================================================================
+import { getDefaultAudioAnalyzer } from '../../lib/audio/analyzer.js';
 
 const router = Router();
 
-// ===========================================================================
-// GET /system/health - Health check
-// ===========================================================================
+// =============================================================================
+// Routes
+// =============================================================================
 
-router.get('/health', async (_req: Request, res: Response) => {
+/**
+ * GET /api/system/status
+ * Get comprehensive system status
+ */
+router.get('/status', async (_req: Request, res: Response) => {
   try {
     const ollama = getDefaultOllamaClient();
-    const db = await getSafeOSDatabase();
+    const streamManager = getDefaultStreamManager();
+    const analysisQueue = getDefaultAnalysisQueue();
+    const notificationManager = getDefaultNotificationManager();
+    const cloudFallback = getDefaultCloudFallback();
+    const contentFilter = getDefaultContentFilter();
+    const audioAnalyzer = getDefaultAudioAnalyzer();
 
     // Check database
     let dbHealthy = false;
     try {
+      const db = await getSafeOSDatabase();
       await db.get('SELECT 1');
       dbHealthy = true;
     } catch {
@@ -44,292 +47,237 @@ router.get('/health', async (_req: Request, res: Response) => {
     }
 
     // Check Ollama
-    const ollamaHealthy = await ollama.isHealthy();
-
-    const healthy = dbHealthy; // Ollama is optional
-
-    res.status(healthy ? 200 : 503).json({
-      success: healthy,
-      data: {
-        status: healthy ? 'healthy' : 'degraded',
-        database: dbHealthy,
-        ollama: ollamaHealthy,
-        timestamp: now(),
-      },
-    } as ApiResponse);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    } as ApiResponse);
-  }
-});
-
-// ===========================================================================
-// GET /system/status - Detailed system status
-// ===========================================================================
-
-router.get('/status', async (_req: Request, res: Response) => {
-  try {
-    const db = await getSafeOSDatabase();
-    const ollama = getDefaultOllamaClient();
-    const queue = getDefaultAnalysisQueue();
-    const escalation = getDefaultEscalationManager();
-    const filter = getDefaultContentFilter();
-    const analyzer = getDefaultFrameAnalyzer();
-    const signaling = getDefaultSignalingServer();
-    const telegram = getDefaultTelegramService();
-    const twilio = getDefaultTwilioService();
-    const push = getDefaultPushService();
-
-    // Database counts
-    const [streams, alerts, analyses, queue_stats] = await Promise.all([
-      db.get<{ active: number; total: number }>(
-        `SELECT 
-           SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-           COUNT(*) as total
-         FROM streams`
-      ),
-      db.get<{ unacknowledged: number; total: number }>(
-        `SELECT 
-           SUM(CASE WHEN acknowledged = 0 THEN 1 ELSE 0 END) as unacknowledged,
-           COUNT(*) as total
-         FROM alerts`
-      ),
-      db.get<{ count: number; avgMs: number }>(
-        `SELECT COUNT(*) as count, AVG(inference_ms) as avgMs 
-         FROM analysis_results 
-         WHERE created_at > datetime("now", "-24 hours")`
-      ),
-      queue.getStats(),
-    ]);
-
-    // Ollama status
     let ollamaStatus = null;
-    const ollamaHealthy = await ollama.isHealthy();
-    if (ollamaHealthy) {
-      const version = await ollama.getVersion();
-      const models = await ollama.ensureModels();
-      ollamaStatus = { version, ...models };
+    try {
+      const isHealthy = await ollama.isHealthy();
+      const models = isHealthy ? await ollama.listModels() : [];
+      ollamaStatus = {
+        healthy: isHealthy,
+        models: models.map((m) => ({ name: m.name, size: m.size })),
+      };
+    } catch {
+      ollamaStatus = { healthy: false, models: [] };
     }
 
-    // WebRTC status
-    const signalingStats = signaling.getStats();
-
-    // Notification status
-    const notifications = {
-      telegram: {
-        enabled: telegram.isEnabled(),
-        chatCount: telegram.getRegisteredChatCount(),
-        sentCount: telegram.getSentCount(),
-      },
-      twilio: {
-        enabled: twilio.isEnabled(),
-        phoneCount: twilio.getRegisteredPhoneCount(),
-        sentCount: twilio.getSentCount(),
-      },
-      push: {
-        enabled: push.isEnabled(),
-        subscriptionCount: push.getSubscriptionCount(),
-        sentCount: push.getSentCount(),
+    // Get all statuses
+    const status = {
+      timestamp: new Date().toISOString(),
+      database: dbHealthy,
+      ollama: ollamaStatus,
+      streams: streamManager.getSummary(),
+      queue: analysisQueue.getStatus(),
+      notifications: notificationManager.getChannelStatus(),
+      cloudFallback: cloudFallback.getStats(),
+      contentFilter: contentFilter.getStats(),
+      audioAnalyzer: audioAnalyzer.getStats(),
+      webrtc: {
+        peers: 0, // Would be populated by signaling server
+        rooms: 0,
       },
     };
 
     res.json({
       success: true,
-      data: {
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        streams: {
-          active: streams?.active || 0,
-          total: streams?.total || 0,
-        },
-        alerts: {
-          unacknowledged: alerts?.unacknowledged || 0,
-          total: alerts?.total || 0,
-          activeEscalations: escalation.getStats().activeCount,
-        },
-        analysis: {
-          last24h: analyses?.count || 0,
-          avgInferenceMs: Math.round(analyses?.avgMs || 0),
-          queue: queue_stats,
-          analyzerStats: analyzer.getStats(),
-        },
-        ollama: {
-          healthy: ollamaHealthy,
-          ...ollamaStatus,
-        },
-        webrtc: {
-          peers: signalingStats.peerCount,
-          rooms: signalingStats.roomCount,
-        },
-        moderation: filter.getStats(),
-        notifications,
-        timestamp: now(),
-      },
-    } as ApiResponse);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    } as ApiResponse);
-  }
-});
-
-// ===========================================================================
-// GET /system/ollama - Ollama specific status
-// ===========================================================================
-
-router.get('/ollama', async (_req: Request, res: Response) => {
-  try {
-    const ollama = getDefaultOllamaClient();
-    const healthy = await ollama.isHealthy();
-
-    if (!healthy) {
-      res.status(503).json({
-        success: false,
-        error: 'Ollama not available',
-        data: { healthy: false },
-      } as ApiResponse);
-      return;
-    }
-
-    const version = await ollama.getVersion();
-    const models = await ollama.listModels();
-    const requiredModels = await ollama.ensureModels();
-
-    res.json({
-      success: true,
-      data: {
-        healthy: true,
-        version,
-        config: ollama.getConfig(),
-        models: models.map((m) => ({
-          name: m.name,
-          size: m.size,
-          modifiedAt: m.modifiedAt,
-        })),
-        required: requiredModels,
-      },
-    } as ApiResponse);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    } as ApiResponse);
-  }
-});
-
-// ===========================================================================
-// POST /system/ollama/pull - Pull Ollama model
-// ===========================================================================
-
-router.post('/ollama/pull', async (req: Request, res: Response) => {
-  try {
-    const { model } = req.body as { model: string };
-
-    if (!model) {
-      res.status(400).json({
-        success: false,
-        error: 'Model name required',
-      } as ApiResponse);
-      return;
-    }
-
-    const ollama = getDefaultOllamaClient();
-
-    // Start pull (this is synchronous but may take a while)
-    res.status(202).json({
-      success: true,
-      message: `Starting download of ${model}...`,
-    } as ApiResponse);
-
-    // Pull in background
-    void ollama.pullModel(model).then(() => {
-      console.log(`[System] Model ${model} downloaded successfully`);
-    }).catch((error) => {
-      console.error(`[System] Failed to download ${model}:`, error);
+      data: status,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
-// ===========================================================================
-// GET /system/webrtc - WebRTC signaling status
-// ===========================================================================
-
-router.get('/webrtc', async (_req: Request, res: Response) => {
+/**
+ * GET /api/system/health
+ * Simple health check
+ */
+router.get('/health', async (_req: Request, res: Response) => {
   try {
-    const signaling = getDefaultSignalingServer();
-    const stats = signaling.getStats();
+    const ollama = getDefaultOllamaClient();
+    const isHealthy = await ollama.isHealthy();
 
     res.json({
       success: true,
-      data: stats,
-    } as ApiResponse);
+      data: {
+        status: 'ok',
+        ollama: isHealthy,
+        timestamp: new Date().toISOString(),
+      },
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
-// ===========================================================================
-// GET /system/config - Get current configuration
-// ===========================================================================
-
+/**
+ * GET /api/system/config
+ * Get system configuration
+ */
 router.get('/config', async (_req: Request, res: Response) => {
+  try {
+    const analysisQueue = getDefaultAnalysisQueue();
+    const contentFilter = getDefaultContentFilter();
+
+    res.json({
+      success: true,
+      data: {
+        analysisQueue: analysisQueue.getConfig(),
+        contentFilter: contentFilter.getConfig(),
+        version: '1.0.0',
+        environment: process.env['NODE_ENV'] || 'development',
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: String(error),
+    });
+  }
+});
+
+/**
+ * PUT /api/system/config
+ * Update system configuration
+ */
+router.put('/config', async (req: Request, res: Response) => {
+  try {
+    const { analysisQueue: aqConfig, contentFilter: cfConfig } = req.body;
+    const analysisQueue = getDefaultAnalysisQueue();
+    const contentFilter = getDefaultContentFilter();
+
+    if (aqConfig) {
+      analysisQueue.updateConfig(aqConfig);
+    }
+
+    if (cfConfig) {
+      contentFilter.updateConfig(cfConfig);
+    }
+
+    res.json({
+      success: true,
+      message: 'Configuration updated',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: String(error),
+    });
+  }
+});
+
+/**
+ * GET /api/system/stats
+ * Get detailed statistics
+ */
+router.get('/stats', async (_req: Request, res: Response) => {
+  try {
+    const db = await getSafeOSDatabase();
+    const streamManager = getDefaultStreamManager();
+    const analysisQueue = getDefaultAnalysisQueue();
+
+    // Get counts from database
+    const streamsTotal = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM streams'
+    );
+    const alertsTotal = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM alerts'
+    );
+    const analysisTotal = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM analysis_results'
+    );
+    const flagsTotal = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM content_flags'
+    );
+
+    // Get recent activity
+    const recentAlerts = await db.all(
+      `SELECT severity, COUNT(*) as count FROM alerts
+       WHERE created_at >= datetime('now', '-1 hour')
+       GROUP BY severity`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        totals: {
+          streams: streamsTotal?.count || 0,
+          alerts: alertsTotal?.count || 0,
+          analysisResults: analysisTotal?.count || 0,
+          contentFlags: flagsTotal?.count || 0,
+        },
+        active: {
+          streams: streamManager.getStreamCount(),
+          queuePending: analysisQueue.getStatus().pending,
+          queueProcessing: analysisQueue.getStatus().processing,
+        },
+        recentHour: {
+          alertsBySeverity: Object.fromEntries(
+            recentAlerts.map((r: { severity: string; count: number }) => [r.severity, r.count])
+          ),
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: String(error),
+    });
+  }
+});
+
+/**
+ * POST /api/system/ollama/ensure-models
+ * Ensure required Ollama models are downloaded
+ */
+router.post('/ollama/ensure-models', async (_req: Request, res: Response) => {
   try {
     const ollama = getDefaultOllamaClient();
 
+    const result = await ollama.ensureModels();
+
     res.json({
       success: true,
-      data: {
-        bufferMinutes: parseInt(process.env['SAFEOS_BUFFER_MINUTES'] || '5', 10),
-        port: parseInt(process.env['SAFEOS_PORT'] || '8474', 10),
-        ollama: ollama.getConfig(),
-        notifications: {
-          telegram: !!process.env['TELEGRAM_BOT_TOKEN'],
-          twilio: !!process.env['TWILIO_ACCOUNT_SID'],
-          push: !!process.env['VAPID_PUBLIC_KEY'],
-        },
-      },
-    } as ApiResponse);
+      data: result,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
-// ===========================================================================
-// GET /system/disclaimers - Get legal disclaimers
-// ===========================================================================
-
-router.get('/disclaimers', async (_req: Request, res: Response) => {
+/**
+ * GET /api/system/ollama/models
+ * List available Ollama models
+ */
+router.get('/ollama/models', async (_req: Request, res: Response) => {
   try {
-    const { CRITICAL_DISCLAIMER } = await import('../../lib/safety/disclaimers.js');
+    const ollama = getDefaultOllamaClient();
+
+    if (!(await ollama.isHealthy())) {
+      return res.status(503).json({
+        success: false,
+        error: 'Ollama is not available',
+      });
+    }
+
+    const models = await ollama.listModels();
 
     res.json({
       success: true,
-      data: {
-        critical: CRITICAL_DISCLAIMER,
-        mustAccept: true,
-      },
-    } as ApiResponse);
+      data: models,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
 export default router;
-

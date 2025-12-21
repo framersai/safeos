@@ -1,470 +1,367 @@
 /**
  * SafeOS API Server
  *
- * Express + WebSocket server for stream management and real-time communication.
+ * Express server with WebSocket support for real-time monitoring.
  *
  * @module api/server
  */
 
-import express, { type Express, type Request, type Response, type NextFunction } from 'express';
-import { createServer, type Server as HttpServer } from 'http';
+import express, { type Express, type Request, type Response } from 'express';
+import { createServer, type Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { WSMessage, ApiResponse } from '../types/index.js';
-import { getSafeOSDatabase, now } from '../db/index.js';
+import cors from 'cors';
+import { getSafeOSDatabase, runMigrations } from '../db/index.js';
 import { getDefaultOllamaClient } from '../lib/ollama/client.js';
+import { getDefaultStreamManager } from '../lib/streams/manager.js';
+import { getDefaultAnalysisQueue } from '../queues/analysis-queue.js';
+import { getDefaultSignalingServer } from '../lib/webrtc/signaling.js';
+import type { SignalingMessage } from '../lib/webrtc/signaling.js';
+
+// Import routes
+import {
+  streamsRouter,
+  alertsRouter,
+  profilesRouter,
+  systemRouter,
+  analysisRouter,
+  notificationsRouter,
+  reviewRouter,
+} from './routes/index.js';
 
 // =============================================================================
-// Configuration
+// Types
 // =============================================================================
 
-const PORT = parseInt(process.env['SAFEOS_PORT'] || '8474', 10);
-const HOST = process.env['SAFEOS_HOST'] || '0.0.0.0';
+export interface ServerConfig {
+  port: number;
+  host: string;
+  corsOrigins?: string[];
+}
+
+export interface WSMessage {
+  type: string;
+  payload?: any;
+  streamId?: string;
+  peerId?: string;
+}
 
 // =============================================================================
-// Express App
+// Server Class
 // =============================================================================
 
-const app: Express = express();
+export class SafeOSServer {
+  private app: Express;
+  private server: Server;
+  private wss: WebSocketServer;
+  private config: ServerConfig;
+  private clients: Map<WebSocket, { streamId?: string; peerId?: string }> = new Map();
 
-// Middleware
-app.use(express.json({ limit: '10mb' })); // Large for base64 frames
-app.use(express.urlencoded({ extended: true }));
-
-// CORS for development
-app.use((req: Request, res: Response, next: NextFunction) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
-  next();
-});
-
-// =============================================================================
-// Health & Status Routes
-// =============================================================================
-
-app.get('/health', async (_req: Request, res: Response) => {
-  const ollama = getDefaultOllamaClient();
-  const ollamaHealthy = await ollama.isHealthy();
-
-  const response: ApiResponse<{
-    status: string;
-    ollama: boolean;
-    timestamp: string;
-  }> = {
-    success: true,
-    data: {
-      status: 'healthy',
-      ollama: ollamaHealthy,
-      timestamp: now(),
-    },
-  };
-
-  res.json(response);
-});
-
-app.get('/api/status', async (_req: Request, res: Response) => {
-  try {
-    const db = await getSafeOSDatabase();
-    const ollama = getDefaultOllamaClient();
-
-    // Get counts
-    const streamCount = await db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM streams WHERE status = ?',
-      ['active']
-    );
-    const alertCount = await db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM alerts WHERE acknowledged = 0'
-    );
-    const queueCount = await db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM analysis_queue WHERE status = ?',
-      ['pending']
-    );
-
-    // Check Ollama
-    const ollamaHealthy = await ollama.isHealthy();
-    let ollamaModels: { triageReady: boolean; analysisReady: boolean; missing: string[] } | null = null;
-    if (ollamaHealthy) {
-      ollamaModels = await ollama.ensureModels();
-    }
-
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        activeStreams: streamCount?.count || 0,
-        pendingAlerts: alertCount?.count || 0,
-        queuedJobs: queueCount?.count || 0,
-        ollama: {
-          healthy: ollamaHealthy,
-          models: ollamaModels,
-        },
-        connectedClients: wss?.clients?.size || 0,
-        uptime: process.uptime(),
-        timestamp: now(),
-      },
+  constructor(config?: Partial<ServerConfig>) {
+    this.config = {
+      port: parseInt(process.env['PORT'] || '3000', 10),
+      host: process.env['HOST'] || '0.0.0.0',
+      corsOrigins: process.env['CORS_ORIGINS']?.split(',') || ['*'],
+      ...config,
     };
 
-    res.json(response);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
+    this.app = express();
+    this.server = createServer(this.app);
+    this.wss = new WebSocketServer({ server: this.server });
+
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupWebSocket();
   }
-});
 
-// =============================================================================
-// Stream Routes
-// =============================================================================
+  // ---------------------------------------------------------------------------
+  // Setup Methods
+  // ---------------------------------------------------------------------------
 
-app.get('/api/streams', async (_req: Request, res: Response) => {
-  try {
-    const db = await getSafeOSDatabase();
-    const streams = await db.all('SELECT * FROM streams ORDER BY created_at DESC');
+  private setupMiddleware(): void {
+    // CORS
+    this.app.use(
+      cors({
+        origin: this.config.corsOrigins,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+      })
+    );
 
-    res.json({
-      success: true,
-      data: streams,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
+    // JSON parsing
+    this.app.use(express.json({ limit: '10mb' }));
 
-app.post('/api/streams', async (req: Request, res: Response) => {
-  try {
-    const { name, profileId } = req.body as { name: string; profileId: string };
-
-    if (!name || !profileId) {
-      res.status(400).json({
-        success: false,
-        error: 'name and profileId are required',
+    // Request logging
+    this.app.use((req, res, next) => {
+      const start = Date.now();
+      res.on('finish', () => {
+        const duration = Date.now() - start;
+        if (process.env['NODE_ENV'] !== 'production') {
+          console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+        }
       });
-      return;
+      next();
+    });
+  }
+
+  private setupRoutes(): void {
+    // Health check
+    this.app.get('/health', (_req: Request, res: Response) => {
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    // API routes
+    this.app.use('/api/streams', streamsRouter);
+    this.app.use('/api/alerts', alertsRouter);
+    this.app.use('/api/profiles', profilesRouter);
+    this.app.use('/api/system', systemRouter);
+    this.app.use('/api/analysis', analysisRouter);
+    this.app.use('/api/notifications', notificationsRouter);
+    this.app.use('/api/review', reviewRouter);
+
+    // 404 handler
+    this.app.use((_req: Request, res: Response) => {
+      res.status(404).json({ error: 'Not found' });
+    });
+
+    // Error handler
+    this.app.use((err: Error, _req: Request, res: Response, _next: any) => {
+      console.error('Server error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    });
+  }
+
+  private setupWebSocket(): void {
+    const signaling = getDefaultSignalingServer();
+    const streamManager = getDefaultStreamManager();
+    const analysisQueue = getDefaultAnalysisQueue();
+
+    this.wss.on('connection', (ws: WebSocket) => {
+      // Register with signaling server
+      const peerId = signaling.handleConnection(ws);
+      this.clients.set(ws, { peerId });
+
+      ws.on('message', async (data: Buffer) => {
+        try {
+          const message: WSMessage = JSON.parse(data.toString());
+          await this.handleWSMessage(ws, message, signaling, streamManager, analysisQueue);
+        } catch (error) {
+          console.error('WebSocket message error:', error);
+          ws.send(JSON.stringify({ type: 'error', payload: { error: 'Invalid message' } }));
+        }
+      });
+
+      ws.on('close', () => {
+        signaling.handleDisconnection(ws);
+        this.clients.delete(ws);
+      });
+
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+      });
+
+      // Send welcome message
+      ws.send(JSON.stringify({ type: 'connected', payload: { peerId } }));
+    });
+  }
+
+  private async handleWSMessage(
+    ws: WebSocket,
+    message: WSMessage,
+    signaling: ReturnType<typeof getDefaultSignalingServer>,
+    streamManager: ReturnType<typeof getDefaultStreamManager>,
+    analysisQueue: ReturnType<typeof getDefaultAnalysisQueue>
+  ): Promise<void> {
+    const clientData = this.clients.get(ws);
+
+    switch (message.type) {
+      // Signaling messages
+      case 'join-room':
+      case 'leave-room':
+      case 'offer':
+      case 'answer':
+      case 'ice-candidate':
+      case 'room-info':
+        signaling.handleMessage(ws, message as SignalingMessage);
+        break;
+
+      // Stream management
+      case 'start-stream':
+        const stream = await streamManager.createStream({
+          scenario: message.payload?.scenario || 'baby',
+          userId: message.payload?.userId,
+        });
+        if (clientData) {
+          clientData.streamId = stream.id;
+        }
+        streamManager.attachSocket(stream.id, ws as any);
+        ws.send(JSON.stringify({ type: 'stream-started', payload: { streamId: stream.id } }));
+        break;
+
+      case 'stop-stream':
+        if (clientData?.streamId) {
+          await streamManager.endStream(clientData.streamId);
+          clientData.streamId = undefined;
+        }
+        ws.send(JSON.stringify({ type: 'stream-stopped' }));
+        break;
+
+      // Frame analysis
+      case 'frame':
+        if (clientData?.streamId && message.payload?.frame) {
+          const stream = streamManager.getStream(clientData.streamId);
+          if (stream) {
+            streamManager.incrementFrameCount(clientData.streamId);
+            streamManager.updatePing(clientData.streamId);
+
+            // Queue for analysis if motion/audio above threshold
+            if (message.payload.motionScore > 30 || message.payload.audioLevel > 30) {
+              analysisQueue.enqueue({
+                streamId: clientData.streamId,
+                scenario: stream.scenario,
+                frameData: message.payload.frame,
+                motionScore: message.payload.motionScore || 0,
+                audioLevel: message.payload.audioLevel || 0,
+              });
+            }
+          }
+        }
+        break;
+
+      // Ping
+      case 'ping':
+        if (clientData?.streamId) {
+          streamManager.updatePing(clientData.streamId);
+        }
+        ws.send(JSON.stringify({ type: 'pong', payload: { timestamp: Date.now() } }));
+        break;
+
+      default:
+        ws.send(JSON.stringify({ type: 'error', payload: { error: 'Unknown message type' } }));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public Methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Start the server
+   */
+  async start(): Promise<void> {
+    // Initialize database
+    const db = await getSafeOSDatabase();
+    await runMigrations(db);
+    console.log('Database initialized');
+
+    // Check Ollama
+    const ollama = getDefaultOllamaClient();
+    if (await ollama.isHealthy()) {
+      console.log('Ollama is healthy');
+      const result = await ollama.ensureModels();
+      console.log('Models:', result);
+    } else {
+      console.warn('Ollama is not available - will use cloud fallback');
     }
 
-    const db = await getSafeOSDatabase();
-    const id = crypto.randomUUID();
-    const timestamp = now();
+    // Start analysis queue
+    const queue = getDefaultAnalysisQueue();
+    queue.start();
+    console.log('Analysis queue started');
 
-    await db.run(
-      `INSERT INTO streams (id, name, profile_id, status, created_at)
-       VALUES (?, ?, ?, 'active', ?)`,
-      [id, name, profileId, timestamp]
-    );
-
-    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
-
-    res.status(201).json({
-      success: true,
-      data: stream,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
+    // Start HTTP server
+    return new Promise((resolve) => {
+      this.server.listen(this.config.port, this.config.host, () => {
+        console.log(`SafeOS server running at http://${this.config.host}:${this.config.port}`);
+        resolve();
+      });
     });
   }
-});
 
-app.delete('/api/streams/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const db = await getSafeOSDatabase();
+  /**
+   * Stop the server
+   */
+  async stop(): Promise<void> {
+    // Stop queue
+    const queue = getDefaultAnalysisQueue();
+    queue.stop();
 
-    await db.run('UPDATE streams SET status = ? WHERE id = ?', ['disconnected', id]);
-
-    res.json({
-      success: true,
-      message: 'Stream disconnected',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-// =============================================================================
-// Alert Routes
-// =============================================================================
-
-app.get('/api/alerts', async (req: Request, res: Response) => {
-  try {
-    const { acknowledged, streamId, limit = '50' } = req.query;
-    const db = await getSafeOSDatabase();
-
-    let query = 'SELECT * FROM alerts';
-    const params: (string | number)[] = [];
-    const conditions: string[] = [];
-
-    if (acknowledged !== undefined) {
-      conditions.push('acknowledged = ?');
-      params.push(acknowledged === 'true' ? 1 : 0);
+    // Close all WebSocket connections
+    for (const [ws] of this.clients) {
+      ws.close();
     }
 
-    if (streamId) {
-      conditions.push('stream_id = ?');
-      params.push(String(streamId));
-    }
+    // Stop stream manager
+    const streamManager = getDefaultStreamManager();
+    await streamManager.shutdown();
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    query += ' ORDER BY created_at DESC LIMIT ?';
-    params.push(parseInt(String(limit), 10));
-
-    const alerts = await db.all(query, params);
-
-    res.json({
-      success: true,
-      data: alerts,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
+    // Close server
+    return new Promise((resolve, reject) => {
+      this.server.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
   }
-});
 
-app.post('/api/alerts/:id/acknowledge', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const db = await getSafeOSDatabase();
-
-    await db.run(
-      'UPDATE alerts SET acknowledged = 1, acknowledged_at = ? WHERE id = ?',
-      [now(), id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Alert acknowledged',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-// =============================================================================
-// Profile Routes
-// =============================================================================
-
-app.get('/api/profiles', async (_req: Request, res: Response) => {
-  try {
-    const db = await getSafeOSDatabase();
-    const profiles = await db.all('SELECT * FROM monitoring_profiles ORDER BY scenario');
-
-    res.json({
-      success: true,
-      data: profiles,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    });
-  }
-});
-
-// =============================================================================
-// WebSocket Server
-// =============================================================================
-
-let wss: WebSocketServer;
-const clientStreams = new Map<WebSocket, string>(); // ws -> streamId
-
-function setupWebSocket(server: HttpServer): void {
-  wss = new WebSocketServer({ server, path: '/ws' });
-
-  wss.on('connection', (ws: WebSocket) => {
-    console.log('[SafeOS WS] Client connected');
-
-    ws.on('message', async (data: Buffer) => {
-      try {
-        const message = JSON.parse(data.toString()) as WSMessage;
-        await handleWSMessage(ws, message);
-      } catch (error) {
-        sendWSError(ws, String(error));
+  /**
+   * Broadcast to all connected clients
+   */
+  broadcast(message: WSMessage): void {
+    const data = JSON.stringify(message);
+    for (const [ws] of this.clients) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
       }
-    });
-
-    ws.on('close', () => {
-      const streamId = clientStreams.get(ws);
-      if (streamId) {
-        console.log(`[SafeOS WS] Client disconnected from stream ${streamId}`);
-        clientStreams.delete(ws);
-      }
-    });
-
-    ws.on('error', (error) => {
-      console.error('[SafeOS WS] Error:', error);
-    });
-
-    // Send initial ping
-    sendWSMessage(ws, { type: 'ping', payload: {}, timestamp: now() });
-  });
-
-  console.log('[SafeOS WS] WebSocket server ready on /ws');
-}
-
-async function handleWSMessage(ws: WebSocket, message: WSMessage): Promise<void> {
-  switch (message.type) {
-    case 'ping':
-      sendWSMessage(ws, { type: 'pong', payload: {}, timestamp: now() });
-      break;
-
-    case 'frame':
-      await handleFrame(ws, message);
-      break;
-
-    case 'audio_level':
-      await handleAudioLevel(ws, message);
-      break;
-
-    case 'stream_status':
-      if (message.streamId) {
-        clientStreams.set(ws, message.streamId);
-        console.log(`[SafeOS WS] Client subscribed to stream ${message.streamId}`);
-      }
-      break;
-
-    default:
-      console.log(`[SafeOS WS] Unknown message type: ${message.type}`);
-  }
-}
-
-async function handleFrame(ws: WebSocket, message: WSMessage): Promise<void> {
-  const { frameData, motionScore, audioLevel } = message.payload as {
-    frameData: string;
-    motionScore: number;
-    audioLevel: number;
-  };
-  const streamId = message.streamId || clientStreams.get(ws);
-
-  if (!streamId) {
-    sendWSError(ws, 'No stream ID associated with this connection');
-    return;
-  }
-
-  try {
-    const db = await getSafeOSDatabase();
-    const id = crypto.randomUUID();
-    const timestamp = now();
-
-    // Store frame in buffer
-    await db.run(
-      `INSERT INTO frame_buffer (id, stream_id, frame_data, captured_at, motion_score, audio_level)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, streamId, frameData, timestamp, motionScore, audioLevel]
-    );
-
-    // Update stream last_frame_at
-    await db.run(
-      'UPDATE streams SET last_frame_at = ? WHERE id = ?',
-      [timestamp, streamId]
-    );
-
-    // Acknowledge frame receipt
-    sendWSMessage(ws, {
-      type: 'frame',
-      streamId,
-      payload: { received: true, frameId: id },
-      timestamp,
-    });
-  } catch (error) {
-    sendWSError(ws, String(error));
-  }
-}
-
-async function handleAudioLevel(_ws: WebSocket, message: WSMessage): Promise<void> {
-  const { level } = message.payload as { level: number };
-  const streamId = message.streamId;
-
-  if (streamId && level > 0.8) {
-    console.log(`[SafeOS] High audio level detected on stream ${streamId}: ${level}`);
-    // Could trigger audio-based alerts here
-  }
-}
-
-function sendWSMessage(ws: WebSocket, message: WSMessage): void {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(message));
-  }
-}
-
-function sendWSError(ws: WebSocket, error: string): void {
-  sendWSMessage(ws, {
-    type: 'error',
-    payload: { error },
-    timestamp: now(),
-  });
-}
-
-/**
- * Broadcast a message to all connected clients
- */
-export function broadcast(message: WSMessage): void {
-  if (!wss) return;
-
-  const data = JSON.stringify(message);
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
     }
-  });
-}
+  }
 
-/**
- * Send a message to clients subscribed to a specific stream
- */
-export function broadcastToStream(streamId: string, message: WSMessage): void {
-  if (!wss) return;
-
-  const data = JSON.stringify(message);
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN && clientStreams.get(client) === streamId) {
-      client.send(data);
+  /**
+   * Broadcast to clients watching a specific stream
+   */
+  broadcastToStream(streamId: string, message: WSMessage): void {
+    const data = JSON.stringify(message);
+    for (const [ws, clientData] of this.clients) {
+      if (ws.readyState === WebSocket.OPEN && clientData.streamId === streamId) {
+        ws.send(data);
+      }
     }
-  });
+  }
+
+  /**
+   * Get Express app (for testing)
+   */
+  getApp(): Express {
+    return this.app;
+  }
 }
 
 // =============================================================================
-// Server Startup
+// Main Entry Point
 // =============================================================================
 
-const server: HttpServer = createServer(app);
-setupWebSocket(server);
+async function main(): Promise<void> {
+  const server = new SafeOSServer();
 
-// Only start if this is the main module
-if (import.meta.url === `file://${process.argv[1]}`) {
-  server.listen(PORT, HOST, () => {
-    console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║   SafeOS API Server                                           ║
-║   Part of SuperCloud's humanitarian mission                   ║
-║                                                               ║
-║   REST API:    http://${HOST}:${PORT}                              ║
-║   WebSocket:   ws://${HOST}:${PORT}/ws                             ║
-║   Health:      http://${HOST}:${PORT}/health                       ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
-    `);
+  // Graceful shutdown
+  process.on('SIGINT', async () => {
+    console.log('\nShutting down...');
+    await server.stop();
+    process.exit(0);
   });
+
+  process.on('SIGTERM', async () => {
+    console.log('\nShutting down...');
+    await server.stop();
+    process.exit(0);
+  });
+
+  await server.start();
 }
 
-export { app, server };
+// Run if executed directly
+if (process.argv[1]?.includes('server')) {
+  main().catch(console.error);
+}
 
+export { SafeOSServer };
+export default SafeOSServer;

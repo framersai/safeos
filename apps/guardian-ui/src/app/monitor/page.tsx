@@ -1,241 +1,333 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import CameraFeed from '@/components/CameraFeed';
-import MotionDetector from '@/components/MotionDetector';
-import AudioMonitor from '@/components/AudioMonitor';
-import AlertPanel from '@/components/AlertPanel';
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useOnboardingStore } from '@/stores/onboarding-store';
+import { useMonitoringStore } from '@/stores/monitoring-store';
 import { useWebSocket } from '@/lib/websocket';
+import CameraFeed from '@/components/CameraFeed';
+import AlertPanel from '@/components/AlertPanel';
+
+// =============================================================================
+// Monitor Page
+// =============================================================================
 
 export default function MonitorPage() {
-  const [streamId, setStreamId] = useState<string | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [motionScore, setMotionScore] = useState(0);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [alerts, setAlerts] = useState<Array<{
-    id: string;
-    severity: string;
-    message: string;
-    createdAt: string;
-  }>>([]);
-  
-  const { connected, send, lastMessage } = useWebSocket('ws://localhost:8474/ws');
+  const router = useRouter();
+  const { isOnboardingComplete, primaryScenario, selectedScenarios } =
+    useOnboardingStore();
+  const {
+    isStreaming,
+    streamId,
+    motionScore,
+    audioLevel,
+    startStream,
+    stopStream,
+    updateStreamStatus,
+  } = useMonitoringStore();
 
-  // Handle incoming WebSocket messages
-  useEffect(() => {
-    if (lastMessage?.type === 'alert') {
-      const alert = lastMessage.payload as {
-        id: string;
-        severity: string;
-        message: string;
-        createdAt: string;
-      };
-      setAlerts((prev) => [alert, ...prev.slice(0, 9)]);
-    }
-  }, [lastMessage]);
+  const [isStarting, setIsStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeScenario, setActiveScenario] = useState(primaryScenario || 'pet');
 
-  // Subscribe to stream
-  useEffect(() => {
-    if (connected && streamId) {
-      send({
-        type: 'stream_status',
-        streamId,
-        payload: { action: 'subscribe' },
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }, [connected, streamId, send]);
-
-  const handleFrameCapture = useCallback(
-    (frameData: string, motion: number, audio: number) => {
-      setMotionScore(motion);
-      setAudioLevel(audio);
-
-      if (connected && streamId) {
-        send({
-          type: 'frame',
-          streamId,
-          payload: { frameData, motionScore: motion, audioLevel: audio },
-          timestamp: new Date().toISOString(),
-        });
+  // WebSocket connection
+  const { isConnected, sendFrame, connect } = useWebSocket({
+    onMessage: (message) => {
+      if (message.type === 'analysis') {
+        console.log('[Monitor] Analysis result:', message.payload);
       }
     },
-    [connected, streamId, send]
-  );
+    onConnect: () => {
+      if (streamId) {
+        updateStreamStatus('active');
+      }
+    },
+    onDisconnect: () => {
+      if (isStreaming) {
+        updateStreamStatus('disconnected');
+      }
+    },
+  });
 
-  const startMonitoring = async () => {
+  // Check onboarding
+  useEffect(() => {
+    if (!isOnboardingComplete) {
+      router.push('/setup');
+    }
+  }, [isOnboardingComplete, router]);
+
+  // Start monitoring
+  const handleStart = async () => {
+    setIsStarting(true);
+    setError(null);
+
     try {
-      // Create a new stream
+      // Create stream on backend
       const res = await fetch('/api/streams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Guardian Monitor',
-          profileId: 'default', // TODO: Use selected profile
-        }),
+        body: JSON.stringify({ scenario: activeScenario }),
       });
+
       const data = await res.json();
-      if (data.success) {
-        setStreamId(data.data.id);
-        setIsStreaming(true);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create stream');
       }
-    } catch (error) {
-      console.error('Failed to start stream:', error);
+
+      // Update local state
+      startStream(data.data.id, activeScenario as 'pet' | 'baby' | 'elderly');
+      updateStreamStatus('active');
+
+      // Ensure WebSocket connected
+      if (!isConnected) {
+        connect();
+      }
+    } catch (err) {
+      console.error('Failed to start monitoring:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start');
+    } finally {
+      setIsStarting(false);
     }
   };
 
-  const stopMonitoring = async () => {
-    if (streamId) {
-      try {
-        await fetch(`/api/streams/${streamId}`, { method: 'DELETE' });
-      } catch (error) {
-        console.error('Failed to stop stream:', error);
-      }
-    }
-    setStreamId(null);
-    setIsStreaming(false);
-    setMotionScore(0);
-    setAudioLevel(0);
-  };
+  // Stop monitoring
+  const handleStop = async () => {
+    if (!streamId) return;
 
-  const acknowledgeAlert = async (alertId: string) => {
     try {
-      await fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' });
-      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
-    } catch (error) {
-      console.error('Failed to acknowledge alert:', error);
+      // End stream on backend
+      await fetch(`/api/streams/${streamId}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to stop stream:', err);
     }
+
+    stopStream();
+  };
+
+  // Handle frame from camera
+  const handleFrame = useCallback(
+    (data: {
+      frameBase64: string;
+      motionScore: number;
+      audioLevel: number;
+      cryingDetected?: boolean;
+    }) => {
+      if (!streamId || !isConnected) return;
+
+      sendFrame({
+        streamId,
+        ...data,
+      });
+    },
+    [streamId, isConnected, sendFrame]
+  );
+
+  const scenarioIcons: Record<string, string> = {
+    pet: '🐾',
+    baby: '👶',
+    elderly: '🧓',
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Live Monitoring</h1>
-          <p className="text-white/60">
-            {isStreaming
-              ? 'Monitoring active - AI is analyzing your feed'
-              : 'Start monitoring to begin'}
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          {/* Connection Status */}
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                connected ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className="text-sm text-white/60">
-              {connected ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
-          {/* Start/Stop Button */}
-          <button
-            onClick={isStreaming ? stopMonitoring : startMonitoring}
-            className={`px-6 py-2 rounded-lg font-medium transition ${
-              isStreaming
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'bg-safeos-500 hover:bg-safeos-600 text-white'
-            }`}
-          >
-            {isStreaming ? 'Stop Monitoring' : 'Start Monitoring'}
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-white/5 backdrop-blur-xl sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/" className="text-white/60 hover:text-white">
+                ← Dashboard
+              </Link>
+              <h1 className="text-lg font-semibold">Live Monitor</h1>
+            </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Camera Feed */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="camera-container aspect-video">
-            {isStreaming ? (
-              <>
-                <CameraFeed onFrame={handleFrameCapture} />
-                <div className="camera-overlay">
-                  {/* Motion Indicator */}
-                  <div className="motion-indicator">
-                    <span>Motion</span>
-                    <div className="motion-bar">
-                      <div
-                        className="motion-bar-fill"
-                        style={{ width: `${motionScore * 100}%` }}
-                      />
-                    </div>
-                    <span>{Math.round(motionScore * 100)}%</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-white/40">
-                <svg
-                  className="w-16 h-16 mb-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                <p>Click &quot;Start Monitoring&quot; to begin</p>
+            <div className="flex items-center gap-4">
+              {/* Connection status */}
+              <div
+                className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs ${
+                  isConnected
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-red-500/20 text-red-400'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    isConnected ? 'bg-green-400' : 'bg-red-400'
+                  }`}
+                />
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </div>
+
+              {/* Settings */}
+              <Link
+                href="/settings"
+                className="p-2 hover:bg-white/10 rounded-lg transition"
+              >
+                ⚙️
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-6">
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Camera Feed - Main Area */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Scenario Selector */}
+            {!isStreaming && (
+              <div className="flex gap-2">
+                {selectedScenarios.map((scenario) => (
+                  <button
+                    key={scenario}
+                    onClick={() => setActiveScenario(scenario)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+                      activeScenario === scenario
+                        ? 'bg-safeos-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    <span>{scenarioIcons[scenario]}</span>
+                    <span className="capitalize">{scenario}</span>
+                  </button>
+                ))}
               </div>
             )}
+
+            {/* Camera Feed */}
+            <div className="relative">
+              {isStreaming ? (
+                <CameraFeed
+                  scenario={activeScenario as 'pet' | 'baby' | 'elderly'}
+                  onFrame={handleFrame}
+                  className="aspect-video"
+                />
+              ) : (
+                <div className="aspect-video bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
+                  <div className="text-center">
+                    <div className="text-6xl mb-4">{scenarioIcons[activeScenario]}</div>
+                    <p className="text-white/60 mb-2">
+                      Ready to monitor: <span className="capitalize">{activeScenario}</span>
+                    </p>
+                    {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {isStreaming && (
+                  <>
+                    {/* Motion Score */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/40 text-sm">Motion</span>
+                      <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${
+                            motionScore > 0.1 ? 'bg-orange-500' : 'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min(100, motionScore * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-white/60 text-xs w-10">
+                        {Math.round(motionScore * 100)}%
+                      </span>
+                    </div>
+
+                    {/* Audio Level */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/40 text-sm">Audio</span>
+                      <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${
+                            audioLevel > 0.2 ? 'bg-yellow-500' : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${Math.min(100, audioLevel * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-white/60 text-xs w-10">
+                        {Math.round(audioLevel * 100)}%
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Start/Stop Button */}
+              {isStreaming ? (
+                <button
+                  onClick={handleStop}
+                  className="px-6 py-3 bg-red-500 hover:bg-red-600 rounded-xl font-medium flex items-center gap-2"
+                >
+                  <span>⏹</span>
+                  Stop Monitoring
+                </button>
+              ) : (
+                <button
+                  onClick={handleStart}
+                  disabled={isStarting}
+                  className="px-6 py-3 bg-gradient-to-r from-safeos-500 to-cyan-500 hover:from-safeos-600 hover:to-cyan-600 rounded-xl font-medium flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isStarting ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <span>▶️</span>
+                      Start Monitoring
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Audio Monitor */}
-          {isStreaming && (
-            <div className="bg-white/5 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/60">Audio Level</span>
-                <AudioMonitor level={audioLevel} />
-              </div>
-            </div>
-          )}
-        </div>
+          {/* Sidebar - Alerts & Status */}
+          <div className="space-y-6">
+            {/* Alert Panel */}
+            <AlertPanel maxAlerts={5} showControls={true} />
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Alerts Panel */}
-          <AlertPanel alerts={alerts} onAcknowledge={acknowledgeAlert} />
-
-          {/* Stats */}
-          {isStreaming && (
-            <div className="bg-white/5 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-white/80 mb-3">Session Stats</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-white/60">Stream ID</span>
-                  <span className="text-white/80 font-mono text-xs">
-                    {streamId?.slice(0, 8)}...
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Motion Score</span>
-                  <span className="text-white/80">{Math.round(motionScore * 100)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Audio Level</span>
-                  <span className="text-white/80">{Math.round(audioLevel * 100)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Active Alerts</span>
-                  <span className="text-white/80">{alerts.length}</span>
+            {/* Stream Info */}
+            {isStreaming && streamId && (
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h3 className="font-semibold mb-3">Stream Info</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Stream ID</span>
+                    <span className="font-mono text-xs">{streamId.slice(0, 8)}...</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Scenario</span>
+                    <span className="capitalize">{activeScenario}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">WebSocket</span>
+                    <span className={isConnected ? 'text-green-400' : 'text-red-400'}>
+                      {isConnected ? 'Connected' : 'Disconnected'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
 
-      {/* Disclaimer */}
-      <div className="mt-8 text-center text-xs text-white/40">
-        This is a supplementary monitoring tool. It does NOT replace in-person
-        supervision.
-      </div>
+            {/* Quick Tips */}
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <h3 className="font-semibold mb-3">💡 Tips</h3>
+              <ul className="space-y-2 text-sm text-white/60">
+                <li>• Position camera with clear view of subject</li>
+                <li>• Good lighting improves detection accuracy</li>
+                <li>• Alerts appear when motion/sound detected</li>
+                <li>• Configure notifications in Settings</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
-

@@ -1,319 +1,180 @@
 /**
  * Legal Disclaimers
  *
- * Critical legal text that must be displayed and accepted
- * before using SafeOS.
+ * Critical legal disclaimers for SafeOS Guardian.
  *
  * @module lib/safety/disclaimers
  */
 
 // =============================================================================
-// Main Disclaimer
+// Critical Disclaimer
 // =============================================================================
 
 export const CRITICAL_DISCLAIMER = `
-⚠️ IMPORTANT SAFETY NOTICE - PLEASE READ CAREFULLY ⚠️
+⚠️ IMPORTANT SAFETY DISCLAIMER
 
-SafeOS is a SUPPLEMENTARY monitoring tool provided FREE OF CHARGE by SuperCloud as part of our humanitarian mission.
+SafeOS Guardian is a FREE supplementary monitoring tool offered as part of 
+SuperCloud's humanitarian mission. This service is NOT a replacement for:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                    NOT A REPLACEMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Direct supervision of children, infants, or toddlers
+• Professional caregiving for elderly individuals
+• Veterinary care or supervision for pets
+• Medical alert systems or emergency response services
+• Any form of professional healthcare or monitoring
 
-This service is NOT intended to replace:
-• Professional medical care or monitoring
-• Parental supervision or childcare
-• Professional elderly care services
-• Veterinary care or pet supervision
-• Emergency services (911)
-• Any form of professional caregiving
+BY USING THIS SERVICE, YOU ACKNOWLEDGE AND AGREE:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                   LIMITATIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. NO GUARANTEED DETECTION: AI systems can fail. This tool may miss important 
+   events, generate false alerts, or experience technical failures.
 
-• AI systems can make mistakes
-• Technology can fail (power outages, network issues)
-• Detection is not 100% accurate
-• There may be delays in alerts
-• This service may be unavailable at times
+2. SUPPLEMENTARY USE ONLY: This tool supplements - never replaces - responsible 
+   adult supervision and professional care.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                YOUR RESPONSIBILITY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. NOT FOR MEDICAL EMERGENCIES: Do not rely on this service for medical 
+   emergencies. Always call emergency services (911) immediately.
 
-By using SafeOS, you acknowledge that:
+4. NETWORK DEPENDENCY: This service requires internet connectivity. Outages 
+   or connectivity issues may prevent alerts from being sent.
 
-1. You remain FULLY RESPONSIBLE for the care and safety of those you monitor
-2. This is a supplementary tool, not a primary care solution
-3. You will NOT leave dependents unsupervised based solely on this service
-4. You will maintain appropriate professional care arrangements
-5. You will respond promptly to any concerns, regardless of alerts
+5. PRIVACY & DATA: Video/audio is processed locally when possible. Content 
+   requiring AI analysis may be processed through secure cloud services.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                 LIABILITY WAIVER
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. USER RESPONSIBILITY: Users are solely responsible for ensuring appropriate 
+   care and supervision. SafeOS assumes no liability for any harm.
 
-SuperCloud and SafeOS are NOT LIABLE for:
-• Any harm, injury, or death
-• Property damage
-• Missed alerts or false alarms
-• Service interruptions
-• Any consequences of using or relying on this service
+7. ABUSE PREVENTION: We have AI and human review systems to detect misuse. 
+   Illegal content will be reported to law enforcement.
 
-USE AT YOUR OWN RISK.
+This service is provided "AS IS" without warranties of any kind.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                  EMERGENCY CONTACT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-In case of emergency, ALWAYS call:
-• 911 (Emergency Services)
-• Your local emergency number
-• Professional medical/care services
-
-Do NOT rely on SafeOS for emergencies.
+By continuing, you confirm you understand these limitations and agree to 
+use this service responsibly and in accordance with all applicable laws.
 `.trim();
 
 // =============================================================================
-// Scenario-Specific Disclaimers
+// Additional Disclaimers
 // =============================================================================
 
 export const BABY_MONITORING_DISCLAIMER = `
-👶 BABY/CHILD MONITORING NOTICE
+👶 BABY MONITORING ADDITIONAL NOTICE
 
-This service is intended to SUPPLEMENT, not replace, parental supervision.
+This tool is designed to SUPPLEMENT - not replace - direct supervision.
 
-NEVER:
-• Leave a baby/child completely unsupervised
-• Use this as a primary baby monitor
-• Assume no alerts means everything is fine
-• Delay checking on your child because of this service
+• ALWAYS follow safe sleep guidelines (back-to-sleep, firm mattress, no loose bedding)
+• NEVER leave infants unattended for extended periods
+• This tool cannot detect all forms of infant distress
+• Check on your baby physically and regularly
+• This is not a certified medical device
 
-ALWAYS:
-• Maintain direct supervision or qualified childcare
-• Check on your child regularly regardless of alerts
-• Have emergency contacts readily available
-• Follow safe sleep guidelines and child safety practices
-
-Parents and guardians remain solely responsible for child safety.
+The American Academy of Pediatrics recommends room-sharing without bed-sharing 
+for the first 6-12 months. This tool does not replace these guidelines.
 `.trim();
 
 export const ELDERLY_MONITORING_DISCLAIMER = `
-🧓 ELDERLY CARE NOTICE
+👴 ELDERLY CARE ADDITIONAL NOTICE
 
-This service is intended to SUPPLEMENT professional elderly care.
+This tool is designed to SUPPLEMENT - not replace - proper care.
 
-THIS CANNOT:
-• Provide medical monitoring
-• Replace in-home care services
-• Detect all medical emergencies
-• Provide immediate assistance
+• This is NOT a medical alert system
+• Cannot detect all falls or medical emergencies  
+• Not a replacement for medical emergency response systems (like Life Alert)
+• Should be used alongside - not instead of - regular check-ins
+• Cannot provide medical advice or intervention
 
-RECOMMENDED:
-• Medical alert systems (Life Alert, etc.)
-• Regular check-ins by family or professionals
-• Professional home care if needed
-• Emergency response plans
-
-Families and caregivers remain solely responsible for elderly care decisions.
+For seniors at risk of falls or medical emergencies, professional medical 
+alert systems with 24/7 monitoring are strongly recommended.
 `.trim();
 
 export const PET_MONITORING_DISCLAIMER = `
-🐾 PET MONITORING NOTICE
+🐕 PET MONITORING ADDITIONAL NOTICE
 
-This service provides basic visual monitoring for pets.
+This tool is designed to help monitor pets when you're away.
 
-THIS CANNOT:
-• Detect all pet emergencies
-• Replace veterinary care
-• Provide food, water, or medication
-• Open doors or provide access to outside
+• Cannot detect all signs of illness or distress
+• Not a replacement for regular veterinary care
+• May not detect subtle behavioral changes
+• Pets should not be left alone for extended periods
+• Always ensure pets have adequate food, water, and comfort
 
-PET OWNERS MUST:
-• Ensure pets have adequate food, water, and shelter
-• Arrange for pet care during extended absences
-• Maintain regular veterinary check-ups
-• Have emergency vet contacts available
-
-Pet owners remain solely responsible for pet welfare.
+This tool can help alert you to obvious issues but cannot replace 
+attentive pet ownership and regular veterinary check-ups.
 `.trim();
 
 // =============================================================================
-// Privacy Disclaimer
+// Acknowledgment Text
 // =============================================================================
 
-export const PRIVACY_DISCLAIMER = `
-🔒 PRIVACY & DATA NOTICE
+export const ACKNOWLEDGMENT_TEXT = `
+I have read and understand the disclaimers above. I acknowledge that:
 
-HOW WE HANDLE YOUR DATA:
-
-✅ What we do:
-• Process video locally on your device when possible
-• Use rolling buffers that automatically delete old footage
-• Anonymize data before any human review
-• Encrypt all transmissions
-
-❌ What we DON'T do:
-• Store video permanently
-• Share your data with third parties
-• Sell your information
-• Access your camera without permission
-
-HUMAN REVIEW:
-• Flagged content may be reviewed by trained moderators
-• All content is anonymized/blurred before review
-• Review is only for safety verification
-• Reviewers cannot identify you or your location
-
-DATA RETENTION:
-• Live video: 5-10 minute rolling buffer
-• Alert history: 30 days
-• Anonymized analytics: Aggregated only
-
-You can request data deletion at any time.
+✓ SafeOS Guardian is a supplementary tool, not a replacement for proper care
+✓ AI systems can fail and this tool may not detect all concerning events
+✓ I remain fully responsible for the safety and wellbeing of those I monitor
+✓ I will not rely solely on this tool for emergencies
+✓ I will use this service responsibly and legally
 `.trim();
-
-// =============================================================================
-// Abuse Prevention Disclaimer
-// =============================================================================
-
-export const ABUSE_PREVENTION_DISCLAIMER = `
-🛡️ ABUSE PREVENTION NOTICE
-
-SafeOS is designed to PROTECT, not enable harm.
-
-OUR COMMITMENT:
-• AI-powered abuse detection
-• Multi-tier content moderation
-• Human review for edge cases
-• Zero tolerance for harmful content
-
-IF ABUSE IS DETECTED:
-1. Content is immediately blocked
-2. Appropriate authorities may be notified
-3. Account may be permanently banned
-4. IP and usage data may be preserved for law enforcement
-
-WE WILL COOPERATE with law enforcement for:
-• Child abuse or endangerment
-• Animal cruelty
-• Violence or threats
-• Other serious criminal activity
-
-This service monitors for the SAFETY of those being watched.
-Misuse will not be tolerated.
-`.trim();
-
-// =============================================================================
-// Terms of Service Summary
-// =============================================================================
-
-export const TERMS_SUMMARY = `
-📜 BY USING SAFEOS, YOU AGREE:
-
-1. I understand this is NOT a replacement for proper care
-2. I remain fully responsible for those I monitor
-3. I will not leave dependents completely unsupervised
-4. I accept that technology can fail
-5. I waive all liability claims against SuperCloud
-6. I consent to AI-powered content moderation
-7. I understand flagged content may be human-reviewed
-8. I will use this service legally and ethically
-9. I will call 911 for actual emergencies
-10. I have read and understand all disclaimers
-
-This is a FREE service provided as-is without warranty.
-`.trim();
-
-// =============================================================================
-// Consent Checkboxes (for UI)
-// =============================================================================
-
-export const CONSENT_ITEMS = [
-  {
-    id: 'not_replacement',
-    required: true,
-    text: 'I understand SafeOS is NOT a replacement for professional care, parental supervision, or emergency services.',
-  },
-  {
-    id: 'responsibility',
-    required: true,
-    text: 'I remain fully responsible for the safety and care of those I monitor.',
-  },
-  {
-    id: 'liability',
-    required: true,
-    text: 'I waive all liability claims and accept this service is provided as-is without warranty.',
-  },
-  {
-    id: 'ai_moderation',
-    required: true,
-    text: 'I consent to AI-powered content moderation and understand flagged content may be human-reviewed.',
-  },
-  {
-    id: 'emergency',
-    required: true,
-    text: 'I will call 911 or emergency services for actual emergencies, not rely on this service.',
-  },
-  {
-    id: 'privacy',
-    required: false,
-    text: 'I have read and understand the privacy policy and how my data is handled.',
-  },
-  {
-    id: 'abuse_policy',
-    required: true,
-    text: 'I understand that abuse of this service will result in account termination and potential law enforcement referral.',
-  },
-];
 
 // =============================================================================
 // Helper Functions
 // =============================================================================
 
+/**
+ * Get scenario-specific disclaimer
+ */
 export function getScenarioDisclaimer(
   scenario: 'baby' | 'pet' | 'elderly'
 ): string {
   switch (scenario) {
     case 'baby':
       return BABY_MONITORING_DISCLAIMER;
-    case 'pet':
-      return PET_MONITORING_DISCLAIMER;
     case 'elderly':
       return ELDERLY_MONITORING_DISCLAIMER;
+    case 'pet':
+      return PET_MONITORING_DISCLAIMER;
+    default:
+      return '';
   }
 }
 
-export function getAllDisclaimers(): {
-  critical: string;
-  privacy: string;
-  abusePrevention: string;
-  terms: string;
-  baby: string;
-  elderly: string;
-  pet: string;
-} {
-  return {
-    critical: CRITICAL_DISCLAIMER,
-    privacy: PRIVACY_DISCLAIMER,
-    abusePrevention: ABUSE_PREVENTION_DISCLAIMER,
-    terms: TERMS_SUMMARY,
-    baby: BABY_MONITORING_DISCLAIMER,
-    elderly: ELDERLY_MONITORING_DISCLAIMER,
-    pet: PET_MONITORING_DISCLAIMER,
-  };
+/**
+ * Get full disclaimer for a scenario
+ */
+export function getFullDisclaimer(
+  scenario: 'baby' | 'pet' | 'elderly'
+): string {
+  return `${CRITICAL_DISCLAIMER}\n\n${getScenarioDisclaimer(scenario)}`;
 }
 
-export function validateConsent(
-  acceptedIds: string[]
-): { valid: boolean; missing: string[] } {
-  const requiredIds = CONSENT_ITEMS.filter((item) => item.required).map((item) => item.id);
+/**
+ * Format disclaimer for display
+ */
+export function formatDisclaimerForDisplay(disclaimer: string): {
+  title: string;
+  sections: Array<{ heading?: string; content: string }>;
+} {
+  const lines = disclaimer.split('\n');
+  const title = lines[0] || 'Disclaimer';
+  const sections: Array<{ heading?: string; content: string }> = [];
 
-  const missing = requiredIds.filter((id) => !acceptedIds.includes(id));
+  let currentSection = { content: '' };
 
-  return {
-    valid: missing.length === 0,
-    missing,
-  };
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i] || '';
+
+    if (line.match(/^[A-Z\s]+:$/)) {
+      // New section heading
+      if (currentSection.content.trim()) {
+        sections.push(currentSection);
+      }
+      currentSection = { heading: line.replace(':', ''), content: '' };
+    } else {
+      currentSection.content += line + '\n';
+    }
+  }
+
+  if (currentSection.content.trim()) {
+    sections.push(currentSection);
+  }
+
+  return { title, sections };
 }

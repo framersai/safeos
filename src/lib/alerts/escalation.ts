@@ -1,347 +1,322 @@
 /**
  * Alert Escalation Manager
  *
- * Manages alert escalation with volume ramping and multi-channel notifications.
- *
- * Escalation Timeline:
- * - T+0s:   Visual indicator (no sound)
- * - T+15s:  Gentle chime (10% volume)
- * - T+45s:  Alert sound (25% → 50% ramping)
- * - T+105s: Alarm (50% → 100% ramping)
- * - T+225s: Critical (max volume, external notifications)
+ * Manages alert escalation with volume ramping and multi-level alerts.
  *
  * @module lib/alerts/escalation
  */
 
-import type { Alert, AlertSeverity, AlertEscalation } from '../../types/index.js';
-
 // =============================================================================
-// Escalation Configuration
+// Types
 // =============================================================================
 
-export const ESCALATION_LEVELS: AlertEscalation[] = [
+export type AlertSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
+
+export interface EscalationLevel {
+  level: number;
+  name: string;
+  volume: number; // 0-100
+  soundFile: string;
+  intervalMs: number; // Time before escalating to next level
+  requiresAcknowledge: boolean;
+  notifyChannels: ('browser' | 'sms' | 'telegram')[];
+}
+
+export interface ActiveEscalation {
+  alertId: string;
+  severity: AlertSeverity;
+  startedAt: Date;
+  currentLevel: number;
+  acknowledged: boolean;
+  lastNotifiedAt: Date;
+  escalationTimer?: NodeJS.Timeout;
+}
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+export const ESCALATION_LEVELS: EscalationLevel[] = [
   {
     level: 0,
-    delaySeconds: 0,
-    volume: 0,
-    sound: 'none',
-    notify: [],
+    name: 'Initial',
+    volume: 30,
+    soundFile: 'alert-soft.mp3',
+    intervalMs: 30000, // 30 seconds
+    requiresAcknowledge: false,
+    notifyChannels: ['browser'],
   },
   {
     level: 1,
-    delaySeconds: 15,
-    volume: 10,
-    sound: 'chime',
-    notify: ['browser'],
+    name: 'First Escalation',
+    volume: 50,
+    soundFile: 'alert-medium.mp3',
+    intervalMs: 60000, // 1 minute
+    requiresAcknowledge: false,
+    notifyChannels: ['browser', 'telegram'],
   },
   {
     level: 2,
-    delaySeconds: 45,
-    volume: 25,
-    sound: 'alert',
-    notify: ['browser'],
+    name: 'Second Escalation',
+    volume: 70,
+    soundFile: 'alert-loud.mp3',
+    intervalMs: 120000, // 2 minutes
+    requiresAcknowledge: true,
+    notifyChannels: ['browser', 'telegram', 'sms'],
   },
   {
     level: 3,
-    delaySeconds: 105,
-    volume: 50,
-    sound: 'alarm',
-    notify: ['browser', 'telegram'],
+    name: 'Urgent',
+    volume: 85,
+    soundFile: 'alert-urgent.mp3',
+    intervalMs: 180000, // 3 minutes
+    requiresAcknowledge: true,
+    notifyChannels: ['browser', 'telegram', 'sms'],
   },
   {
     level: 4,
-    delaySeconds: 225,
+    name: 'Critical',
     volume: 100,
-    sound: 'critical',
-    notify: ['browser', 'sms', 'telegram'],
+    soundFile: 'alert-critical.mp3',
+    intervalMs: 300000, // 5 minutes
+    requiresAcknowledge: true,
+    notifyChannels: ['browser', 'telegram', 'sms'],
   },
 ];
 
-// Severity to starting escalation level mapping
+// Starting level by severity
 const SEVERITY_START_LEVEL: Record<AlertSeverity, number> = {
   info: 0,
-  warning: 1,
-  urgent: 2,
+  low: 0,
+  medium: 1,
+  high: 2,
   critical: 3,
 };
 
 // =============================================================================
-// Alert Escalation Manager
+// AlertEscalationManager Class
 // =============================================================================
 
-interface ActiveAlert {
-  alert: Alert;
-  currentLevel: number;
-  startTime: number;
-  escalationTimer?: ReturnType<typeof setTimeout>;
-  acknowledged: boolean;
-}
-
-type EscalationCallback = (alert: Alert, escalation: AlertEscalation) => void | Promise<void>;
-
 export class AlertEscalationManager {
-  private activeAlerts: Map<string, ActiveAlert> = new Map();
-  private onEscalate: EscalationCallback | null = null;
-  private onAcknowledge: ((alertId: string) => void) | null = null;
+  private activeEscalations: Map<string, ActiveEscalation> = new Map();
+  private onEscalate?: (alertId: string, level: EscalationLevel) => void;
+  private onAcknowledge?: (alertId: string) => void;
 
-  constructor() {}
-
-  // ===========================================================================
-  // Event Handlers
-  // ===========================================================================
-
-  /**
-   * Set callback for escalation events
-   */
-  setOnEscalate(callback: EscalationCallback): void {
-    this.onEscalate = callback;
+  constructor(options?: {
+    onEscalate?: (alertId: string, level: EscalationLevel) => void;
+    onAcknowledge?: (alertId: string) => void;
+  }) {
+    this.onEscalate = options?.onEscalate;
+    this.onAcknowledge = options?.onAcknowledge;
   }
 
-  /**
-   * Set callback for acknowledgment events
-   */
-  setOnAcknowledge(callback: (alertId: string) => void): void {
-    this.onAcknowledge = callback;
-  }
-
-  // ===========================================================================
-  // Alert Management
-  // ===========================================================================
+  // ---------------------------------------------------------------------------
+  // Public Methods
+  // ---------------------------------------------------------------------------
 
   /**
-   * Start tracking a new alert
+   * Start escalation for an alert
    */
-  startAlert(alert: Alert): void {
-    // Don't track if already exists
-    if (this.activeAlerts.has(alert.id)) {
+  startAlert(alertId: string, severity: AlertSeverity): void {
+    // Don't start if already active
+    if (this.activeEscalations.has(alertId)) {
       return;
     }
 
-    const startLevel = SEVERITY_START_LEVEL[alert.severity];
-    const escalation = ESCALATION_LEVELS[startLevel];
+    const startLevel = SEVERITY_START_LEVEL[severity];
 
-    const activeAlert: ActiveAlert = {
-      alert,
+    const escalation: ActiveEscalation = {
+      alertId,
+      severity,
+      startedAt: new Date(),
       currentLevel: startLevel,
-      startTime: Date.now(),
       acknowledged: false,
+      lastNotifiedAt: new Date(),
     };
 
-    this.activeAlerts.set(alert.id, activeAlert);
+    this.activeEscalations.set(alertId, escalation);
 
-    // Trigger initial escalation
-    if (escalation) {
-      this.triggerEscalation(alert.id, escalation);
+    // Start escalation timer
+    this.scheduleNextEscalation(alertId);
+
+    // Trigger initial callback
+    if (this.onEscalate) {
+      this.onEscalate(alertId, ESCALATION_LEVELS[startLevel]!);
     }
-
-    // Schedule next escalation if not at max level
-    this.scheduleNextEscalation(alert.id);
-
-    console.log(`[AlertEscalation] Started tracking alert ${alert.id} at level ${startLevel}`);
   }
 
   /**
    * Acknowledge an alert (stops escalation)
    */
   acknowledgeAlert(alertId: string): boolean {
-    const activeAlert = this.activeAlerts.get(alertId);
-    if (!activeAlert) {
+    const escalation = this.activeEscalations.get(alertId);
+    if (!escalation) {
       return false;
     }
 
-    // Clear escalation timer
-    if (activeAlert.escalationTimer) {
-      clearTimeout(activeAlert.escalationTimer);
+    // Clear timer
+    if (escalation.escalationTimer) {
+      clearTimeout(escalation.escalationTimer);
     }
 
-    activeAlert.acknowledged = true;
-    this.activeAlerts.delete(alertId);
+    escalation.acknowledged = true;
+    this.activeEscalations.delete(alertId);
 
+    // Trigger callback
     if (this.onAcknowledge) {
       this.onAcknowledge(alertId);
     }
 
-    console.log(`[AlertEscalation] Alert ${alertId} acknowledged`);
     return true;
   }
 
   /**
-   * Get current escalation level for an alert
+   * Get current level for an alert
    */
-  getAlertLevel(alertId: string): number {
-    return this.activeAlerts.get(alertId)?.currentLevel ?? -1;
+  getCurrentLevel(alertId: string): EscalationLevel | undefined {
+    const escalation = this.activeEscalations.get(alertId);
+    if (!escalation) return undefined;
+    return ESCALATION_LEVELS[escalation.currentLevel];
   }
 
   /**
-   * Get all active alerts
-   */
-  getActiveAlerts(): Alert[] {
-    return Array.from(this.activeAlerts.values()).map((a) => a.alert);
-  }
-
-  /**
-   * Clear all active alerts
-   */
-  clearAll(): void {
-    for (const [alertId, activeAlert] of this.activeAlerts) {
-      if (activeAlert.escalationTimer) {
-        clearTimeout(activeAlert.escalationTimer);
-      }
-    }
-    this.activeAlerts.clear();
-    console.log('[AlertEscalation] Cleared all alerts');
-  }
-
-  // ===========================================================================
-  // Escalation Logic
-  // ===========================================================================
-
-  private scheduleNextEscalation(alertId: string): void {
-    const activeAlert = this.activeAlerts.get(alertId);
-    if (!activeAlert || activeAlert.acknowledged) {
-      return;
-    }
-
-    const nextLevel = activeAlert.currentLevel + 1;
-    if (nextLevel >= ESCALATION_LEVELS.length) {
-      // Already at max level
-      return;
-    }
-
-    const currentEscalation = ESCALATION_LEVELS[activeAlert.currentLevel];
-    const nextEscalation = ESCALATION_LEVELS[nextLevel];
-
-    if (!currentEscalation || !nextEscalation) {
-      return;
-    }
-
-    const delayMs = (nextEscalation.delaySeconds - currentEscalation.delaySeconds) * 1000;
-
-    activeAlert.escalationTimer = setTimeout(() => {
-      this.escalateAlert(alertId);
-    }, delayMs);
-  }
-
-  private escalateAlert(alertId: string): void {
-    const activeAlert = this.activeAlerts.get(alertId);
-    if (!activeAlert || activeAlert.acknowledged) {
-      return;
-    }
-
-    const nextLevel = activeAlert.currentLevel + 1;
-    if (nextLevel >= ESCALATION_LEVELS.length) {
-      return;
-    }
-
-    activeAlert.currentLevel = nextLevel;
-    const escalation = ESCALATION_LEVELS[nextLevel];
-
-    if (escalation) {
-      this.triggerEscalation(alertId, escalation);
-    }
-
-    // Schedule next escalation
-    this.scheduleNextEscalation(alertId);
-
-    console.log(`[AlertEscalation] Alert ${alertId} escalated to level ${nextLevel}`);
-  }
-
-  private triggerEscalation(alertId: string, escalation: AlertEscalation): void {
-    const activeAlert = this.activeAlerts.get(alertId);
-    if (!activeAlert) {
-      return;
-    }
-
-    // Update alert with new escalation level
-    activeAlert.alert.escalationLevel = escalation.level;
-
-    if (this.onEscalate) {
-      void this.onEscalate(activeAlert.alert, escalation);
-    }
-  }
-
-  // ===========================================================================
-  // Volume Ramping
-  // ===========================================================================
-
-  /**
-   * Calculate current volume based on escalation level and time
+   * Get current volume for an alert (0-100)
    */
   getVolume(alertId: string): number {
-    const activeAlert = this.activeAlerts.get(alertId);
-    if (!activeAlert) {
-      return 0;
-    }
-
-    const currentEscalation = ESCALATION_LEVELS[activeAlert.currentLevel];
-    const nextEscalation = ESCALATION_LEVELS[activeAlert.currentLevel + 1];
-
-    if (!currentEscalation) {
-      return 0;
-    }
-
-    if (!nextEscalation) {
-      // At max level, return max volume
-      return currentEscalation.volume;
-    }
-
-    // Calculate time progress to next level
-    const elapsedMs = Date.now() - activeAlert.startTime;
-    const currentDelayMs = currentEscalation.delaySeconds * 1000;
-    const nextDelayMs = nextEscalation.delaySeconds * 1000;
-    const progress = Math.min(
-      1,
-      (elapsedMs - currentDelayMs) / (nextDelayMs - currentDelayMs)
-    );
-
-    // Linear interpolation between current and next volume
-    const volumeRange = nextEscalation.volume - currentEscalation.volume;
-    return Math.round(currentEscalation.volume + volumeRange * progress);
+    const level = this.getCurrentLevel(alertId);
+    return level?.volume ?? 0;
   }
 
   /**
-   * Get the sound to play for an alert
+   * Get sound file for an alert
    */
-  getSound(alertId: string): 'none' | 'chime' | 'alert' | 'alarm' | 'critical' {
-    const activeAlert = this.activeAlerts.get(alertId);
-    if (!activeAlert) {
-      return 'none';
-    }
-
-    return ESCALATION_LEVELS[activeAlert.currentLevel]?.sound || 'none';
+  getSound(alertId: string): string | undefined {
+    const level = this.getCurrentLevel(alertId);
+    return level?.soundFile;
   }
 
-  // ===========================================================================
-  // Stats
-  // ===========================================================================
+  /**
+   * Check if alert requires acknowledgement
+   */
+  requiresAcknowledge(alertId: string): boolean {
+    const level = this.getCurrentLevel(alertId);
+    return level?.requiresAcknowledge ?? false;
+  }
 
-  getStats(): {
-    activeCount: number;
-    byLevel: Record<number, number>;
-  } {
-    const byLevel: Record<number, number> = {};
+  /**
+   * Get all active escalations
+   */
+  getActiveEscalations(): ActiveEscalation[] {
+    return Array.from(this.activeEscalations.values());
+  }
 
-    for (const activeAlert of this.activeAlerts.values()) {
-      byLevel[activeAlert.currentLevel] = (byLevel[activeAlert.currentLevel] || 0) + 1;
-    }
+  /**
+   * Get escalation status for an alert
+   */
+  getEscalationStatus(alertId: string): {
+    active: boolean;
+    level: number;
+    volume: number;
+    acknowledged: boolean;
+    elapsedMs: number;
+  } | null {
+    const escalation = this.activeEscalations.get(alertId);
+    if (!escalation) return null;
 
     return {
-      activeCount: this.activeAlerts.size,
-      byLevel,
+      active: true,
+      level: escalation.currentLevel,
+      volume: ESCALATION_LEVELS[escalation.currentLevel]?.volume ?? 0,
+      acknowledged: escalation.acknowledged,
+      elapsedMs: Date.now() - escalation.startedAt.getTime(),
     };
   }
-}
 
-// =============================================================================
-// Singleton
-// =============================================================================
-
-let defaultManager: AlertEscalationManager | null = null;
-
-export function getDefaultEscalationManager(): AlertEscalationManager {
-  if (!defaultManager) {
-    defaultManager = new AlertEscalationManager();
+  /**
+   * Clear all escalations
+   */
+  clearAll(): void {
+    for (const [alertId, escalation] of this.activeEscalations) {
+      if (escalation.escalationTimer) {
+        clearTimeout(escalation.escalationTimer);
+      }
+    }
+    this.activeEscalations.clear();
   }
-  return defaultManager;
+
+  // ---------------------------------------------------------------------------
+  // Private Methods
+  // ---------------------------------------------------------------------------
+
+  private scheduleNextEscalation(alertId: string): void {
+    const escalation = this.activeEscalations.get(alertId);
+    if (!escalation || escalation.acknowledged) return;
+
+    const currentLevel = ESCALATION_LEVELS[escalation.currentLevel];
+    if (!currentLevel) return;
+
+    // Schedule next escalation
+    escalation.escalationTimer = setTimeout(() => {
+      this.escalate(alertId);
+    }, currentLevel.intervalMs);
+  }
+
+  private escalate(alertId: string): void {
+    const escalation = this.activeEscalations.get(alertId);
+    if (!escalation || escalation.acknowledged) return;
+
+    // Move to next level
+    const nextLevel = escalation.currentLevel + 1;
+    if (nextLevel >= ESCALATION_LEVELS.length) {
+      // Already at max level, keep repeating
+      this.scheduleNextEscalation(alertId);
+      return;
+    }
+
+    escalation.currentLevel = nextLevel;
+    escalation.lastNotifiedAt = new Date();
+
+    // Trigger callback
+    if (this.onEscalate) {
+      this.onEscalate(alertId, ESCALATION_LEVELS[nextLevel]!);
+    }
+
+    // Schedule next
+    this.scheduleNextEscalation(alertId);
+  }
 }
 
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Get escalation level by index
+ */
+export function getEscalationLevel(level: number): EscalationLevel | undefined {
+  return ESCALATION_LEVELS[level];
+}
+
+/**
+ * Get starting level for severity
+ */
+export function getStartingLevel(severity: AlertSeverity): number {
+  return SEVERITY_START_LEVEL[severity];
+}
+
+/**
+ * Calculate volume ramp (gradual increase)
+ */
+export function calculateVolumeRamp(
+  startVolume: number,
+  endVolume: number,
+  progress: number // 0-1
+): number {
+  // Ease-in-out curve
+  const eased =
+    progress < 0.5
+      ? 2 * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+  return startVolume + (endVolume - startVolume) * eased;
+}

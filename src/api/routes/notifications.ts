@@ -1,361 +1,317 @@
 /**
- * Notification Routes
+ * Notifications API Routes
  *
- * API endpoints for notification configuration and management.
+ * Endpoints for managing notification settings.
  *
  * @module api/routes/notifications
  */
 
 import { Router, type Request, type Response } from 'express';
-import { z } from 'zod';
-import { getDefaultTelegramService } from '../../lib/alerts/telegram.js';
-import { getDefaultTwilioService } from '../../lib/alerts/twilio.js';
-import { getDefaultPushService } from '../../lib/alerts/browser-push.js';
-import type { ApiResponse, AlertSeverity } from '../../types/index.js';
-
-// =============================================================================
-// Validation Schemas
-// =============================================================================
-
-const TelegramChatSchema = z.object({
-  chatId: z.string().min(1),
-});
-
-const TwilioPhoneSchema = z.object({
-  phoneNumber: z.string().min(10).max(15),
-});
-
-const PushSubscriptionSchema = z.object({
-  endpoint: z.string().url(),
-  keys: z.object({
-    p256dh: z.string(),
-    auth: z.string(),
-  }),
-});
-
-const TestNotificationSchema = z.object({
-  channel: z.enum(['telegram', 'twilio', 'push']),
-  targetId: z.string().min(1), // chatId, phoneNumber, or subscriptionId
-});
-
-// =============================================================================
-// Router
-// =============================================================================
+import { getDefaultNotificationManager } from '../../lib/alerts/notification-manager.js';
+import { getDefaultTelegramBot } from '../../lib/alerts/telegram.js';
 
 const router = Router();
 
-// ===========================================================================
-// GET /notifications/status - Get notification service status
-// ===========================================================================
+// =============================================================================
+// Routes
+// =============================================================================
 
+/**
+ * GET /api/notifications/status
+ * Get notification channel status
+ */
 router.get('/status', async (_req: Request, res: Response) => {
   try {
-    const telegram = getDefaultTelegramService();
-    const twilio = getDefaultTwilioService();
-    const push = getDefaultPushService();
+    const notificationManager = getDefaultNotificationManager();
+    const status = notificationManager.getChannelStatus();
 
     res.json({
       success: true,
-      data: {
-        telegram: {
-          enabled: telegram.isEnabled(),
-          chatCount: telegram.getRegisteredChatCount(),
-          sentCount: telegram.getSentCount(),
-        },
-        twilio: {
-          enabled: twilio.isEnabled(),
-          phoneCount: twilio.getRegisteredPhoneCount(),
-          sentCount: twilio.getSentCount(),
-        },
-        push: {
-          enabled: push.isEnabled(),
-          subscriptionCount: push.getSubscriptionCount(),
-          sentCount: push.getSentCount(),
-        },
-      },
-    } as ApiResponse);
+      data: status,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
-// ===========================================================================
-// Telegram Routes
-// ===========================================================================
-
-router.get('/telegram/info', async (_req: Request, res: Response) => {
+/**
+ * POST /api/notifications/subscribe
+ * Subscribe to browser push notifications
+ */
+router.post('/subscribe', async (req: Request, res: Response) => {
   try {
-    const telegram = getDefaultTelegramService();
+    const { subscription, streamId } = req.body;
 
-    if (!telegram.isEnabled()) {
-      res.status(503).json({
+    if (!subscription) {
+      return res.status(400).json({
         success: false,
-        error: 'Telegram not configured',
-      } as ApiResponse);
-      return;
+        error: 'Subscription is required',
+      });
     }
 
-    const botInfo = await telegram.getBotInfo();
+    const notificationManager = getDefaultNotificationManager();
+    notificationManager.registerBrowserSubscription(subscription, streamId);
 
     res.json({
       success: true,
-      data: {
-        enabled: true,
-        bot: botInfo,
-        chatCount: telegram.getRegisteredChatCount(),
-      },
-    } as ApiResponse);
+      message: 'Subscribed to push notifications',
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
+/**
+ * POST /api/notifications/unsubscribe
+ * Unsubscribe from browser push notifications
+ */
+router.post('/unsubscribe', async (req: Request, res: Response) => {
+  try {
+    const { subscription } = req.body;
+
+    if (!subscription) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subscription is required',
+      });
+    }
+
+    const notificationManager = getDefaultNotificationManager();
+    notificationManager.unregisterBrowserSubscription(subscription);
+
+    res.json({
+      success: true,
+      message: 'Unsubscribed from push notifications',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: String(error),
+    });
+  }
+});
+
+/**
+ * POST /api/notifications/telegram/register
+ * Register a Telegram chat ID
+ */
 router.post('/telegram/register', async (req: Request, res: Response) => {
   try {
-    const parseResult = TelegramChatSchema.safeParse(req.body);
+    const { chatId } = req.body;
 
-    if (!parseResult.success) {
-      res.status(400).json({
+    if (!chatId) {
+      return res.status(400).json({
         success: false,
-        error: 'Invalid chat ID',
-      } as ApiResponse);
-      return;
+        error: 'Chat ID is required',
+      });
     }
 
-    const { chatId } = parseResult.data;
-    const telegram = getDefaultTelegramService();
+    const telegramBot = getDefaultTelegramBot();
+    if (!telegramBot) {
+      return res.status(503).json({
+        success: false,
+        error: 'Telegram bot is not configured',
+      });
+    }
 
-    telegram.registerChatId(chatId);
+    telegramBot.registerChatId(String(chatId));
 
     res.json({
       success: true,
-      message: 'Telegram chat registered',
-    } as ApiResponse);
+      message: 'Telegram chat ID registered',
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
+/**
+ * DELETE /api/notifications/telegram/:chatId
+ * Unregister a Telegram chat ID
+ */
 router.delete('/telegram/:chatId', async (req: Request, res: Response) => {
   try {
     const { chatId } = req.params;
-    const telegram = getDefaultTelegramService();
 
-    telegram.unregisterChatId(chatId);
+    const telegramBot = getDefaultTelegramBot();
+    if (!telegramBot) {
+      return res.status(503).json({
+        success: false,
+        error: 'Telegram bot is not configured',
+      });
+    }
+
+    telegramBot.unregisterChatId(chatId);
 
     res.json({
       success: true,
-      message: 'Telegram chat unregistered',
-    } as ApiResponse);
+      message: 'Telegram chat ID unregistered',
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
-// ===========================================================================
-// Twilio Routes
-// ===========================================================================
-
-router.post('/twilio/register', async (req: Request, res: Response) => {
+/**
+ * POST /api/notifications/sms/register
+ * Register a phone number for SMS
+ */
+router.post('/sms/register', async (req: Request, res: Response) => {
   try {
-    const parseResult = TwilioPhoneSchema.safeParse(req.body);
+    const { phoneNumber, streamId } = req.body;
 
-    if (!parseResult.success) {
-      res.status(400).json({
+    if (!phoneNumber) {
+      return res.status(400).json({
         success: false,
-        error: 'Invalid phone number',
-      } as ApiResponse);
-      return;
+        error: 'Phone number is required',
+      });
     }
 
-    const { phoneNumber } = parseResult.data;
-    const twilio = getDefaultTwilioService();
-
-    twilio.registerPhoneNumber(phoneNumber);
+    const notificationManager = getDefaultNotificationManager();
+    notificationManager.registerPhoneNumber(phoneNumber, streamId);
 
     res.json({
       success: true,
       message: 'Phone number registered',
-    } as ApiResponse);
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
-router.delete('/twilio/:phoneNumber', async (req: Request, res: Response) => {
+/**
+ * DELETE /api/notifications/sms/:phoneNumber
+ * Unregister a phone number
+ */
+router.delete('/sms/:phoneNumber', async (req: Request, res: Response) => {
   try {
     const { phoneNumber } = req.params;
-    const twilio = getDefaultTwilioService();
 
-    twilio.unregisterPhoneNumber(phoneNumber);
+    const notificationManager = getDefaultNotificationManager();
+    notificationManager.unregisterPhoneNumber(phoneNumber);
 
     res.json({
       success: true,
       message: 'Phone number unregistered',
-    } as ApiResponse);
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
   }
 });
 
-// ===========================================================================
-// Push Notification Routes
-// ===========================================================================
-
-router.get('/push/vapid-key', async (_req: Request, res: Response) => {
-  try {
-    const push = getDefaultPushService();
-
-    if (!push.isEnabled()) {
-      res.status(503).json({
-        success: false,
-        error: 'Push notifications not configured',
-      } as ApiResponse);
-      return;
-    }
-
-    res.json({
-      success: true,
-      data: {
-        publicKey: push.getPublicKey(),
-      },
-    } as ApiResponse);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    } as ApiResponse);
-  }
-});
-
-router.post('/push/subscribe', async (req: Request, res: Response) => {
-  try {
-    const parseResult = PushSubscriptionSchema.safeParse(req.body);
-
-    if (!parseResult.success) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid subscription',
-      } as ApiResponse);
-      return;
-    }
-
-    const push = getDefaultPushService();
-    const subscriptionId = push.subscribe(parseResult.data);
-
-    res.json({
-      success: true,
-      data: { subscriptionId },
-      message: 'Push subscription registered',
-    } as ApiResponse);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    } as ApiResponse);
-  }
-});
-
-router.delete('/push/:subscriptionId', async (req: Request, res: Response) => {
-  try {
-    const { subscriptionId } = req.params;
-    const push = getDefaultPushService();
-
-    push.unsubscribe(subscriptionId);
-
-    res.json({
-      success: true,
-      message: 'Push subscription removed',
-    } as ApiResponse);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: String(error),
-    } as ApiResponse);
-  }
-});
-
-// ===========================================================================
-// Test Notifications
-// ===========================================================================
-
+/**
+ * POST /api/notifications/test
+ * Send a test notification
+ */
 router.post('/test', async (req: Request, res: Response) => {
   try {
-    const parseResult = TestNotificationSchema.safeParse(req.body);
+    const { channel, target } = req.body;
 
-    if (!parseResult.success) {
-      res.status(400).json({
+    if (!channel) {
+      return res.status(400).json({
         success: false,
-        error: 'Invalid test request',
-      } as ApiResponse);
-      return;
+        error: 'Channel is required (browser, sms, telegram)',
+      });
     }
 
-    const { channel, targetId } = parseResult.data;
-    const payload = {
-      title: 'SafeOS Test Notification',
-      body: 'This is a test notification from SafeOS. If you received this, notifications are working correctly!',
-      severity: 'info' as AlertSeverity,
-      streamId: 'test-stream',
+    const notificationManager = getDefaultNotificationManager();
+
+    const testPayload = {
       alertId: 'test-alert',
-      url: '/',
+      title: 'Test Notification',
+      message: 'This is a test notification from SafeOS',
+      severity: 'info' as const,
+      timestamp: new Date().toISOString(),
     };
 
-    let result = false;
-
+    let result;
     switch (channel) {
+      case 'browser':
+        result = await notificationManager.sendBrowserPush(testPayload, target);
+        break;
+      case 'sms':
+        if (!target) {
+          return res.status(400).json({
+            success: false,
+            error: 'Phone number is required for SMS test',
+          });
+        }
+        result = await notificationManager.sendSms(testPayload, target);
+        break;
       case 'telegram':
-        const telegram = getDefaultTelegramService();
-        result = await telegram.send(targetId, payload);
+        if (!target) {
+          return res.status(400).json({
+            success: false,
+            error: 'Chat ID is required for Telegram test',
+          });
+        }
+        result = await notificationManager.sendTelegram(testPayload, target);
         break;
-
-      case 'twilio':
-        const twilio = getDefaultTwilioService();
-        result = await twilio.send(targetId, payload);
-        break;
-
-      case 'push':
-        const push = getDefaultPushService();
-        result = await push.sendToSubscription(targetId, payload);
-        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid channel',
+        });
     }
 
-    if (result) {
-      res.json({
-        success: true,
-        message: `Test notification sent via ${channel}`,
-      } as ApiResponse);
-    } else {
-      res.status(500).json({
-        success: false,
-        error: `Failed to send test notification via ${channel}`,
-      } as ApiResponse);
-    }
+    res.json({
+      success: true,
+      data: { sent: result },
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: String(error),
-    } as ApiResponse);
+    });
+  }
+});
+
+/**
+ * PUT /api/notifications/settings
+ * Update notification settings
+ */
+router.put('/settings', async (req: Request, res: Response) => {
+  try {
+    const { settings } = req.body;
+
+    if (!settings) {
+      return res.status(400).json({
+        success: false,
+        error: 'Settings are required',
+      });
+    }
+
+    const notificationManager = getDefaultNotificationManager();
+    notificationManager.updateSettings(settings);
+
+    res.json({
+      success: true,
+      message: 'Settings updated',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: String(error),
+    });
   }
 });
 
 export default router;
-

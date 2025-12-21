@@ -1,120 +1,270 @@
 /**
  * Motion Detection
  *
- * Client-side canvas-based pixel diff for motion detection.
- * Runs entirely in the browser - no server load.
+ * Client-side motion detection using pixel comparison.
+ * Runs in the browser to minimize server load and latency.
  *
  * @module lib/motion-detection
  */
 
+// =============================================================================
+// Types
+// =============================================================================
+
+export interface MotionRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  score: number;
+}
+
+export interface MotionThresholds {
+  pixelDifferenceThreshold: number;
+  overallMotionThreshold: number;
+  regionSize: number;
+}
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+export const MOTION_THRESHOLDS: Record<string, MotionThresholds> = {
+  pet: {
+    pixelDifferenceThreshold: 30,
+    overallMotionThreshold: 0.05,
+    regionSize: 32,
+  },
+  baby: {
+    pixelDifferenceThreshold: 25,
+    overallMotionThreshold: 0.03, // More sensitive for babies
+    regionSize: 24,
+  },
+  elderly: {
+    pixelDifferenceThreshold: 35,
+    overallMotionThreshold: 0.04,
+    regionSize: 32,
+  },
+  default: {
+    pixelDifferenceThreshold: 30,
+    overallMotionThreshold: 0.05,
+    regionSize: 32,
+  },
+};
+
+// =============================================================================
+// Motion Detection
+// =============================================================================
+
 /**
- * Detect motion by comparing two frames
+ * Detect motion between two frames
+ *
+ * @param previousFrame - Previous frame ImageData
+ * @param currentFrame - Current frame ImageData
+ * @param thresholds - Optional custom thresholds
+ * @returns Motion score between 0 and 1
  */
 export function detectMotion(
   previousFrame: ImageData,
   currentFrame: ImageData,
-  threshold: number = 0.15
-): { detected: boolean; score: number } {
-  const pixels = currentFrame.data.length / 4;
+  thresholds: Partial<MotionThresholds> = {}
+): number {
+  const config = { ...MOTION_THRESHOLDS.default, ...thresholds };
+
+  if (
+    previousFrame.width !== currentFrame.width ||
+    previousFrame.height !== currentFrame.height
+  ) {
+    return 0;
+  }
+
+  const prevData = previousFrame.data;
+  const currData = currentFrame.data;
+  const pixelCount = prevData.length / 4;
+
   let changedPixels = 0;
 
-  // Compare each pixel (RGBA format)
-  for (let i = 0; i < currentFrame.data.length; i += 4) {
-    // Calculate difference in RGB values
-    const rDiff = Math.abs(currentFrame.data[i] - previousFrame.data[i]);
-    const gDiff = Math.abs(currentFrame.data[i + 1] - previousFrame.data[i + 1]);
-    const bDiff = Math.abs(currentFrame.data[i + 2] - previousFrame.data[i + 2]);
+  for (let i = 0; i < prevData.length; i += 4) {
+    // Calculate luminance difference (more efficient than full RGB)
+    const prevLum = prevData[i] * 0.299 + prevData[i + 1] * 0.587 + prevData[i + 2] * 0.114;
+    const currLum = currData[i] * 0.299 + currData[i + 1] * 0.587 + currData[i + 2] * 0.114;
 
-    // Total difference
-    const totalDiff = rDiff + gDiff + bDiff;
+    const diff = Math.abs(currLum - prevLum);
 
-    // Consider pixel changed if total diff > 30 (out of 765 max)
-    if (totalDiff > 30) {
+    if (diff > config.pixelDifferenceThreshold) {
       changedPixels++;
     }
   }
 
-  const score = changedPixels / pixels;
-  return {
-    detected: score > threshold,
-    score,
-  };
+  return changedPixels / pixelCount;
 }
 
 /**
- * Calculate motion score between two frames
+ * Calculate motion score with weighted regions
+ * (Center of frame weighted higher)
  */
 export function calculateMotionScore(
   previousFrame: ImageData,
-  currentFrame: ImageData
+  currentFrame: ImageData,
+  centerWeight: number = 1.5
 ): number {
-  const { score } = detectMotion(previousFrame, currentFrame, 0);
-  return score;
+  const width = currentFrame.width;
+  const height = currentFrame.height;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+
+  const prevData = previousFrame.data;
+  const currData = currentFrame.data;
+
+  let totalWeight = 0;
+  let weightedChange = 0;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+
+      // Calculate luminance difference
+      const prevLum =
+        prevData[i] * 0.299 + prevData[i + 1] * 0.587 + prevData[i + 2] * 0.114;
+      const currLum =
+        currData[i] * 0.299 + currData[i + 1] * 0.587 + currData[i + 2] * 0.114;
+
+      const diff = Math.abs(currLum - prevLum) / 255;
+
+      // Weight based on distance from center
+      const distX = x - centerX;
+      const distY = y - centerY;
+      const distance = Math.sqrt(distX * distX + distY * distY);
+      const weight = 1 + (1 - distance / maxDistance) * (centerWeight - 1);
+
+      totalWeight += weight;
+      weightedChange += diff * weight;
+    }
+  }
+
+  return totalWeight > 0 ? weightedChange / totalWeight : 0;
 }
 
 /**
- * Detect motion in specific regions of the frame
+ * Detect motion in specific regions
+ * Returns array of regions with motion scores
  */
 export function detectRegionalMotion(
   previousFrame: ImageData,
   currentFrame: ImageData,
-  regions: Array<{ x: number; y: number; width: number; height: number }>
-): Array<{ region: number; score: number; detected: boolean }> {
-  const results: Array<{ region: number; score: number; detected: boolean }> = [];
+  gridSize: number = 4
+): MotionRegion[] {
+  const width = currentFrame.width;
+  const height = currentFrame.height;
+  const regionWidth = Math.floor(width / gridSize);
+  const regionHeight = Math.floor(height / gridSize);
 
-  for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
-    const region = regions[regionIndex];
-    let changedPixels = 0;
-    let totalPixels = 0;
+  const regions: MotionRegion[] = [];
 
-    for (let y = region.y; y < region.y + region.height; y++) {
-      for (let x = region.x; x < region.x + region.width; x++) {
-        const i = (y * currentFrame.width + x) * 4;
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      const startX = gx * regionWidth;
+      const startY = gy * regionHeight;
 
-        if (i >= 0 && i < currentFrame.data.length - 3) {
-          totalPixels++;
+      let changedPixels = 0;
+      let totalPixels = 0;
 
-          const rDiff = Math.abs(currentFrame.data[i] - previousFrame.data[i]);
-          const gDiff = Math.abs(
-            currentFrame.data[i + 1] - previousFrame.data[i + 1]
-          );
-          const bDiff = Math.abs(
-            currentFrame.data[i + 2] - previousFrame.data[i + 2]
-          );
+      for (let y = startY; y < startY + regionHeight && y < height; y++) {
+        for (let x = startX; x < startX + regionWidth && x < width; x++) {
+          const i = (y * width + x) * 4;
 
-          if (rDiff + gDiff + bDiff > 30) {
+          const prevLum =
+            previousFrame.data[i] * 0.299 +
+            previousFrame.data[i + 1] * 0.587 +
+            previousFrame.data[i + 2] * 0.114;
+          const currLum =
+            currentFrame.data[i] * 0.299 +
+            currentFrame.data[i + 1] * 0.587 +
+            currentFrame.data[i + 2] * 0.114;
+
+          if (Math.abs(currLum - prevLum) > 30) {
             changedPixels++;
           }
+          totalPixels++;
         }
       }
-    }
 
-    const score = totalPixels > 0 ? changedPixels / totalPixels : 0;
-    results.push({
-      region: regionIndex,
-      score,
-      detected: score > 0.15,
-    });
+      const score = totalPixels > 0 ? changedPixels / totalPixels : 0;
+
+      if (score > 0.01) {
+        regions.push({
+          x: startX,
+          y: startY,
+          width: regionWidth,
+          height: regionHeight,
+          score,
+        });
+      }
+    }
   }
 
-  return results;
+  // Sort by score descending
+  return regions.sort((a, b) => b.score - a.score);
 }
 
 /**
- * Scenario-specific thresholds
+ * Get threshold for a specific scenario
  */
-export const MOTION_THRESHOLDS = {
-  pet: 0.2, // Pets move around, higher threshold
-  baby: 0.1, // Babies should be relatively still, lower threshold
-  elderly: 0.15, // Medium threshold for elderly
-} as const;
-
-export type Scenario = keyof typeof MOTION_THRESHOLDS;
-
-/**
- * Get threshold for a scenario
- */
-export function getThresholdForScenario(scenario: Scenario): number {
-  return MOTION_THRESHOLDS[scenario] || 0.15;
+export function getThresholdForScenario(scenario: string): number {
+  const thresholds = MOTION_THRESHOLDS[scenario] || MOTION_THRESHOLDS.default;
+  return thresholds.overallMotionThreshold;
 }
 
+/**
+ * Smooth motion values to reduce noise
+ */
+export class MotionSmoother {
+  private values: number[] = [];
+  private maxValues: number;
+
+  constructor(windowSize: number = 5) {
+    this.maxValues = windowSize;
+  }
+
+  add(value: number): number {
+    this.values.push(value);
+    if (this.values.length > this.maxValues) {
+      this.values.shift();
+    }
+
+    // Return average
+    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
+  }
+
+  reset(): void {
+    this.values = [];
+  }
+
+  getAverage(): number {
+    if (this.values.length === 0) return 0;
+    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
+  }
+
+  getPeak(): number {
+    if (this.values.length === 0) return 0;
+    return Math.max(...this.values);
+  }
+}
+
+/**
+ * Detect sudden motion spikes (could indicate fall)
+ */
+export function detectSuddenMotion(
+  motionHistory: number[],
+  spikeThreshold: number = 3
+): boolean {
+  if (motionHistory.length < 5) return false;
+
+  const recent = motionHistory.slice(-5);
+  const average = recent.slice(0, 4).reduce((a, b) => a + b, 0) / 4;
+  const current = recent[4];
+
+  // Check if current motion is significantly higher than average
+  return average > 0.01 && current > average * spikeThreshold;
+}

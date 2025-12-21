@@ -1,454 +1,408 @@
 /**
- * Cloud LLM Fallback
+ * Cloud Fallback
  *
- * Multi-provider fallback chain for vision analysis when local
- * Ollama is unavailable, too slow, or needs verification.
- *
- * Priority: Anthropic → OpenAI → OpenRouter
+ * Fallback to cloud LLMs when local Ollama fails or for complex analysis.
  *
  * @module lib/analysis/cloud-fallback
  */
 
-import type { ConcernLevel, MonitoringScenario, AnalysisResult } from '../../types/index.js';
-import { generateId, now } from '../../db/index.js';
+import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import type { MonitoringScenario, ConcernLevel } from '../../types/index.js';
+import { getProfile } from './profiles/index.js';
 
 // =============================================================================
-// Configuration
+// Types
 // =============================================================================
+
+export type CloudProvider = 'anthropic' | 'openai' | 'openrouter';
+
+export interface CloudAnalysisResult {
+  concernLevel: ConcernLevel;
+  description: string;
+  issues: string[];
+  recommendations: string[];
+  provider: CloudProvider;
+  model: string;
+  latencyMs: number;
+}
 
 export interface CloudFallbackConfig {
-  anthropicApiKey: string | null;
-  openaiApiKey: string | null;
-  openrouterApiKey: string | null;
-  timeout: number;
+  providers: CloudProvider[];
+  anthropicKey?: string;
+  openaiKey?: string;
+  openrouterKey?: string;
   maxRetries: number;
-  preferredProvider: 'anthropic' | 'openai' | 'openrouter' | 'auto';
+  timeoutMs: number;
 }
+
+// =============================================================================
+// Constants
+// =============================================================================
 
 const DEFAULT_CONFIG: CloudFallbackConfig = {
-  anthropicApiKey: process.env['ANTHROPIC_API_KEY'] || null,
-  openaiApiKey: process.env['OPENAI_API_KEY'] || null,
-  openrouterApiKey: process.env['OPENROUTER_API_KEY'] || null,
-  timeout: 30000,
+  providers: ['anthropic', 'openai', 'openrouter'],
   maxRetries: 2,
-  preferredProvider: 'auto',
+  timeoutMs: 30000,
+};
+
+// Model preferences per provider
+const VISION_MODELS: Record<CloudProvider, string> = {
+  anthropic: 'claude-sonnet-4-20250514',
+  openai: 'gpt-4o',
+  openrouter: 'anthropic/claude-sonnet-4-20250514',
 };
 
 // =============================================================================
-// Provider Types
+// CloudFallback Class
 // =============================================================================
 
-type Provider = 'anthropic' | 'openai' | 'openrouter';
-
-interface ProviderConfig {
-  apiKey: string;
-  endpoint: string;
-  model: string;
-  headers: Record<string, string>;
-}
-
-// =============================================================================
-// Prompts
-// =============================================================================
-
-const ANALYSIS_PROMPTS: Record<MonitoringScenario, string> = {
-  pet: `Analyze this image of a pet monitoring camera. Assess the pet's wellbeing and safety.
-
-Check for:
-- Is the pet in distress, injured, or unwell?
-- Is the pet in an unsafe situation?
-- Any signs of distress (panting excessively, hiding, not moving)?
-- Has there been an accident that needs cleanup?
-- Is food/water available if visible?
-
-Respond with JSON:
-{
-  "concern_level": "none|low|medium|high|critical",
-  "confidence": 0.0-1.0,
-  "description": "brief description of what you observe",
-  "detected_issues": ["list", "of", "concerns"],
-  "recommended_action": "what should be done if anything"
-}`,
-
-  baby: `Analyze this image from a baby/child monitoring camera. Prioritize safety assessment.
-
-Check for:
-- Is the baby/child in a safe position?
-- Any signs of distress, crying, or discomfort?
-- Any hazards visible (cords, small objects, climbing)?
-- Is the child in an unsafe location?
-- Any signs of injury or illness?
-
-Respond with JSON:
-{
-  "concern_level": "none|low|medium|high|critical",
-  "confidence": 0.0-1.0,
-  "description": "brief description of what you observe",
-  "detected_issues": ["list", "of", "concerns"],
-  "recommended_action": "what should be done if anything"
-}
-
-CRITICAL: If the child appears to be in immediate danger, concern_level must be "critical".`,
-
-  elderly: `Analyze this image from an elderly care monitoring camera. Focus on safety and wellbeing.
-
-Check for:
-- Has the person fallen or is in distress?
-- Signs of confusion or disorientation?
-- Any mobility issues or unsafe movement?
-- Extended inactivity that could indicate a problem?
-- Signs of medical distress?
-
-Respond with JSON:
-{
-  "concern_level": "none|low|medium|high|critical",
-  "confidence": 0.0-1.0,
-  "description": "brief description of what you observe",
-  "detected_issues": ["list", "of", "concerns"],
-  "recommended_action": "what should be done if anything"
-}
-
-CRITICAL: Falls in elderly individuals require immediate attention - if a fall is suspected, concern_level must be "critical".`,
-};
-
-// =============================================================================
-// Cloud Fallback Service
-// =============================================================================
-
-export class CloudFallbackService {
+export class CloudFallback {
   private config: CloudFallbackConfig;
-  private requestCount = 0;
-  private failureCount = 0;
-  private lastProvider: Provider | null = null;
+  private anthropic: Anthropic | null = null;
+  private openai: OpenAI | null = null;
+
+  // Stats
+  private stats = {
+    totalCalls: 0,
+    byProvider: { anthropic: 0, openai: 0, openrouter: 0 },
+    failures: 0,
+    avgLatencyMs: 0,
+  };
 
   constructor(config?: Partial<CloudFallbackConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.initClients();
   }
 
-  // ===========================================================================
-  // Main Analysis
-  // ===========================================================================
+  // ---------------------------------------------------------------------------
+  // Public Methods
+  // ---------------------------------------------------------------------------
 
   /**
-   * Analyze frame using cloud LLM providers
+   * Analyze an image using cloud LLMs
    */
   async analyze(
-    frameBase64: string,
-    scenario: MonitoringScenario
-  ): Promise<AnalysisResult> {
-    this.requestCount++;
+    imageBase64: string,
+    scenario: MonitoringScenario,
+    context?: string
+  ): Promise<CloudAnalysisResult> {
     const startTime = Date.now();
+    this.stats.totalCalls++;
 
-    const providers = this.getProviderOrder();
+    const profile = getProfile(scenario);
+    const prompt = profile.analysisPrompt + (context ? `\n\nAdditional context: ${context}` : '');
 
-    for (const provider of providers) {
-      const config = this.getProviderConfig(provider);
-      if (!config) continue;
-
+    // Try each provider in order
+    for (const provider of this.config.providers) {
       try {
-        const response = await this.callProvider(
-          provider,
-          config,
-          frameBase64,
-          ANALYSIS_PROMPTS[scenario]
-        );
+        const result = await this.callProvider(provider, imageBase64, prompt);
+        const latencyMs = Date.now() - startTime;
 
-        const parsed = this.parseResponse(response);
-        this.lastProvider = provider;
+        this.stats.byProvider[provider]++;
+        this.updateAvgLatency(latencyMs);
 
         return {
-          id: generateId(),
-          streamId: '',
-          frameId: '',
-          timestamp: now(),
-          concernLevel: parsed.concernLevel,
-          confidence: parsed.confidence,
-          description: parsed.description,
-          detectedIssues: parsed.detectedIssues,
-          recommendedAction: parsed.recommendedAction,
-          processingTimeMs: Date.now() - startTime,
-          model: config.model,
-          isCloudFallback: true,
-          triageResult: null,
+          ...result,
+          provider,
+          latencyMs,
         };
       } catch (error) {
-        console.error(`[CloudFallback] ${provider} failed:`, error);
-        this.failureCount++;
+        console.error(`Cloud provider ${provider} failed:`, error);
         continue;
       }
     }
 
-    // All providers failed
+    this.stats.failures++;
     throw new Error('All cloud providers failed');
   }
 
-  // ===========================================================================
-  // Provider Configuration
-  // ===========================================================================
-
-  private getProviderOrder(): Provider[] {
-    if (this.config.preferredProvider !== 'auto') {
-      const preferred = this.config.preferredProvider;
-      const others: Provider[] = ['anthropic', 'openai', 'openrouter'].filter(
-        (p) => p !== preferred
-      ) as Provider[];
-      return [preferred, ...others];
-    }
-
-    // Auto order: Anthropic (best quality) → OpenAI → OpenRouter (cheapest)
-    return ['anthropic', 'openai', 'openrouter'];
-  }
-
-  private getProviderConfig(provider: Provider): ProviderConfig | null {
-    switch (provider) {
-      case 'anthropic':
-        if (!this.config.anthropicApiKey) return null;
-        return {
-          apiKey: this.config.anthropicApiKey,
-          endpoint: 'https://api.anthropic.com/v1/messages',
-          model: 'claude-3-5-sonnet-20241022',
-          headers: {
-            'anthropic-version': '2023-06-01',
-            'x-api-key': this.config.anthropicApiKey,
-          },
-        };
-
-      case 'openai':
-        if (!this.config.openaiApiKey) return null;
-        return {
-          apiKey: this.config.openaiApiKey,
-          endpoint: 'https://api.openai.com/v1/chat/completions',
-          model: 'gpt-4o',
-          headers: {
-            Authorization: `Bearer ${this.config.openaiApiKey}`,
-          },
-        };
-
-      case 'openrouter':
-        if (!this.config.openrouterApiKey) return null;
-        return {
-          apiKey: this.config.openrouterApiKey,
-          endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          model: 'anthropic/claude-3-haiku',
-          headers: {
-            Authorization: `Bearer ${this.config.openrouterApiKey}`,
-            'HTTP-Referer': 'https://safeos.app',
-            'X-Title': 'SafeOS',
-          },
-        };
-    }
-  }
-
-  // ===========================================================================
-  // Provider Calls
-  // ===========================================================================
-
-  private async callProvider(
-    provider: Provider,
-    config: ProviderConfig,
-    frameBase64: string,
-    prompt: string
-  ): Promise<string> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
-
-    try {
-      let body: string;
-
-      if (provider === 'anthropic') {
-        body = JSON.stringify({
-          model: config.model,
-          max_tokens: 1024,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: 'image/jpeg',
-                    data: frameBase64.replace(/^data:image\/[a-z]+;base64,/, ''),
-                  },
-                },
-                {
-                  type: 'text',
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-        });
-      } else {
-        // OpenAI / OpenRouter format
-        body = JSON.stringify({
-          model: config.model,
-          max_tokens: 1024,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: frameBase64.startsWith('data:')
-                      ? frameBase64
-                      : `data:image/jpeg;base64,${frameBase64}`,
-                  },
-                },
-                {
-                  type: 'text',
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-        });
-      }
-
-      const response = await fetch(config.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...config.headers,
-        },
-        body,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`${provider} API error: ${response.status} - ${error}`);
-      }
-
-      const data = await response.json();
-
-      // Extract text from response
-      if (provider === 'anthropic') {
-        return data.content[0].text;
-      } else {
-        return data.choices[0].message.content;
-      }
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  // ===========================================================================
-  // Response Parsing
-  // ===========================================================================
-
-  private parseResponse(response: string): {
-    concernLevel: ConcernLevel;
-    confidence: number;
-    description: string;
-    detectedIssues: string[];
-    recommendedAction: string | null;
-  } {
-    try {
-      // Extract JSON from response
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return this.createDefaultResponse('Could not parse response');
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
-
-      // Map concern_level to our enum
-      const concernLevel = this.mapConcernLevel(parsed.concern_level);
-
-      return {
-        concernLevel,
-        confidence: parsed.confidence || 0.5,
-        description: parsed.description || 'Analysis complete',
-        detectedIssues: parsed.detected_issues || [],
-        recommendedAction: parsed.recommended_action || null,
-      };
-    } catch (error) {
-      console.error('[CloudFallback] Failed to parse response:', error);
-      return this.createDefaultResponse('Parse error');
-    }
-  }
-
-  private mapConcernLevel(level: string): ConcernLevel {
-    const normalized = level?.toLowerCase()?.trim();
-    switch (normalized) {
-      case 'none':
-        return 'none';
-      case 'low':
-        return 'low';
-      case 'medium':
-        return 'medium';
-      case 'high':
-        return 'high';
-      case 'critical':
-        return 'critical';
-      default:
-        return 'low';
-    }
-  }
-
-  private createDefaultResponse(description: string): {
-    concernLevel: ConcernLevel;
-    confidence: number;
-    description: string;
-    detectedIssues: string[];
-    recommendedAction: string | null;
-  } {
-    return {
-      concernLevel: 'none',
-      confidence: 0.5,
-      description,
-      detectedIssues: [],
-      recommendedAction: null,
-    };
-  }
-
-  // ===========================================================================
-  // Configuration
-  // ===========================================================================
-
-  updateConfig(config: Partial<CloudFallbackConfig>): void {
-    this.config = { ...this.config, ...config };
-  }
-
+  /**
+   * Check if any cloud provider is available
+   */
   isAvailable(): boolean {
-    return !!(
-      this.config.anthropicApiKey ||
-      this.config.openaiApiKey ||
-      this.config.openrouterApiKey
+    return (
+      !!this.config.anthropicKey ||
+      !!this.config.openaiKey ||
+      !!this.config.openrouterKey ||
+      !!process.env['ANTHROPIC_API_KEY'] ||
+      !!process.env['OPENAI_API_KEY'] ||
+      !!process.env['OPENROUTER_API_KEY']
     );
   }
 
-  getAvailableProviders(): Provider[] {
-    const available: Provider[] = [];
-    if (this.config.anthropicApiKey) available.push('anthropic');
-    if (this.config.openaiApiKey) available.push('openai');
-    if (this.config.openrouterApiKey) available.push('openrouter');
-    return available;
+  /**
+   * Get stats
+   */
+  getStats() {
+    return { ...this.stats };
   }
 
-  // ===========================================================================
-  // Stats
-  // ===========================================================================
+  /**
+   * Update config
+   */
+  updateConfig(config: Partial<CloudFallbackConfig>): void {
+    this.config = { ...this.config, ...config };
+    this.initClients();
+  }
 
-  getStats(): {
-    requestCount: number;
-    failureCount: number;
-    successRate: number;
-    lastProvider: Provider | null;
-    availableProviders: Provider[];
-  } {
-    return {
-      requestCount: this.requestCount,
-      failureCount: this.failureCount,
-      successRate:
-        this.requestCount > 0
-          ? (this.requestCount - this.failureCount) / this.requestCount
-          : 1,
-      lastProvider: this.lastProvider,
-      availableProviders: this.getAvailableProviders(),
-    };
+  // ---------------------------------------------------------------------------
+  // Private Methods
+  // ---------------------------------------------------------------------------
+
+  private initClients(): void {
+    const anthropicKey = this.config.anthropicKey || process.env['ANTHROPIC_API_KEY'];
+    if (anthropicKey) {
+      this.anthropic = new Anthropic({ apiKey: anthropicKey });
+    }
+
+    const openaiKey = this.config.openaiKey || process.env['OPENAI_API_KEY'];
+    if (openaiKey) {
+      this.openai = new OpenAI({ apiKey: openaiKey });
+    }
+  }
+
+  private async callProvider(
+    provider: CloudProvider,
+    imageBase64: string,
+    prompt: string
+  ): Promise<Omit<CloudAnalysisResult, 'provider' | 'latencyMs'>> {
+    switch (provider) {
+      case 'anthropic':
+        return this.callAnthropic(imageBase64, prompt);
+      case 'openai':
+        return this.callOpenAI(imageBase64, prompt);
+      case 'openrouter':
+        return this.callOpenRouter(imageBase64, prompt);
+      default:
+        throw new Error(`Unknown provider: ${provider}`);
+    }
+  }
+
+  private async callAnthropic(
+    imageBase64: string,
+    prompt: string
+  ): Promise<Omit<CloudAnalysisResult, 'provider' | 'latencyMs'>> {
+    if (!this.anthropic) {
+      throw new Error('Anthropic client not initialized');
+    }
+
+    const response = await this.anthropic.messages.create({
+      model: VISION_MODELS.anthropic,
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/jpeg',
+                data: imageBase64.replace(/^data:image\/\w+;base64,/, ''),
+              },
+            },
+            {
+              type: 'text',
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    });
+
+    const textContent = response.content.find((c) => c.type === 'text');
+    const text = textContent && 'text' in textContent ? textContent.text : '';
+
+    return this.parseResponse(text, VISION_MODELS.anthropic);
+  }
+
+  private async callOpenAI(
+    imageBase64: string,
+    prompt: string
+  ): Promise<Omit<CloudAnalysisResult, 'provider' | 'latencyMs'>> {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const response = await this.openai.chat.completions.create({
+      model: VISION_MODELS.openai,
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageBase64.startsWith('data:')
+                  ? imageBase64
+                  : `data:image/jpeg;base64,${imageBase64}`,
+              },
+            },
+            {
+              type: 'text',
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    });
+
+    const text = response.choices[0]?.message?.content || '';
+    return this.parseResponse(text, VISION_MODELS.openai);
+  }
+
+  private async callOpenRouter(
+    imageBase64: string,
+    prompt: string
+  ): Promise<Omit<CloudAnalysisResult, 'provider' | 'latencyMs'>> {
+    const apiKey = this.config.openrouterKey || process.env['OPENROUTER_API_KEY'];
+    if (!apiKey) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://safeos.app',
+        'X-Title': 'SafeOS Guardian',
+      },
+      body: JSON.stringify({
+        model: VISION_MODELS.openrouter,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageBase64.startsWith('data:')
+                    ? imageBase64
+                    : `data:image/jpeg;base64,${imageBase64}`,
+                },
+              },
+              {
+                type: 'text',
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    return this.parseResponse(text, VISION_MODELS.openrouter);
+  }
+
+  private parseResponse(
+    text: string,
+    model: string
+  ): Omit<CloudAnalysisResult, 'provider' | 'latencyMs'> {
+    // Try to parse as JSON first
+    try {
+      const json = JSON.parse(text);
+      return {
+        concernLevel: this.normalizeConcernLevel(json.concernLevel || json.concern_level),
+        description: json.description || json.summary || text,
+        issues: json.issues || json.concerns || [],
+        recommendations: json.recommendations || json.actions || [],
+        model,
+      };
+    } catch {
+      // Parse from natural language
+      return {
+        concernLevel: this.extractConcernLevel(text),
+        description: text.slice(0, 500),
+        issues: this.extractIssues(text),
+        recommendations: this.extractRecommendations(text),
+        model,
+      };
+    }
+  }
+
+  private normalizeConcernLevel(level: string | undefined): ConcernLevel {
+    if (!level) return 'none';
+    const lower = level.toLowerCase();
+    if (lower.includes('critical') || lower.includes('emergency')) return 'critical';
+    if (lower.includes('high') || lower.includes('urgent')) return 'high';
+    if (lower.includes('medium') || lower.includes('moderate')) return 'medium';
+    if (lower.includes('low') || lower.includes('minor')) return 'low';
+    return 'none';
+  }
+
+  private extractConcernLevel(text: string): ConcernLevel {
+    const lower = text.toLowerCase();
+    if (lower.includes('critical') || lower.includes('emergency') || lower.includes('immediate')) {
+      return 'critical';
+    }
+    if (lower.includes('high concern') || lower.includes('urgent') || lower.includes('serious')) {
+      return 'high';
+    }
+    if (lower.includes('moderate') || lower.includes('some concern')) {
+      return 'medium';
+    }
+    if (lower.includes('low concern') || lower.includes('minor')) {
+      return 'low';
+    }
+    return 'none';
+  }
+
+  private extractIssues(text: string): string[] {
+    const issues: string[] = [];
+    const patterns = [
+      /concern[s]?:?\s*([^.]+)/gi,
+      /issue[s]?:?\s*([^.]+)/gi,
+      /problem[s]?:?\s*([^.]+)/gi,
+      /warning[s]?:?\s*([^.]+)/gi,
+    ];
+
+    for (const pattern of patterns) {
+      const matches = text.matchAll(pattern);
+      for (const match of matches) {
+        if (match[1]) {
+          issues.push(match[1].trim());
+        }
+      }
+    }
+
+    return issues.slice(0, 5);
+  }
+
+  private extractRecommendations(text: string): string[] {
+    const recs: string[] = [];
+    const patterns = [
+      /recommend[s]?:?\s*([^.]+)/gi,
+      /suggest[s]?:?\s*([^.]+)/gi,
+      /should\s+([^.]+)/gi,
+      /action[s]?:?\s*([^.]+)/gi,
+    ];
+
+    for (const pattern of patterns) {
+      const matches = text.matchAll(pattern);
+      for (const match of matches) {
+        if (match[1]) {
+          recs.push(match[1].trim());
+        }
+      }
+    }
+
+    return recs.slice(0, 5);
+  }
+
+  private updateAvgLatency(latencyMs: number): void {
+    const total = this.stats.totalCalls;
+    this.stats.avgLatencyMs =
+      (this.stats.avgLatencyMs * (total - 1) + latencyMs) / total;
   }
 }
 
@@ -456,21 +410,15 @@ export class CloudFallbackService {
 // Singleton
 // =============================================================================
 
-let defaultService: CloudFallbackService | null = null;
+let defaultFallback: CloudFallback | null = null;
 
-export function getDefaultCloudFallback(): CloudFallbackService {
-  if (!defaultService) {
-    defaultService = new CloudFallbackService();
+export function getDefaultCloudFallback(): CloudFallback {
+  if (!defaultFallback) {
+    defaultFallback = new CloudFallback();
   }
-  return defaultService;
+  return defaultFallback;
 }
 
-/**
- * Quick function for cloud analysis
- */
-export async function cloudFallbackAnalysis(
-  frameBase64: string,
-  scenario: MonitoringScenario
-): Promise<AnalysisResult> {
-  return getDefaultCloudFallback().analyze(frameBase64, scenario);
+export function createCloudFallback(config?: Partial<CloudFallbackConfig>): CloudFallback {
+  return new CloudFallback(config);
 }

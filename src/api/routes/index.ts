@@ -1,34 +1,15 @@
 /**
  * API Routes Index
  *
- * Central export for all API routes.
+ * Consolidates all API routes.
  *
  * @module api/routes
  */
 
-import { Router } from 'express';
-import streamRoutes from './streams.js';
-import alertRoutes from './alerts.js';
-import profileRoutes from './profiles.js';
-import analysisRoutes from './analysis.js';
-import systemRoutes from './system.js';
-import notificationRoutes from './notifications.js';
-import reviewRoutes from './review.js';
-
-// =============================================================================
-// API Router
-// =============================================================================
-
-const apiRouter = Router();
-
-// Mount routes
-apiRouter.use('/streams', streamRoutes);
-apiRouter.use('/alerts', alertRoutes);
-apiRouter.use('/profiles', profileRoutes);
-apiRouter.use('/analysis', analysisRoutes);
-apiRouter.use('/system', systemRoutes);
-apiRouter.use('/notifications', notificationRoutes);
-apiRouter.use('/review', reviewRoutes);
-
-export default apiRouter;
-
+export { default as streamsRouter } from './streams.js';
+export { default as alertsRouter } from './alerts.js';
+export { default as profilesRouter } from './profiles.js';
+export { default as systemRouter } from './system.js';
+export { default as analysisRouter } from './analysis.js';
+export { default as notificationsRouter } from './notifications.js';
+export { default as reviewRouter } from './review.js';

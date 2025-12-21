@@ -1,137 +1,110 @@
 /**
- * Telegram Bot Notifications
+ * Telegram Bot Integration
  *
- * Telegram Bot API integration for free notifications.
+ * Telegram notifications via bot API.
  *
  * @module lib/alerts/telegram
  */
 
-import type { NotificationPayload, AlertSeverity } from '../../types/index.js';
+import TelegramBot from 'node-telegram-bot-api';
+import type { NotificationPayload } from '../../types/index.js';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+export interface TelegramConfig {
+  botToken: string;
+  polling?: boolean;
+}
 
 // =============================================================================
 // Configuration
 // =============================================================================
 
-export interface TelegramConfig {
-  botToken: string;
-}
-
-const DEFAULT_CONFIG: TelegramConfig = {
+const CONFIG: TelegramConfig = {
   botToken: process.env['TELEGRAM_BOT_TOKEN'] || '',
+  polling: false, // Don't poll by default (saves resources)
 };
 
 // =============================================================================
-// Telegram Bot Service
+// TelegramBotService Class
 // =============================================================================
 
 export class TelegramBotService {
-  private config: TelegramConfig;
-  private enabled: boolean;
-  private sentCount = 0;
-  private chatIds: Set<string> = new Set();
+  private bot: TelegramBot | null = null;
+  private registeredChatIds: Set<string> = new Set();
+  private isConfigured: boolean;
+
+  // Stats
+  private stats = {
+    messagesSent: 0,
+    photosSent: 0,
+    failures: 0,
+  };
 
   constructor(config?: Partial<TelegramConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-    this.enabled = !!this.config.botToken;
+    const finalConfig = { ...CONFIG, ...config };
+    this.isConfigured = !!finalConfig.botToken;
 
-    if (this.enabled) {
-      console.log('[Telegram] Bot service enabled');
-    } else {
-      console.log('[Telegram] Bot service disabled (missing token)');
+    if (this.isConfigured) {
+      this.bot = new TelegramBot(finalConfig.botToken, {
+        polling: finalConfig.polling,
+      });
+
+      if (finalConfig.polling) {
+        this.setupHandlers();
+      }
     }
   }
 
-  // ===========================================================================
-  // Configuration
-  // ===========================================================================
+  // ---------------------------------------------------------------------------
+  // Public Methods
+  // ---------------------------------------------------------------------------
 
-  isEnabled(): boolean {
-    return this.enabled;
-  }
-
-  updateConfig(config: Partial<TelegramConfig>): void {
-    this.config = { ...this.config, ...config };
-    this.enabled = !!this.config.botToken;
+  /**
+   * Check if configured
+   */
+  configured(): boolean {
+    return this.isConfigured;
   }
 
   /**
-   * Register a chat ID to receive notifications
+   * Register a chat ID for notifications
    */
   registerChatId(chatId: string): void {
-    this.chatIds.add(chatId);
-    console.log(`[Telegram] Registered chat ${chatId}`);
+    this.registeredChatIds.add(chatId);
   }
 
   /**
    * Unregister a chat ID
    */
   unregisterChatId(chatId: string): void {
-    this.chatIds.delete(chatId);
-    console.log(`[Telegram] Unregistered chat ${chatId}`);
+    this.registeredChatIds.delete(chatId);
   }
 
-  // ===========================================================================
-  // Sending Messages
-  // ===========================================================================
+  /**
+   * Get registered chat IDs
+   */
+  getRegisteredChatIds(): string[] {
+    return Array.from(this.registeredChatIds);
+  }
 
   /**
-   * Send a notification to a specific chat
+   * Send a text message
    */
-  async send(chatId: string, payload: NotificationPayload): Promise<boolean> {
-    if (!this.enabled) {
-      console.warn('[Telegram] Cannot send - service not enabled');
-      return false;
-    }
-
-    const message = this.formatMessage(payload);
+  async sendMessage(chatId: string, text: string): Promise<boolean> {
+    if (!this.bot) return false;
 
     try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${this.config.botToken}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: message,
-            parse_mode: 'HTML',
-            disable_web_page_preview: false,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('[Telegram] Failed to send:', error);
-        return false;
-      }
-
-      this.sentCount++;
-      console.log(`[Telegram] Sent to ${chatId}: ${payload.title}`);
+      await this.bot.sendMessage(chatId, text, { parse_mode: 'HTML' });
+      this.stats.messagesSent++;
       return true;
     } catch (error) {
-      console.error('[Telegram] Error sending:', error);
+      console.error('Telegram message failed:', error);
+      this.stats.failures++;
       return false;
     }
-  }
-
-  /**
-   * Send notification to all registered chats
-   */
-  async sendToAll(payload: NotificationPayload): Promise<{ success: number; failed: number }> {
-    let success = 0;
-    let failed = 0;
-
-    for (const chatId of this.chatIds) {
-      const result = await this.send(chatId, payload);
-      if (result) {
-        success++;
-      } else {
-        failed++;
-      }
-    }
-
-    return { success, failed };
   }
 
   /**
@@ -139,140 +112,162 @@ export class TelegramBotService {
    */
   async sendPhoto(
     chatId: string,
-    imageBase64: string,
-    payload: NotificationPayload
+    photo: string | Buffer,
+    caption?: string
   ): Promise<boolean> {
-    if (!this.enabled) {
-      return false;
-    }
-
-    const caption = this.formatMessage(payload);
+    if (!this.bot) return false;
 
     try {
-      // Convert base64 to buffer
-      const imageBuffer = Buffer.from(
-        imageBase64.replace(/^data:image\/[a-z]+;base64,/, ''),
-        'base64'
-      );
-
-      // Create form data
-      const formData = new FormData();
-      formData.append('chat_id', chatId);
-      formData.append('caption', caption);
-      formData.append('parse_mode', 'HTML');
-      formData.append(
-        'photo',
-        new Blob([imageBuffer], { type: 'image/jpeg' }),
-        'alert.jpg'
-      );
-
-      const response = await fetch(
-        `https://api.telegram.org/bot${this.config.botToken}/sendPhoto`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('[Telegram] Failed to send photo:', error);
-        return false;
-      }
-
-      this.sentCount++;
+      await this.bot.sendPhoto(chatId, photo, {
+        caption,
+        parse_mode: 'HTML',
+      });
+      this.stats.photosSent++;
       return true;
     } catch (error) {
-      console.error('[Telegram] Error sending photo:', error);
+      console.error('Telegram photo failed:', error);
+      this.stats.failures++;
       return false;
     }
   }
 
-  // ===========================================================================
-  // Message Formatting
-  // ===========================================================================
+  /**
+   * Send a notification payload
+   */
+  async sendNotification(
+    payload: NotificationPayload,
+    chatId?: string
+  ): Promise<boolean> {
+    if (!this.bot) return false;
+
+    const message = this.formatNotification(payload);
+    const targetChatIds = chatId ? [chatId] : Array.from(this.registeredChatIds);
+
+    let success = false;
+    for (const id of targetChatIds) {
+      if (payload.imageUrl) {
+        // Send photo with caption
+        const result = await this.sendPhoto(id, payload.imageUrl, message);
+        if (result) success = true;
+      } else {
+        // Send text only
+        const result = await this.sendMessage(id, message);
+        if (result) success = true;
+      }
+    }
+
+    return success;
+  }
 
   /**
-   * Format a notification payload as a Telegram message
+   * Broadcast to all registered chats
    */
-  private formatMessage(payload: NotificationPayload): string {
-    const severityEmoji: Record<AlertSeverity, string> = {
-      info: 'ℹ️',
-      warning: '⚠️',
-      urgent: '🚨',
-      critical: '🆘',
-    };
+  async broadcast(text: string): Promise<{ sent: number; failed: number }> {
+    let sent = 0;
+    let failed = 0;
 
-    const severityLabel: Record<AlertSeverity, string> = {
-      info: 'Info',
-      warning: 'Warning',
-      urgent: 'URGENT',
-      critical: 'CRITICAL',
+    for (const chatId of this.registeredChatIds) {
+      const result = await this.sendMessage(chatId, text);
+      if (result) sent++;
+      else failed++;
+    }
+
+    return { sent, failed };
+  }
+
+  /**
+   * Get stats
+   */
+  getStats() {
+    return { ...this.stats };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private Methods
+  // ---------------------------------------------------------------------------
+
+  private setupHandlers(): void {
+    if (!this.bot) return;
+
+    // Handle /start command
+    this.bot.onText(/\/start/, async (msg) => {
+      const chatId = msg.chat.id.toString();
+      this.registeredChatIds.add(chatId);
+
+      await this.sendMessage(
+        chatId,
+        `🛡️ <b>Welcome to SafeOS Guardian!</b>\n\n` +
+          `You'll receive alerts here when monitoring detects something.\n\n` +
+          `Commands:\n` +
+          `/status - Check monitoring status\n` +
+          `/stop - Stop receiving alerts\n` +
+          `/help - Get help`
+      );
+    });
+
+    // Handle /stop command
+    this.bot.onText(/\/stop/, async (msg) => {
+      const chatId = msg.chat.id.toString();
+      this.registeredChatIds.delete(chatId);
+
+      await this.sendMessage(
+        chatId,
+        `👋 You've been unsubscribed from SafeOS alerts.\n` +
+          `Send /start to subscribe again.`
+      );
+    });
+
+    // Handle /status command
+    this.bot.onText(/\/status/, async (msg) => {
+      const chatId = msg.chat.id.toString();
+      const isSubscribed = this.registeredChatIds.has(chatId);
+
+      await this.sendMessage(
+        chatId,
+        `📊 <b>Status</b>\n\n` +
+          `Subscribed: ${isSubscribed ? '✅ Yes' : '❌ No'}\n` +
+          `Messages sent: ${this.stats.messagesSent}\n`
+      );
+    });
+
+    // Handle /help command
+    this.bot.onText(/\/help/, async (msg) => {
+      const chatId = msg.chat.id.toString();
+
+      await this.sendMessage(
+        chatId,
+        `🆘 <b>SafeOS Guardian Help</b>\n\n` +
+          `This bot sends you alerts from your SafeOS monitoring system.\n\n` +
+          `<b>Alert Levels:</b>\n` +
+          `🚨 Critical - Immediate attention needed\n` +
+          `⚠️ High - Should check soon\n` +
+          `📢 Medium - Worth noting\n` +
+          `ℹ️ Low/Info - For your awareness\n\n` +
+          `<b>Commands:</b>\n` +
+          `/start - Subscribe to alerts\n` +
+          `/stop - Unsubscribe\n` +
+          `/status - Check status`
+      );
+    });
+  }
+
+  private formatNotification(payload: NotificationPayload): string {
+    const severityEmoji: Record<string, string> = {
+      critical: '🚨',
+      high: '⚠️',
+      medium: '📢',
+      low: 'ℹ️',
+      info: 'ℹ️',
     };
 
     const emoji = severityEmoji[payload.severity] || '📢';
-    const label = severityLabel[payload.severity] || 'Alert';
 
-    let message = `${emoji} <b>SafeOS ${label}</b>\n\n`;
-    message += `<b>${payload.title}</b>\n\n`;
-    message += payload.body;
-
-    if (payload.url) {
-      message += `\n\n<a href="${payload.url}">View Alert</a>`;
-    }
-
-    return message;
-  }
-
-  // ===========================================================================
-  // Bot Info
-  // ===========================================================================
-
-  /**
-   * Get bot information
-   */
-  async getBotInfo(): Promise<{ username: string; id: number } | null> {
-    if (!this.enabled) {
-      return null;
-    }
-
-    try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${this.config.botToken}/getMe`
-      );
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const data = (await response.json()) as {
-        ok: boolean;
-        result?: { id: number; username: string };
-      };
-
-      if (!data.ok || !data.result) {
-        return null;
-      }
-
-      return {
-        username: data.result.username,
-        id: data.result.id,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  // ===========================================================================
-  // Stats
-  // ===========================================================================
-
-  getSentCount(): number {
-    return this.sentCount;
-  }
-
-  getRegisteredChatCount(): number {
-    return this.chatIds.size;
+    return (
+      `${emoji} <b>${payload.title}</b>\n\n` +
+      `${payload.message}\n\n` +
+      `<i>Severity: ${payload.severity.toUpperCase()}</i>\n` +
+      `<i>Time: ${new Date(payload.timestamp).toLocaleString()}</i>`
+    );
   }
 }
 
@@ -280,12 +275,21 @@ export class TelegramBotService {
 // Singleton
 // =============================================================================
 
-let defaultService: TelegramBotService | null = null;
+let defaultBot: TelegramBotService | null = null;
 
-export function getDefaultTelegramService(): TelegramBotService {
-  if (!defaultService) {
-    defaultService = new TelegramBotService();
-  }
-  return defaultService;
+export function isTelegramConfigured(): boolean {
+  return !!CONFIG.botToken;
 }
 
+export function getDefaultTelegramBot(): TelegramBotService | null {
+  if (!isTelegramConfigured()) return null;
+
+  if (!defaultBot) {
+    defaultBot = new TelegramBotService();
+  }
+  return defaultBot;
+}
+
+export function createTelegramBot(config?: Partial<TelegramConfig>): TelegramBotService {
+  return new TelegramBotService(config);
+}
