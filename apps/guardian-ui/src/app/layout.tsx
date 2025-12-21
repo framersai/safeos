@@ -10,6 +10,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import { Nav, Footer } from '@/components/layout';
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
+import { NotificationPermission } from '@/components/NotificationPermission';
 import './globals.css';
 
 // =============================================================================
@@ -178,6 +180,12 @@ export default function RootLayout({
           {children}
         </div>
         <Footer />
+
+        {/* PWA Install Prompt */}
+        <PWAInstallPrompt />
+
+        {/* Notification Permission Request */}
+        <NotificationPermission />
 
         {/* Service Worker Registration */}
         <script

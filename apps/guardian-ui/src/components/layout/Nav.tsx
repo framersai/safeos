@@ -22,6 +22,7 @@ import {
   IconMenu,
   IconX,
   IconHelp,
+  IconExternalLink,
 } from '../icons';
 
 // =============================================================================
@@ -101,6 +102,32 @@ export function Nav() {
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-2">
+          {/* SuperCloud CTA - Desktop */}
+          <a
+            href="https://super.cloud"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden lg:flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors group"
+          >
+            <svg 
+              viewBox="0 0 24 24" 
+              className="w-5 h-5 text-emerald-500 group-hover:text-emerald-400 transition-colors"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
+              <path strokeLinecap="round" d="M12 19v-7m0 0l-2 2m2-2l2 2" />
+            </svg>
+            <span className="font-[family-name:var(--font-space-grotesk)] text-xs tracking-wide">
+              <span className="text-zinc-500">Superintelligence for All</span>
+              <span className="text-emerald-500 font-medium ml-1.5">super.cloud</span>
+            </span>
+            <IconExternalLink size={12} className="opacity-40 group-hover:opacity-70 transition-opacity" />
+          </a>
+
+          <div className="hidden lg:block w-px h-6 bg-white/10 mx-1" />
+
           <button 
             className="relative flex items-center justify-center w-10 h-10 rounded-lg
                        text-zinc-400 hover:text-zinc-100 hover:bg-white/5 
@@ -162,6 +189,33 @@ export function Nav() {
               </Link>
             );
           })}
+
+          {/* SuperCloud CTA - Mobile */}
+          <div className="border-t border-white/5 mt-3 pt-3">
+            <a
+              href="https://super.cloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg 
+                viewBox="0 0 24 24" 
+                className="w-5 h-5 text-emerald-500"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
+                <path strokeLinecap="round" d="M12 19v-7m0 0l-2 2m2-2l2 2" />
+              </svg>
+              <span className="flex flex-col">
+                <span className="text-xs text-zinc-500">Superintelligence for All</span>
+                <span className="text-sm font-medium text-emerald-500">super.cloud</span>
+              </span>
+              <IconExternalLink size={14} className="ml-auto opacity-40" />
+            </a>
+          </div>
         </div>
       )}
     </nav>

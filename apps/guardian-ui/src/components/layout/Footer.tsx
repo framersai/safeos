@@ -51,7 +51,7 @@ const footerSections: FooterSection[] = [
   {
     title: 'SuperCloud',
     links: [
-      { href: 'https://supercloud.dev', label: 'SuperCloud', external: true },
+      { href: 'https://super.cloud', label: 'super.cloud', external: true },
       { href: 'https://github.com/supercloud', label: 'GitHub', external: true },
       { href: 'https://twitter.com/superclouddev', label: 'Twitter', external: true },
       { href: 'https://discord.gg/supercloud', label: 'Discord', external: true },
