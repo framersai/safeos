@@ -25,6 +25,7 @@ import {
   IconChevronLeft,
   IconX,
 } from '../../components/icons';
+import { SafeOSLogo, SuperCloudWordmark } from '../../components/Logo';
 
 // =============================================================================
 // Types
@@ -76,14 +77,15 @@ export default function SetupPage() {
       });
       stream.getTracks().forEach((track) => track.stop());
       setPermissionStatus('granted');
-      onboarding.setPermissionsGranted(true);
+      onboarding.setCameraPermission(true);
+      onboarding.setMicrophonePermission(true);
     } catch (error) {
       setPermissionStatus('denied');
     }
   };
 
   const completeSetup = () => {
-    onboarding.setOnboardingComplete(true);
+    onboarding.setComplete(true);
     router.push('/');
   };
 
@@ -133,7 +135,7 @@ export default function SetupPage() {
           {currentStep === 'disclaimer' && (
             <DisclaimerStep
               onAccept={() => {
-                onboarding.setDisclaimersAccepted(true);
+                onboarding.acceptAllDisclaimers();
                 goNext();
               }}
               onBack={goBack}
@@ -143,7 +145,7 @@ export default function SetupPage() {
             <ScenarioStep
               selectedScenario={onboarding.selectedScenario}
               onSelect={(scenario) => {
-                onboarding.setSelectedScenario(scenario);
+                onboarding.setScenario(scenario);
                 goNext();
               }}
               onBack={goBack}
@@ -180,15 +182,15 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
   return (
     <div className="panel">
       <div className="panel-body text-center py-8">
-        <div className="w-16 h-16 mx-auto mb-6 rounded-lg bg-[var(--color-steel-850)] border border-[var(--color-steel-700)] flex items-center justify-center">
-          <IconShieldCheck size={36} className="text-[var(--color-accent-500)]" />
-        </div>
+        <SafeOSLogo size={80} className="mx-auto mb-6 text-[var(--color-accent-500)]" />
 
         <h1 className="text-heading-lg mb-2">SafeOS Guardian</h1>
-        <p className="text-[var(--color-steel-400)] mb-8 max-w-md mx-auto">
+        <p className="text-[var(--color-steel-400)] mb-4 max-w-md mx-auto">
           Humanitarian AI monitoring for pets, babies, and elderly care.
-          Part of SuperCloud's 10% for Humanity initiative.
         </p>
+        <div className="flex justify-center mb-8">
+          <SuperCloudWordmark />
+        </div>
 
         {/* Feature List */}
         <div className="grid gap-3 text-left max-w-sm mx-auto mb-8">

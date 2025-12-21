@@ -26,6 +26,78 @@ body {
   overflow-x: hidden;
 }
 
+/* =============================================================================
+   App Layout
+   ============================================================================= */
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-steel-950);
+}
+
+.app-content {
+  flex: 1;
+  padding-top: 64px; /* Height of nav */
+  display: flex;
+  flex-direction: column;
+}
+
+/* =============================================================================
+   Navigation Layout
+   ============================================================================= */
+
+.nav-links-desktop {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@media (min-width: 768px) {
+  .nav-links-desktop {
+    display: flex;
+  }
+}
+
+.nav-mobile-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  color: var(--color-steel-400, #a1a1aa);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-mobile-toggle:hover {
+  color: var(--color-steel-100, #f4f5f6);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@media (min-width: 768px) {
+  .nav-mobile-toggle {
+    display: none;
+  }
+}
+
+.nav-mobile-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (min-width: 768px) {
+  .nav-mobile-menu {
+    display: none;
+  }
+}
+
 /* Fix for container class conflicts with Tailwind */
 .container {
   width: 100%;

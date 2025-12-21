@@ -1,0 +1,154 @@
+/**
+ * Footer Component
+ *
+ * Industrial, utilitarian footer.
+ * Consistent across all pages.
+ *
+ * @module components/layout/Footer
+ */
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { IconExternalLink, IconShield } from '../icons';
+
+// =============================================================================
+// Footer Links
+// =============================================================================
+
+interface FooterLink {
+  href: string;
+  label: string;
+  external?: boolean;
+}
+
+interface FooterSection {
+  title: string;
+  links: FooterLink[];
+}
+
+const footerSections: FooterSection[] = [
+  {
+    title: 'Product',
+    links: [
+      { href: '/', label: 'Dashboard' },
+      { href: '/monitor', label: 'Monitor' },
+      { href: '/history', label: 'History' },
+      { href: '/settings', label: 'Settings' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { href: '/help', label: 'Help Center' },
+      { href: '/docs', label: 'Documentation' },
+      { href: '/privacy', label: 'Privacy Policy' },
+      { href: '/terms', label: 'Terms of Service' },
+    ],
+  },
+  {
+    title: 'SuperCloud',
+    links: [
+      { href: 'https://supercloud.dev', label: 'SuperCloud', external: true },
+      { href: 'https://github.com/supercloud', label: 'GitHub', external: true },
+      { href: 'https://twitter.com/superclouddev', label: 'Twitter', external: true },
+      { href: 'https://discord.gg/supercloud', label: 'Discord', external: true },
+    ],
+  },
+];
+
+// =============================================================================
+// Component
+// =============================================================================
+
+export function Footer() {
+  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  const currentYear = new Date().getFullYear();
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't show footer on setup page
+  const isSetupPage = pathname?.startsWith('/setup');
+  
+  // Return empty footer during SSR to prevent hydration mismatch
+  if (!mounted || isSetupPage) {
+    return null;
+  }
+
+  return (
+    <footer className="bg-[rgba(10,12,15,0.95)] border-t border-emerald-500/15 mt-auto">
+      <div className="max-w-[1400px] mx-auto px-6 pt-12 pb-6">
+        {/* Top Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-8 lg:gap-12">
+          {/* Brand */}
+          <div className="max-w-xs">
+            <div className="flex items-center gap-2 mb-4">
+              <IconShield size={24} className="text-emerald-500" />
+              <span className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-100">
+                SafeOS Guardian
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-zinc-500 mb-4">
+              Free AI-powered monitoring for pets, babies, and elderly care. 
+              Local-first, privacy-preserving. Part of SuperCloud&apos;s 10% for Humanity initiative.
+            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-medium text-emerald-500">
+              <span className="text-sm">♥</span>
+              <span>10% for Humanity</span>
+            </div>
+          </div>
+
+          {/* Link Sections */}
+          {footerSections.map((section) => (
+            <div key={section.title} className="min-w-[120px]">
+              <h3 className="font-[family-name:var(--font-space-grotesk)] text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">
+                {section.title}
+              </h3>
+              <ul className="flex flex-col gap-2">
+                {section.links.map((link) => (
+                  <li key={link.href}>
+                    {link.external ? (
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-100 transition-colors"
+                      >
+                        {link.label}
+                        <IconExternalLink size={12} className="opacity-50" />
+                      </a>
+                    ) : (
+                      <Link 
+                        href={link.href} 
+                        className="text-sm text-zinc-500 hover:text-zinc-100 transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom Section */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-12 pt-6 border-t border-white/5">
+          <span className="text-xs text-zinc-500">
+            © {currentYear} SuperCloud. All rights reserved.
+          </span>
+          <div className="inline-flex items-center gap-2 text-xs text-zinc-500">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_theme(colors.emerald.500)] animate-pulse" />
+            All systems operational
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}

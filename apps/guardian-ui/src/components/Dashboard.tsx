@@ -28,6 +28,7 @@ import {
   IconPulse,
   IconRefresh,
 } from './icons';
+import { SafeOSLogo, SuperCloudLogo } from './Logo';
 
 // =============================================================================
 // Types
@@ -194,16 +195,16 @@ function Header({ isConnected, systemHealth }: HeaderProps) {
         <div className="flex items-center justify-between">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[var(--color-steel-800)] border border-[var(--color-steel-700)] flex items-center justify-center">
-              <IconShieldCheck size={22} className="text-[var(--color-accent-500)]" />
-            </div>
+            <SafeOSLogo size={40} className="text-[var(--color-accent-500)]" />
             <div>
               <h1 className="font-mono text-sm font-semibold text-[var(--color-steel-100)] uppercase tracking-wider">
                 SafeOS Guardian
               </h1>
-              <p className="font-mono text-xs text-[var(--color-steel-500)]">
-                Humanitarian Monitoring System
-              </p>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-[10px] text-[var(--color-steel-600)]">by</span>
+                <SuperCloudLogo size={14} className="text-[#3B82F6]" />
+                <span className="font-mono text-[10px] text-[var(--color-steel-500)]">SuperCloud</span>
+              </div>
             </div>
           </div>
 
