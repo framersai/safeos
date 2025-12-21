@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "SafeOS Guardian - Humanitäre KI-Überwachung",
+    "description": "Kostenlose KI-gestützte Überwachung für Haustiere, Babys und Altenpflege. Lokale Verarbeitung, datenschutzfreundlich."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "monitor": "Überwachen",
+    "history": "Verlauf",
+    "settings": "Einstellungen",
+    "notifications": "Benachrichtigungen",
+    "help": "Hilfe",
+    "openMenu": "Menü öffnen"
+  },
+  "landing": {
+    "title": "SafeOS Guardian",
+    "subtitle": "Experimentelles Ergänzendes Überwachungstool",
+    "tagline": "Ein kostenloses, Low-Tech-Überwachungshilfsmittel mit Standard-{webcams} und {microphones}.",
+    "taglineSub": "Entwickelt für technikaffine Eltern. Tragbar konzipiert.",
+    "startSetup": "Einrichtung Starten",
+    "setupTime": "Dauert weniger als 2 Minuten · Kein Konto erforderlich",
+    "disclaimer": {
+      "title": "Dies ist KEIN Ersatz für menschliche Aufsicht",
+      "text": "SafeOS Guardian ist nur ein {bold}. Es kann und soll die direkte menschliche Fürsorge und Aufmerksamkeit nicht ersetzen. Technologie kann versagen. Behalten Sie immer eine angemessene Aufsicht über Kinder, Haustiere und ältere Familienmitglieder bei.",
+      "boldText": "experimentelles ergänzendes Werkzeug"
+    },
+    "features": {
+      "lotech": {
+        "title": "Low-Tech & Tragbar",
+        "description": "Verwendet Standard-Webcams und Mikrofone, die Sie bereits besitzen. Keine spezielle Hardware erforderlich."
+      },
+      "privacy": {
+        "title": "Datenschutz Zuerst",
+        "description": "Alle Verarbeitung erfolgt lokal auf Ihrem Gerät. Keine Cloud-Uploads, kein Data Mining."
+      },
+      "free": {
+        "title": "Immer Kostenlos",
+        "description": "Teil von SuperClouds 10% für die Menschheit Initiative. Dieser Dienst wird niemals monetarisiert."
+      }
+    },
+    "abusePrevention": {
+      "title": "Missbrauchsprävention & Faire Nutzung",
+      "p1": "Wir überwachen aktiv und verhindern Missbrauch dieses humanitären Tools. Erkannter Missbrauch führt zu {warnings}, dann Zugriffsbeschränkungen.",
+      "p2": "Bei weit verbreitetem Missbrauch behalten wir uns das Recht vor, den Dienst vorübergehend auszusetzen, bis bessere Schutzmaßnahmen vorhanden sind. {emphasis}.",
+      "emphasis": "Ihre Sicherheit und die Sicherheit der Überwachten haben immer Vorrang"
+    },
+    "humanitarian": {
+      "text": "Dies ist ein humanitäres Werkzeug. Es wird {never} dafür berechnet. Niemals."
+    }
+  },
+  "storage": {
+    "title": "Lokale Datenspeicherung",
+    "subtitle": "Verstehen, Wie Ihre Daten Gespeichert Werden",
+    "intro": "SafeOS Guardian speichert alle Daten lokal in Ihrem Browser. Das bedeutet, Ihre Daten bleiben auf Ihrem Gerät und werden niemals an externe Server gesendet.",
+    "warning": {
+      "title": "Wichtige Warnung",
+      "text": "Das Löschen Ihres Browser-Caches, Cookies oder Website-Daten wird alle SafeOS Guardian-Daten dauerhaft löschen. Dies umfasst Ihre Einstellungen, Überwachungsverlauf und Warnprotokolle."
+    },
+    "whatStored": {
+      "title": "Welche Daten Lokal Gespeichert Werden",
+      "settings": "Ihre Überwachungspräferenzen und Konfiguration",
+      "profiles": "Überwachungsprofile (Haustier-, Baby-, Alteneinstellungen)",
+      "history": "Warnverlauf und Ereignisprotokolle",
+      "calibration": "Kamera- und Mikrofon-Kalibrierungsdaten",
+      "ui": "UI-Präferenzen (Thema, Sprache, Layout)"
+    },
+    "whereStored": {
+      "title": "Wo Daten Gespeichert Werden",
+      "text": "Daten werden im LocalStorage und IndexedDB Ihres Browsers gespeichert. Dies ist browserspezifischer Speicher, der zwischen Sitzungen bestehen bleibt.",
+      "browsers": {
+        "chrome": "Chrome: Einstellungen → Datenschutz → Browserdaten löschen → Cookies und Websitedaten",
+        "firefox": "Firefox: Einstellungen → Datenschutz → Cookies und Website-Daten",
+        "safari": "Safari: Einstellungen → Datenschutz → Website-Daten verwalten",
+        "edge": "Edge: Einstellungen → Datenschutz → Browserdaten löschen"
+      }
+    },
+    "prevent": {
+      "title": "Wie Man Datenverlust Verhindert",
+      "step1": {
+        "title": "Exportieren Sie Ihre Einstellungen",
+        "text": "Gehen Sie zu Einstellungen → Daten Exportieren, um eine Sicherung Ihrer Konfiguration herunterzuladen."
+      },
+      "step2": {
+        "title": "Vermeiden Sie 'Alles Löschen' Aktionen",
+        "text": "Beim Löschen von Browserdaten vermeiden Sie die Auswahl von 'Cookies und Websitedaten', wenn Sie SafeOS-Daten behalten möchten."
+      },
+      "step3": {
+        "title": "Verwenden Sie Browser-Profile",
+        "text": "Erwägen Sie, ein dediziertes Browserprofil für SafeOS Guardian zu erstellen, um dessen Daten zu isolieren."
+      },
+      "step4": {
+        "title": "Markieren Sie den Einstellungsexport",
+        "text": "Exportieren Sie regelmäßig Ihre Einstellungen vor jeder Browser-Wartung."
+      }
+    },
+    "clear": {
+      "title": "Wie Man SafeOS-Daten Löscht",
+      "intro": "Wenn Sie SafeOS Guardian vollständig zurücksetzen müssen:",
+      "option1": {
+        "title": "Option 1: In-App-Zurücksetzen",
+        "text": "Gehen Sie zu Einstellungen → Erweitert → Alle Daten Zurücksetzen. Dies entfernt alle SafeOS-Daten, aber bewahrt die anderen Daten Ihres Browsers."
+      },
+      "option2": {
+        "title": "Option 2: Browser-Löschung",
+        "text": "Löschen Sie Website-Daten speziell für die SafeOS-Domain in Ihren Browsereinstellungen."
+      },
+      "steps": {
+        "chrome": "Chrome: Klicken Sie auf das Schloss-Symbol → Website-Einstellungen → Daten löschen",
+        "firefox": "Firefox: Klicken Sie auf das Schild-Symbol → Cookies und Website-Daten löschen",
+        "safari": "Safari: Entwickler-Menü → Caches für diese Seite leeren",
+        "edge": "Edge: Klicken Sie auf das Schloss-Symbol → Website-Berechtigungen → Berechtigungen zurücksetzen"
+      }
+    },
+    "recovery": {
+      "title": "Datenwiederherstellung",
+      "text": "Sobald Browserdaten gelöscht sind, gibt es keine Möglichkeit, sie wiederherzustellen, es sei denn, Sie haben eine zuvor exportierte Sicherung. Wir empfehlen dringend regelmäßige Exporte, wenn Sie benutzerdefinierte Konfigurationen haben."
+    }
+  },
+  "footer": {
+    "product": "Produkt",
+    "resources": "Ressourcen",
+    "helpCenter": "Hilfezentrum",
+    "documentation": "Dokumentation",
+    "privacyPolicy": "Datenschutzrichtlinie",
+    "termsOfService": "Nutzungsbedingungen",
+    "github": "GitHub",
+    "twitter": "Twitter",
+    "discord": "Discord"
+  },
+  "language": {
+    "select": "Sprache Auswählen",
+    "current": "Aktuell: {language}"
+  }
+}
+

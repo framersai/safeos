@@ -59,12 +59,9 @@ export function Nav() {
     setMounted(true);
   }, []);
 
-  // Don't show nav on setup page
-  const isSetupPage = pathname?.startsWith('/setup');
-  
-  // Return empty nav during SSR to prevent hydration mismatch
-  if (!mounted || isSetupPage) {
-    return <nav className="nav-placeholder" style={{ height: isSetupPage ? 0 : 64 }} />;
+  // Return null during SSR to prevent hydration mismatch
+  if (!mounted) {
+    return null;
   }
 
   return (

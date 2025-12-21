@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "SafeOS Guardian - Monitoreo Humanitario con IA",
+    "description": "Monitoreo gratuito con IA para mascotas, bebés y cuidado de ancianos. Procesamiento local, respeto a la privacidad."
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "monitor": "Monitor",
+    "history": "Historial",
+    "settings": "Configuración",
+    "notifications": "Notificaciones",
+    "help": "Ayuda",
+    "openMenu": "Abrir menú"
+  },
+  "landing": {
+    "title": "SafeOS Guardian",
+    "subtitle": "Herramienta de Monitoreo Suplementaria Experimental",
+    "tagline": "Una herramienta de monitoreo gratuita y de baja tecnología usando {webcams} y {microphones} estándar.",
+    "taglineSub": "Diseñada para padres educados y conocedores de tecnología. Portátil por diseño.",
+    "startSetup": "Iniciar Configuración",
+    "setupTime": "Toma menos de 2 minutos · No se requiere cuenta",
+    "disclaimer": {
+      "title": "Esto NO es un reemplazo de la supervisión humana",
+      "text": "SafeOS Guardian es una {bold} únicamente. No puede ni debe reemplazar el cuidado y atención humana directa. La tecnología puede fallar. Siempre mantenga una supervisión adecuada de niños, mascotas y familiares ancianos.",
+      "boldText": "herramienta experimental suplementaria"
+    },
+    "features": {
+      "lotech": {
+        "title": "Baja Tecnología y Portátil",
+        "description": "Usa cámaras web y micrófonos estándar que ya tienes. No se requiere hardware especial."
+      },
+      "privacy": {
+        "title": "Privacidad Primero",
+        "description": "Todo el procesamiento ocurre localmente en tu dispositivo. Sin subidas a la nube, sin minería de datos."
+      },
+      "free": {
+        "title": "Siempre Gratis",
+        "description": "Parte de la iniciativa 10% para la Humanidad de SuperCloud. Este servicio nunca será monetizado."
+      }
+    },
+    "abusePrevention": {
+      "title": "Prevención de Abuso y Uso Justo",
+      "p1": "Monitoreamos activamente y prevenimos el abuso de esta herramienta humanitaria. El uso indebido detectado resulta en {warnings}, luego restricciones de acceso.",
+      "p2": "En casos de abuso generalizado, nos reservamos el derecho de suspender temporalmente el servicio hasta que mejores salvaguardias estén en su lugar. {emphasis}.",
+      "emphasis": "Tu seguridad y la seguridad de los monitoreados siempre son lo primero"
+    },
+    "humanitarian": {
+      "text": "Esta es una herramienta humanitaria. {never} se cobrará por ella. Nunca."
+    }
+  },
+  "storage": {
+    "title": "Almacenamiento Local de Datos",
+    "subtitle": "Entendiendo Cómo se Almacenan tus Datos",
+    "intro": "SafeOS Guardian almacena todos los datos localmente en tu navegador. Esto significa que tus datos permanecen en tu dispositivo y nunca se envían a servidores externos.",
+    "warning": {
+      "title": "Advertencia Importante",
+      "text": "Limpiar la caché del navegador, cookies o datos del sitio eliminará permanentemente todos los datos de SafeOS Guardian. Esto incluye tu configuración, historial de monitoreo y registros de alertas."
+    },
+    "whatStored": {
+      "title": "Qué Datos se Almacenan Localmente",
+      "settings": "Tus preferencias de monitoreo y configuración",
+      "profiles": "Perfiles de monitoreo (configuraciones para mascotas, bebés, ancianos)",
+      "history": "Historial de alertas y registros de eventos",
+      "calibration": "Datos de calibración de cámara y micrófono",
+      "ui": "Preferencias de interfaz (tema, idioma, diseño)"
+    },
+    "whereStored": {
+      "title": "Dónde se Almacenan los Datos",
+      "text": "Los datos se almacenan en LocalStorage e IndexedDB de tu navegador. Este es almacenamiento específico del navegador que persiste entre sesiones.",
+      "browsers": {
+        "chrome": "Chrome: Configuración → Privacidad → Borrar datos de navegación → Cookies y datos del sitio",
+        "firefox": "Firefox: Configuración → Privacidad → Cookies y Datos del Sitio",
+        "safari": "Safari: Preferencias → Privacidad → Administrar Datos del Sitio Web",
+        "edge": "Edge: Configuración → Privacidad → Borrar datos de navegación"
+      }
+    },
+    "prevent": {
+      "title": "Cómo Prevenir la Pérdida de Datos",
+      "step1": {
+        "title": "Exporta tu Configuración",
+        "text": "Ve a Configuración → Exportar Datos para descargar una copia de seguridad de tu configuración."
+      },
+      "step2": {
+        "title": "Evita Acciones de 'Borrar Todo'",
+        "text": "Al limpiar datos del navegador, evita seleccionar 'Cookies y datos del sitio' si quieres mantener los datos de SafeOS."
+      },
+      "step3": {
+        "title": "Usa Perfiles de Navegador",
+        "text": "Considera crear un perfil de navegador dedicado para SafeOS Guardian para aislar sus datos."
+      },
+      "step4": {
+        "title": "Marca la Exportación de Configuración",
+        "text": "Exporta regularmente tu configuración antes de cualquier mantenimiento del navegador."
+      }
+    },
+    "clear": {
+      "title": "Cómo Borrar Datos de SafeOS",
+      "intro": "Si necesitas reiniciar SafeOS Guardian completamente:",
+      "option1": {
+        "title": "Opción 1: Reinicio en la App",
+        "text": "Ve a Configuración → Avanzado → Reiniciar Todos los Datos. Esto eliminará todos los datos de SafeOS pero preservará otros datos de tu navegador."
+      },
+      "option2": {
+        "title": "Opción 2: Limpieza del Navegador",
+        "text": "Limpia los datos del sitio específicamente para el dominio SafeOS en la configuración de tu navegador."
+      },
+      "steps": {
+        "chrome": "Chrome: Haz clic en el icono de candado → Configuración del sitio → Borrar datos",
+        "firefox": "Firefox: Haz clic en el icono de escudo → Borrar cookies y datos del sitio",
+        "safari": "Safari: Menú Desarrollo → Vaciar Cachés para esta página",
+        "edge": "Edge: Haz clic en el icono de candado → Permisos del sitio → Restablecer permisos"
+      }
+    },
+    "recovery": {
+      "title": "Recuperación de Datos",
+      "text": "Una vez que se borran los datos del navegador, no hay forma de recuperarlos a menos que tengas una copia de seguridad exportada previamente. Recomendamos encarecidamente exportaciones regulares si tienes configuraciones personalizadas."
+    }
+  },
+  "footer": {
+    "product": "Producto",
+    "resources": "Recursos",
+    "helpCenter": "Centro de Ayuda",
+    "documentation": "Documentación",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "github": "GitHub",
+    "twitter": "Twitter",
+    "discord": "Discord"
+  },
+  "language": {
+    "select": "Seleccionar Idioma",
+    "current": "Actual: {language}"
+  }
+}
+

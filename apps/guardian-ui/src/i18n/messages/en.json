@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "SafeOS Guardian - Humanitarian AI Monitoring",
+    "description": "Free AI-powered monitoring for pets, babies, and elderly care. Local-first, privacy-preserving."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "monitor": "Monitor",
+    "history": "History",
+    "settings": "Settings",
+    "notifications": "Notifications",
+    "help": "Help",
+    "openMenu": "Open menu"
+  },
+  "landing": {
+    "title": "SafeOS Guardian",
+    "subtitle": "Experimental Supplemental Monitoring Tool",
+    "tagline": "A free, lo-tech monitoring aid using standard {webcams} and {microphones}.",
+    "taglineSub": "Designed for educated, tech-savvy parents. Portable by design.",
+    "startSetup": "Start Setup",
+    "setupTime": "Takes less than 2 minutes · No account required",
+    "disclaimer": {
+      "title": "This is NOT a replacement for human supervision",
+      "text": "SafeOS Guardian is a {bold} only. It cannot and should not replace direct human care and attention. Technology can fail. Always maintain proper supervision of children, pets, and elderly family members.",
+      "boldText": "supplemental experimental tool"
+    },
+    "features": {
+      "lotech": {
+        "title": "Lo-Tech & Portable",
+        "description": "Uses standard webcams and microphones you already own. No special hardware required."
+      },
+      "privacy": {
+        "title": "Privacy-First",
+        "description": "All processing happens locally on your device. No cloud uploads, no data mining."
+      },
+      "free": {
+        "title": "Always Free",
+        "description": "Part of SuperCloud's 10% for Humanity initiative. This service will never be monetized."
+      }
+    },
+    "abusePrevention": {
+      "title": "Abuse Prevention & Fair Use",
+      "p1": "We actively monitor for and prevent abuse of this humanitarian tool. Detected misuse results in {warnings}, then access restrictions.",
+      "p2": "In cases of widespread abuse, we reserve the right to temporarily suspend the service until better safeguards are in place. {emphasis}.",
+      "emphasis": "Your safety and the safety of those being monitored always come first"
+    },
+    "humanitarian": {
+      "text": "This is a humanitarian tool. It will {never} be charged for. Ever."
+    }
+  },
+  "storage": {
+    "title": "Local Data Storage",
+    "subtitle": "Understanding How Your Data is Stored",
+    "intro": "SafeOS Guardian stores all data locally in your browser. This means your data stays on your device and is never sent to external servers.",
+    "warning": {
+      "title": "Important Warning",
+      "text": "Clearing your browser cache, cookies, or site data will permanently delete all SafeOS Guardian data. This includes your settings, monitoring history, and alert logs."
+    },
+    "whatStored": {
+      "title": "What Data is Stored Locally",
+      "settings": "Your monitoring preferences and configuration",
+      "profiles": "Monitoring profiles (pet, baby, elderly settings)",
+      "history": "Alert history and event logs",
+      "calibration": "Camera and microphone calibration data",
+      "ui": "UI preferences (theme, language, layout)"
+    },
+    "whereStored": {
+      "title": "Where Data is Stored",
+      "text": "Data is stored in your browser's LocalStorage and IndexedDB. This is browser-specific storage that persists between sessions.",
+      "browsers": {
+        "chrome": "Chrome: Settings → Privacy → Clear browsing data → Cookies and site data",
+        "firefox": "Firefox: Settings → Privacy → Cookies and Site Data",
+        "safari": "Safari: Preferences → Privacy → Manage Website Data",
+        "edge": "Edge: Settings → Privacy → Clear browsing data"
+      }
+    },
+    "prevent": {
+      "title": "How to Prevent Data Loss",
+      "step1": {
+        "title": "Export Your Settings",
+        "text": "Go to Settings → Export Data to download a backup of your configuration."
+      },
+      "step2": {
+        "title": "Avoid 'Clear All' Actions",
+        "text": "When clearing browser data, avoid selecting 'Cookies and site data' if you want to keep SafeOS data."
+      },
+      "step3": {
+        "title": "Use Browser Profiles",
+        "text": "Consider creating a dedicated browser profile for SafeOS Guardian to isolate its data."
+      },
+      "step4": {
+        "title": "Bookmark the Settings Export",
+        "text": "Regularly export your settings before any browser maintenance."
+      }
+    },
+    "clear": {
+      "title": "How to Clear SafeOS Data",
+      "intro": "If you need to reset SafeOS Guardian completely:",
+      "option1": {
+        "title": "Option 1: In-App Reset",
+        "text": "Go to Settings → Advanced → Reset All Data. This will remove all SafeOS data but preserve your browser's other data."
+      },
+      "option2": {
+        "title": "Option 2: Browser Clear",
+        "text": "Clear site data specifically for the SafeOS domain in your browser settings."
+      },
+      "steps": {
+        "chrome": "Chrome: Click the lock icon in address bar → Site settings → Clear data",
+        "firefox": "Firefox: Click shield icon → Clear cookies and site data",
+        "safari": "Safari: Develop menu → Empty Caches for this page",
+        "edge": "Edge: Click lock icon → Site permissions → Reset permissions"
+      }
+    },
+    "recovery": {
+      "title": "Data Recovery",
+      "text": "Once browser data is cleared, there is no way to recover it unless you have a previously exported backup. We strongly recommend regular exports if you have custom configurations."
+    }
+  },
+  "footer": {
+    "product": "Product",
+    "resources": "Resources",
+    "helpCenter": "Help Center",
+    "documentation": "Documentation",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "github": "GitHub",
+    "twitter": "Twitter",
+    "discord": "Discord"
+  },
+  "language": {
+    "select": "Select Language",
+    "current": "Current: {language}"
+  }
+}
+

@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "SafeOS Guardian - 人道主义AI监控",
+    "description": "免费AI监控服务，适用于宠物、婴儿和老人护理。本地处理，保护隐私。"
+  },
+  "nav": {
+    "dashboard": "仪表板",
+    "monitor": "监控",
+    "history": "历史",
+    "settings": "设置",
+    "notifications": "通知",
+    "help": "帮助",
+    "openMenu": "打开菜单"
+  },
+  "landing": {
+    "title": "SafeOS Guardian",
+    "subtitle": "实验性辅助监控工具",
+    "tagline": "一款免费、低技术门槛的监控辅助工具，使用标准{webcams}和{microphones}。",
+    "taglineSub": "专为了解技术的家长设计。便携式设计。",
+    "startSetup": "开始设置",
+    "setupTime": "只需不到2分钟 · 无需账户",
+    "disclaimer": {
+      "title": "这不是人工监护的替代品",
+      "text": "SafeOS Guardian 仅是{bold}。它不能也不应该替代直接的人工护理和关注。技术可能会失败。请始终保持对儿童、宠物和老年家庭成员的适当监护。",
+      "boldText": "辅助实验工具"
+    },
+    "features": {
+      "lotech": {
+        "title": "低技术门槛且便携",
+        "description": "使用您已有的标准网络摄像头和麦克风。无需特殊硬件。"
+      },
+      "privacy": {
+        "title": "隐私优先",
+        "description": "所有处理都在您的设备本地进行。无云端上传，无数据挖掘。"
+      },
+      "free": {
+        "title": "永久免费",
+        "description": "SuperCloud"10%为人类"计划的一部分。此服务永不商业化。"
+      }
+    },
+    "abusePrevention": {
+      "title": "滥用预防与公平使用",
+      "p1": "我们积极监控并防止此人道主义工具被滥用。检测到的滥用将导致{warnings}，然后是访问限制。",
+      "p2": "在广泛滥用的情况下，我们保留暂时中止服务的权利，直到更好的保护措施到位。{emphasis}。",
+      "emphasis": "您的安全和被监控者的安全始终是第一位的"
+    },
+    "humanitarian": {
+      "text": "这是一个人道主义工具。它{never}收费。永远不会。"
+    }
+  },
+  "storage": {
+    "title": "本地数据存储",
+    "subtitle": "了解您的数据如何存储",
+    "intro": "SafeOS Guardian 将所有数据本地存储在您的浏览器中。这意味着您的数据保留在您的设备上，永远不会发送到外部服务器。",
+    "warning": {
+      "title": "重要警告",
+      "text": "清除浏览器缓存、Cookie或站点数据将永久删除所有 SafeOS Guardian 数据。这包括您的设置、监控历史和警报日志。"
+    },
+    "whatStored": {
+      "title": "本地存储哪些数据",
+      "settings": "您的监控偏好和配置",
+      "profiles": "监控配置文件（宠物、婴儿、老人设置）",
+      "history": "警报历史和事件日志",
+      "calibration": "摄像头和麦克风校准数据",
+      "ui": "界面偏好（主题、语言、布局）"
+    },
+    "whereStored": {
+      "title": "数据存储位置",
+      "text": "数据存储在浏览器的 LocalStorage 和 IndexedDB 中。这是特定于浏览器的存储，在会话之间持续存在。",
+      "browsers": {
+        "chrome": "Chrome：设置 → 隐私 → 清除浏览数据 → Cookie 和站点数据",
+        "firefox": "Firefox：设置 → 隐私 → Cookie 和站点数据",
+        "safari": "Safari：偏好设置 → 隐私 → 管理网站数据",
+        "edge": "Edge：设置 → 隐私 → 清除浏览数据"
+      }
+    },
+    "prevent": {
+      "title": "如何防止数据丢失",
+      "step1": {
+        "title": "导出您的设置",
+        "text": "前往设置 → 导出数据，下载您配置的备份。"
+      },
+      "step2": {
+        "title": "避免"全部清除"操作",
+        "text": "清除浏览器数据时，如果要保留 SafeOS 数据，请避免选择"Cookie 和站点数据"。"
+      },
+      "step3": {
+        "title": "使用浏览器配置文件",
+        "text": "考虑为 SafeOS Guardian 创建专用的浏览器配置文件，以隔离其数据。"
+      },
+      "step4": {
+        "title": "收藏设置导出",
+        "text": "在任何浏览器维护之前定期导出您的设置。"
+      }
+    },
+    "clear": {
+      "title": "如何清除 SafeOS 数据",
+      "intro": "如果您需要完全重置 SafeOS Guardian：",
+      "option1": {
+        "title": "选项1：应用内重置",
+        "text": "前往设置 → 高级 → 重置所有数据。这将删除所有 SafeOS 数据，但保留您浏览器的其他数据。"
+      },
+      "option2": {
+        "title": "选项2：浏览器清除",
+        "text": "在浏览器设置中专门清除 SafeOS 域的站点数据。"
+      },
+      "steps": {
+        "chrome": "Chrome：点击地址栏中的锁定图标 → 站点设置 → 清除数据",
+        "firefox": "Firefox：点击盾牌图标 → 清除 Cookie 和站点数据",
+        "safari": "Safari：开发菜单 → 清空此页面的缓存",
+        "edge": "Edge：点击锁定图标 → 站点权限 → 重置权限"
+      }
+    },
+    "recovery": {
+      "title": "数据恢复",
+      "text": "一旦浏览器数据被清除，除非您有先前导出的备份，否则无法恢复。如果您有自定义配置，我们强烈建议定期导出。"
+    }
+  },
+  "footer": {
+    "product": "产品",
+    "resources": "资源",
+    "helpCenter": "帮助中心",
+    "documentation": "文档",
+    "privacyPolicy": "隐私政策",
+    "termsOfService": "服务条款",
+    "github": "GitHub",
+    "twitter": "Twitter",
+    "discord": "Discord"
+  },
+  "language": {
+    "select": "选择语言",
+    "current": "当前：{language}"
+  }
+}
+

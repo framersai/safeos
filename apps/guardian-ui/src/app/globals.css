@@ -42,6 +42,7 @@ body {
   padding-top: 64px; /* Height of nav */
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 /* =============================================================================

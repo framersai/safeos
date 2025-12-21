@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "SafeOS Guardian - Surveillance Humanitaire par IA",
+    "description": "Surveillance gratuite par IA pour animaux, bébés et soins aux personnes âgées. Traitement local, respect de la vie privée."
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "monitor": "Surveiller",
+    "history": "Historique",
+    "settings": "Paramètres",
+    "notifications": "Notifications",
+    "help": "Aide",
+    "openMenu": "Ouvrir le menu"
+  },
+  "landing": {
+    "title": "SafeOS Guardian",
+    "subtitle": "Outil de Surveillance Supplémentaire Expérimental",
+    "tagline": "Un outil de surveillance gratuit et low-tech utilisant des {webcams} et {microphones} standard.",
+    "taglineSub": "Conçu pour les parents éduqués et technophiles. Portable par conception.",
+    "startSetup": "Démarrer la Configuration",
+    "setupTime": "Prend moins de 2 minutes · Aucun compte requis",
+    "disclaimer": {
+      "title": "Ce n'est PAS un remplacement de la surveillance humaine",
+      "text": "SafeOS Guardian est un {bold} uniquement. Il ne peut pas et ne doit pas remplacer les soins et l'attention humaine directe. La technologie peut échouer. Maintenez toujours une surveillance appropriée des enfants, animaux et membres âgés de la famille.",
+      "boldText": "outil expérimental supplémentaire"
+    },
+    "features": {
+      "lotech": {
+        "title": "Low-Tech et Portable",
+        "description": "Utilise des webcams et microphones standard que vous possédez déjà. Aucun matériel spécial requis."
+      },
+      "privacy": {
+        "title": "Vie Privée d'Abord",
+        "description": "Tout le traitement se fait localement sur votre appareil. Pas de téléchargement cloud, pas d'exploitation de données."
+      },
+      "free": {
+        "title": "Toujours Gratuit",
+        "description": "Fait partie de l'initiative 10% pour l'Humanité de SuperCloud. Ce service ne sera jamais monétisé."
+      }
+    },
+    "abusePrevention": {
+      "title": "Prévention des Abus et Utilisation Équitable",
+      "p1": "Nous surveillons activement et prévenons les abus de cet outil humanitaire. Les abus détectés entraînent des {warnings}, puis des restrictions d'accès.",
+      "p2": "En cas d'abus généralisé, nous nous réservons le droit de suspendre temporairement le service jusqu'à ce que de meilleures protections soient en place. {emphasis}.",
+      "emphasis": "Votre sécurité et celle des personnes surveillées passent toujours en premier"
+    },
+    "humanitarian": {
+      "text": "C'est un outil humanitaire. Il ne sera {never} facturé. Jamais."
+    }
+  },
+  "storage": {
+    "title": "Stockage Local des Données",
+    "subtitle": "Comprendre Comment Vos Données Sont Stockées",
+    "intro": "SafeOS Guardian stocke toutes les données localement dans votre navigateur. Cela signifie que vos données restent sur votre appareil et ne sont jamais envoyées à des serveurs externes.",
+    "warning": {
+      "title": "Avertissement Important",
+      "text": "Effacer le cache de votre navigateur, les cookies ou les données du site supprimera définitivement toutes les données de SafeOS Guardian. Cela inclut vos paramètres, l'historique de surveillance et les journaux d'alertes."
+    },
+    "whatStored": {
+      "title": "Quelles Données Sont Stockées Localement",
+      "settings": "Vos préférences et configuration de surveillance",
+      "profiles": "Profils de surveillance (paramètres animaux, bébés, personnes âgées)",
+      "history": "Historique des alertes et journaux d'événements",
+      "calibration": "Données de calibration caméra et microphone",
+      "ui": "Préférences d'interface (thème, langue, disposition)"
+    },
+    "whereStored": {
+      "title": "Où les Données Sont Stockées",
+      "text": "Les données sont stockées dans le LocalStorage et IndexedDB de votre navigateur. C'est un stockage spécifique au navigateur qui persiste entre les sessions.",
+      "browsers": {
+        "chrome": "Chrome: Paramètres → Confidentialité → Effacer les données de navigation → Cookies et données du site",
+        "firefox": "Firefox: Paramètres → Vie privée → Cookies et Données du Site",
+        "safari": "Safari: Préférences → Confidentialité → Gérer les Données du Site Web",
+        "edge": "Edge: Paramètres → Confidentialité → Effacer les données de navigation"
+      }
+    },
+    "prevent": {
+      "title": "Comment Prévenir la Perte de Données",
+      "step1": {
+        "title": "Exportez Vos Paramètres",
+        "text": "Allez dans Paramètres → Exporter les Données pour télécharger une sauvegarde de votre configuration."
+      },
+      "step2": {
+        "title": "Évitez les Actions 'Tout Effacer'",
+        "text": "Lors de l'effacement des données du navigateur, évitez de sélectionner 'Cookies et données du site' si vous souhaitez conserver les données SafeOS."
+      },
+      "step3": {
+        "title": "Utilisez des Profils de Navigateur",
+        "text": "Envisagez de créer un profil de navigateur dédié pour SafeOS Guardian afin d'isoler ses données."
+      },
+      "step4": {
+        "title": "Marquez l'Export des Paramètres",
+        "text": "Exportez régulièrement vos paramètres avant toute maintenance du navigateur."
+      }
+    },
+    "clear": {
+      "title": "Comment Effacer les Données SafeOS",
+      "intro": "Si vous devez réinitialiser complètement SafeOS Guardian:",
+      "option1": {
+        "title": "Option 1: Réinitialisation In-App",
+        "text": "Allez dans Paramètres → Avancé → Réinitialiser Toutes les Données. Cela supprimera toutes les données SafeOS mais préservera les autres données de votre navigateur."
+      },
+      "option2": {
+        "title": "Option 2: Effacement Navigateur",
+        "text": "Effacez les données du site spécifiquement pour le domaine SafeOS dans les paramètres de votre navigateur."
+      },
+      "steps": {
+        "chrome": "Chrome: Cliquez sur l'icône cadenas → Paramètres du site → Effacer les données",
+        "firefox": "Firefox: Cliquez sur l'icône bouclier → Effacer les cookies et données du site",
+        "safari": "Safari: Menu Développement → Vider les Caches pour cette page",
+        "edge": "Edge: Cliquez sur l'icône cadenas → Autorisations du site → Réinitialiser les autorisations"
+      }
+    },
+    "recovery": {
+      "title": "Récupération des Données",
+      "text": "Une fois les données du navigateur effacées, il n'y a aucun moyen de les récupérer sauf si vous avez une sauvegarde exportée précédemment. Nous recommandons fortement des exports réguliers si vous avez des configurations personnalisées."
+    }
+  },
+  "footer": {
+    "product": "Produit",
+    "resources": "Ressources",
+    "helpCenter": "Centre d'Aide",
+    "documentation": "Documentation",
+    "privacyPolicy": "Politique de Confidentialité",
+    "termsOfService": "Conditions d'Utilisation",
+    "github": "GitHub",
+    "twitter": "Twitter",
+    "discord": "Discord"
+  },
+  "language": {
+    "select": "Choisir la Langue",
+    "current": "Actuel: {language}"
+  }
+}
+

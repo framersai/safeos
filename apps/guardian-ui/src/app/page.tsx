@@ -1,7 +1,8 @@
 /**
  * SafeOS Guardian - Home Page
  *
- * Main dashboard landing page.
+ * Landing page with big CTA for setup, or dashboard if onboarding complete.
+ * Emphasizes supplemental/experimental nature and abuse prevention.
  *
  * @module app/page
  */
@@ -9,39 +10,309 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Dashboard } from '../components/Dashboard';
 import { useOnboardingStore, canSkipOnboarding } from '../stores/onboarding-store';
+import {
+  IconShield,
+  IconCamera,
+  IconBell,
+  IconHeart,
+  IconArrowRight,
+  IconWarning,
+  IconInfo,
+} from '../components/icons';
+
+// =============================================================================
+// Animated Shield SVG Component
+// =============================================================================
+
+function AnimatedShield() {
+  return (
+    <div className="relative w-24 h-24 md:w-32 md:h-32">
+      {/* Outer pulse ring */}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        viewBox="0 0 100 100"
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
+          stroke="rgba(16,185,129,0.2)"
+          strokeWidth="1"
+          className="animate-[ping_3s_ease-in-out_infinite]"
+        />
+      </svg>
+      
+      {/* Secondary pulse */}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        viewBox="0 0 100 100"
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="40"
+          fill="none"
+          stroke="rgba(16,185,129,0.15)"
+          strokeWidth="1"
+          className="animate-[ping_3s_ease-in-out_infinite_500ms]"
+        />
+      </svg>
+
+      {/* Shield body */}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        viewBox="0 0 100 100"
+        fill="none"
+      >
+        {/* Shield outline */}
+        <path
+          d="M50 10 L85 25 L85 50 C85 72 68 88 50 95 C32 88 15 72 15 50 L15 25 Z"
+          fill="rgba(16,185,129,0.08)"
+          stroke="rgba(16,185,129,0.6)"
+          strokeWidth="1.5"
+          className="animate-[pulse_4s_ease-in-out_infinite]"
+        />
+        
+        {/* Inner circle - camera eye */}
+        <circle
+          cx="50"
+          cy="50"
+          r="15"
+          fill="none"
+          stroke="rgba(16,185,129,0.8)"
+          strokeWidth="2"
+        />
+        
+        {/* Pupil with subtle animation */}
+        <circle
+          cx="50"
+          cy="50"
+          r="6"
+          fill="rgba(16,185,129,1)"
+          className="animate-[pulse_2s_ease-in-out_infinite]"
+        />
+        
+        {/* Scan line animation */}
+        <line
+          x1="35"
+          y1="50"
+          x2="65"
+          y2="50"
+          stroke="rgba(16,185,129,0.4)"
+          strokeWidth="1"
+          strokeDasharray="4 2"
+          className="animate-[pulse_1.5s_ease-in-out_infinite]"
+        />
+      </svg>
+    </div>
+  );
+}
+
+// =============================================================================
+// Landing Page Component
+// =============================================================================
+
+function LandingPage() {
+  return (
+    <div className="bg-[var(--color-steel-950)]">
+      {/* Hero Section */}
+      <main className="flex flex-col items-center px-6 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Animated Shield */}
+          <div className="flex justify-center mb-6">
+            <AnimatedShield />
+          </div>
+          
+          {/* Title */}
+          <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-steel-100)] mb-2
+                         font-[family-name:var(--font-space-grotesk)]">
+            SafeOS Guardian
+          </h1>
+          
+          <p className="text-sm text-emerald-500/80 mb-6 tracking-wider uppercase
+                        font-[family-name:var(--font-space-grotesk)]">
+            Experimental Supplemental Monitoring Tool
+          </p>
+
+          {/* Tagline */}
+          <p className="text-lg md:text-xl text-[var(--color-steel-400)] mb-8 max-w-2xl mx-auto leading-relaxed">
+            A free, lo-tech monitoring aid using standard{' '}
+            <span className="text-emerald-400">webcams</span> and{' '}
+            <span className="text-emerald-400">microphones</span>.
+            <br />
+            <span className="text-[var(--color-steel-500)]">
+              Designed for educated, tech-savvy parents. Portable by design.
+            </span>
+          </p>
+
+          {/* Critical Disclaimer Box */}
+          <div className="max-w-2xl mx-auto mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <div className="flex items-start gap-3">
+              <IconWarning size={24} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="text-left">
+                <p className="text-sm text-amber-200 font-semibold mb-1">
+                  This is NOT a replacement for human supervision
+                </p>
+                <p className="text-xs text-amber-200/70 leading-relaxed">
+                  SafeOS Guardian is a <strong>supplemental experimental tool</strong> only. 
+                  It cannot and should not replace direct human care and attention. 
+                  Technology can fail. Always maintain proper supervision of children, 
+                  pets, and elderly family members.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Big CTA Button */}
+          <Link
+            href="/setup"
+            className="group inline-flex items-center gap-4 px-10 py-5 
+                       bg-gradient-to-r from-emerald-600 to-emerald-500 
+                       hover:from-emerald-500 hover:to-emerald-400
+                       text-white text-xl font-semibold rounded-xl
+                       shadow-[0_0_40px_rgba(16,185,129,0.3)]
+                       hover:shadow-[0_0_60px_rgba(16,185,129,0.5)]
+                       transform hover:scale-[1.02] active:scale-[0.98]
+                       transition-all duration-200
+                       font-[family-name:var(--font-space-grotesk)]"
+          >
+            <IconShield size={28} />
+            <span>Start Setup</span>
+            <IconArrowRight 
+              size={24} 
+              className="transform group-hover:translate-x-1 transition-transform" 
+            />
+          </Link>
+
+          {/* Sub-text */}
+          <p className="mt-4 text-sm text-[var(--color-steel-500)]">
+            Takes less than 2 minutes · No account required
+          </p>
+        </div>
+
+        {/* Features Grid */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto w-full">
+          <FeatureCard
+            icon={IconCamera}
+            title="Lo-Tech & Portable"
+            description="Uses standard webcams and microphones you already own. No special hardware required."
+          />
+          <FeatureCard
+            icon={IconBell}
+            title="Supplemental Alerts"
+            description="Get notified as a backup layer—never as your primary supervision method."
+          />
+          <FeatureCard
+            icon={IconShield}
+            title="Privacy First"
+            description="All processing happens locally on your device. Your data never leaves."
+          />
+        </div>
+
+        {/* Abuse Prevention Notice */}
+        <div className="mt-12 max-w-3xl mx-auto w-full">
+          <div className="p-4 bg-[var(--color-steel-900)] border border-[var(--color-steel-700)] rounded-lg">
+            <div className="flex items-start gap-3">
+              <IconInfo size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-left">
+                <p className="text-sm text-[var(--color-steel-300)] font-medium mb-2">
+                  Abuse Prevention & Rate Limiting
+                </p>
+                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed mb-2">
+                  We actively monitor for misuse patterns and inappropriate behavior. Users who 
+                  attempt to abuse this service or use it in ways it&apos;s not intended will receive 
+                  <strong className="text-[var(--color-steel-400)]"> rate limitation warnings</strong> and 
+                  may be restricted from access.
+                </p>
+                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed">
+                  <strong className="text-amber-400">Note:</strong> This service may be temporarily 
+                  taken offline at times while we develop better safeguards. We are committed to 
+                  responsible deployment and will not rush features that could enable harm.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Humanitarian Badge + Forever Free */}
+        <div className="mt-8 flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3 px-6 py-3 
+                          bg-emerald-500/10 border border-emerald-500/20 
+                          rounded-full text-emerald-400">
+            <IconHeart size={20} className="text-red-400" />
+            <span className="text-sm font-medium">
+              Part of SuperCloud&apos;s 10% for Humanity initiative
+            </span>
+          </div>
+          
+          <p className="text-xs text-[var(--color-steel-500)] text-center max-w-md">
+            <strong className="text-emerald-400">SafeOS Guardian will always be free.</strong> We will never 
+            charge for this humanitarian service. Ever.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// =============================================================================
+// Feature Card Component
+// =============================================================================
+
+interface FeatureCardProps {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  description: string;
+}
+
+function FeatureCard({ icon: Icon, title, description }: FeatureCardProps) {
+  return (
+    <div className="p-5 bg-[var(--color-steel-900)] border border-[var(--color-steel-800)] 
+                    rounded-lg hover:border-emerald-500/30 transition-colors">
+      <div className="w-10 h-10 flex items-center justify-center 
+                      bg-emerald-500/10 rounded-lg mb-3">
+        <Icon size={20} className="text-emerald-500" />
+      </div>
+      <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-1
+                     font-[family-name:var(--font-space-grotesk)]">
+        {title}
+      </h3>
+      <p className="text-xs text-[var(--color-steel-400)] leading-relaxed">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+// =============================================================================
+// Main Page Component
+// =============================================================================
 
 export default function HomePage() {
-  const router = useRouter();
   const onboardingState = useOnboardingStore();
-  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
-  // Check if onboarding is needed
   useEffect(() => {
-    // Small delay to ensure hydration
-    const timer = setTimeout(() => {
-      if (!canSkipOnboarding(onboardingState)) {
-        router.push('/setup');
-      } else {
-        setLoading(false);
-      }
-    }, 100);
+    setMounted(true);
+  }, []);
 
-    return () => clearTimeout(timer);
-  }, [onboardingState, router]);
-
-  if (loading) {
+  // Show loading during hydration
+  if (!mounted) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-700 border-t-emerald-500 rounded-full animate-spin mx-auto" />
-          <p className="text-slate-400 mt-4">Loading SafeOS Guardian...</p>
-        </div>
+      <div className="min-h-screen bg-[var(--color-steel-950)] flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[var(--color-steel-700)] border-t-emerald-500 rounded-full animate-spin" />
       </div>
     );
   }
 
-  return <Dashboard />;
+  // Show dashboard if onboarding complete, otherwise show landing
+  if (canSkipOnboarding(onboardingState)) {
+    return <Dashboard />;
+  }
+
+  return <LandingPage />;
 }

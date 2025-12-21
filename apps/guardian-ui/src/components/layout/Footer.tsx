@@ -73,11 +73,8 @@ export function Footer() {
     setMounted(true);
   }, []);
 
-  // Don't show footer on setup page
-  const isSetupPage = pathname?.startsWith('/setup');
-  
-  // Return empty footer during SSR to prevent hydration mismatch
-  if (!mounted || isSetupPage) {
+  // Return null during SSR to prevent hydration mismatch
+  if (!mounted) {
     return null;
   }
 
