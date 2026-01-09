@@ -11,11 +11,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../../stores/auth-store';
-import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-
-// Prevent static generation (requires ToastProvider at runtime)
-export const dynamic = 'force-dynamic';
 
 // =============================================================================
 // Types
@@ -47,12 +43,12 @@ const AVAILABLE_EVENTS = [
 
 export default function WebhooksPage() {
   const { sessionToken, isAuthenticated, isInitialized } = useAuthStore();
-  const { success, error: showError, info } = useToast();
 
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Form state
   const [newWebhook, setNewWebhook] = useState({
@@ -79,7 +75,7 @@ export default function WebhooksPage() {
         setWebhooks(data.data || []);
       }
     } catch (err) {
-      showError('Failed to load webhooks');
+      setStatusMessage({ type: 'error', text: 'Failed to load webhooks' });
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +85,7 @@ export default function WebhooksPage() {
     e.preventDefault();
 
     if (!newWebhook.name || !newWebhook.url || newWebhook.events.length === 0) {
-      showError('Please fill in all required fields');
+      setStatusMessage({ type: 'error', text: 'Please fill in all required fields' });
       return;
     }
 
@@ -108,13 +104,13 @@ export default function WebhooksPage() {
         setWebhooks([...webhooks, data.data]);
         setNewWebhook({ name: '', url: '', events: [] });
         setIsCreating(false);
-        success('Webhook created!', `Secret: ${data.data.secret}`);
+        setStatusMessage({ type: 'success', text: `Webhook created! Secret: ${data.data.secret}` });
       } else {
-        const err = await res.json();
-        showError(err.error || 'Failed to create webhook');
+        const errData = await res.json();
+        setStatusMessage({ type: 'error', text: errData.error || 'Failed to create webhook' });
       }
     } catch (err) {
-      showError('Failed to create webhook');
+      setStatusMessage({ type: 'error', text: 'Failed to create webhook' });
     }
   };
 
@@ -129,12 +125,12 @@ export default function WebhooksPage() {
 
       if (res.ok) {
         setWebhooks(webhooks.filter((w) => w.id !== deleteId));
-        success('Webhook deleted');
+        setStatusMessage({ type: 'success', text: 'Webhook deleted' });
       } else {
-        showError('Failed to delete webhook');
+        setStatusMessage({ type: 'error', text: 'Failed to delete webhook' });
       }
     } catch (err) {
-      showError('Failed to delete webhook');
+      setStatusMessage({ type: 'error', text: 'Failed to delete webhook' });
     } finally {
       setDeleteId(null);
     }
@@ -142,20 +138,20 @@ export default function WebhooksPage() {
 
   const testWebhook = async (id: string) => {
     try {
-      info('Sending test payload...');
+      setStatusMessage({ type: 'info', text: 'Sending test payload...' });
       const res = await fetch(`${API_URL}/api/webhooks/${id}/test`, {
         method: 'POST',
         headers: { 'X-Session-Token': sessionToken || '' },
       });
 
       if (res.ok) {
-        success('Test webhook sent successfully!');
+        setStatusMessage({ type: 'success', text: 'Test webhook sent successfully!' });
       } else {
-        const err = await res.json();
-        showError(err.error || 'Test failed');
+        const errData = await res.json();
+        setStatusMessage({ type: 'error', text: errData.error || 'Test failed' });
       }
     } catch (err) {
-      showError('Failed to send test');
+      setStatusMessage({ type: 'error', text: 'Failed to send test' });
     }
   };
 
@@ -214,6 +210,16 @@ export default function WebhooksPage() {
           </button>
         </div>
       </header>
+
+      {/* Status Message */}
+      {statusMessage && (
+        <div className={`max-w-4xl mx-auto mt-4 mx-4 sm:mx-auto p-4 rounded-xl border ${statusMessage.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' :
+            statusMessage.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-300' :
+              'bg-blue-500/20 border-blue-500/50 text-blue-300'
+          }`}>
+          {statusMessage.text}
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-4 sm:p-6">

@@ -11,10 +11,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../../stores/auth-store';
-import { useToast } from '../../components/Toast';
-
-// Prevent static generation (requires ToastProvider at runtime)
-export const dynamic = 'force-dynamic';
 
 // =============================================================================
 // Types
@@ -79,18 +75,18 @@ const EXPORT_OPTIONS: ExportOption[] = [
 
 export default function ExportPage() {
   const { sessionToken, isAuthenticated, isInitialized } = useAuthStore();
-  const { success, error: showError, info } = useToast();
 
   const [selectedType, setSelectedType] = useState<ExportType>('alerts');
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('json');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [isExporting, setIsExporting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   const handleExport = async () => {
     setIsExporting(true);
-    info('Preparing export...');
+    setStatusMessage({ type: 'info', text: 'Preparing export...' });
 
     try {
       const params = new URLSearchParams();
@@ -125,9 +121,9 @@ export default function ExportPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      success('Export complete!', `Downloaded ${filename}`);
+      setStatusMessage({ type: 'success', text: `Downloaded ${filename}` });
     } catch (err) {
-      showError('Export failed', 'Please try again later');
+      setStatusMessage({ type: 'error', text: 'Export failed. Please try again later.' });
     } finally {
       setIsExporting(false);
     }
@@ -172,6 +168,16 @@ export default function ExportPage() {
           </div>
         </div>
       </header>
+
+      {/* Status Message */}
+      {statusMessage && (
+        <div className={`max-w-3xl mx-auto mt-4 mx-4 sm:mx-auto p-4 rounded-xl border ${statusMessage.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' :
+            statusMessage.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-300' :
+              'bg-blue-500/20 border-blue-500/50 text-blue-300'
+          }`}>
+          {statusMessage.text}
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
