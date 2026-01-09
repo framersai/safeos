@@ -8,12 +8,16 @@
 
 import { Router, Request, Response } from 'express';
 import { getSafeOSDatabase } from '../../db';
+import { requireAuth } from '../middleware/auth.js';
 
 // =============================================================================
 // Router
 // =============================================================================
 
 export const analysisRoutes = Router();
+
+// Apply auth middleware to all analysis routes
+analysisRoutes.use(requireAuth);
 
 // =============================================================================
 // Routes

@@ -8,12 +8,16 @@
 
 import { Router, Request, Response } from 'express';
 import { getSafeOSDatabase, generateId, now } from '../../db';
+import { requireAuth, getProfileId } from '../middleware/auth.js';
 
 // =============================================================================
 // Router
 // =============================================================================
 
 export const streamRoutes = Router();
+
+// Apply auth middleware to all stream routes
+streamRoutes.use(requireAuth);
 
 // =============================================================================
 // Routes
@@ -81,7 +85,8 @@ streamRoutes.get('/:id', async (req: Request, res: Response) => {
 streamRoutes.post('/', async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
-    const { scenario, userId } = req.body;
+    const { scenario } = req.body;
+    const profileId = getProfileId(req);
 
     if (!scenario || !['pet', 'baby', 'elderly'].includes(scenario)) {
       return res.status(400).json({ error: 'Invalid scenario' });
@@ -93,7 +98,7 @@ streamRoutes.post('/', async (req: Request, res: Response) => {
     await db.run(
       `INSERT INTO streams (id, user_id, scenario, status, started_at, created_at)
        VALUES (?, ?, ?, 'active', ?, ?)`,
-      [id, userId || null, scenario, timestamp, timestamp]
+      [id, profileId, scenario, timestamp, timestamp]
     );
 
     const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);

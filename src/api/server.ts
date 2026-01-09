@@ -23,6 +23,12 @@ import { reviewRoutes } from './routes/review';
 import { authRouter } from './routes/auth';
 import { webhookRouter } from './routes/webhooks';
 import { exportRouter } from './routes/export';
+import {
+  standardLimiter,
+  authLimiter,
+  analysisLimiter,
+  exportLimiter,
+} from './middleware/rate-limiter';
 
 // =============================================================================
 // Types
@@ -95,22 +101,25 @@ export class SafeOSServer {
   // ---------------------------------------------------------------------------
 
   private setupRoutes(): void {
-    // Health check
+    // Health check (no rate limiting)
     this.app.get('/health', (_req: Request, res: Response) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
-    // Mount route modules
+    // Apply standard rate limiting to all API routes
+    this.app.use('/api', standardLimiter);
+
+    // Mount route modules with specific rate limiters where needed
     this.app.use('/api/streams', streamRoutes);
     this.app.use('/api/alerts', alertRoutes);
     this.app.use('/api/profiles', profileRoutes);
-    this.app.use('/api/analysis', analysisRoutes);
+    this.app.use('/api/analysis', analysisLimiter, analysisRoutes);
     this.app.use('/api', systemRoutes);
     this.app.use('/api/notifications', notificationRoutes);
     this.app.use('/api/review', reviewRoutes);
-    this.app.use('/api/auth', authRouter);
+    this.app.use('/api/auth', authLimiter, authRouter);
     this.app.use('/api/webhooks', webhookRouter);
-    this.app.use('/api/export', exportRouter);
+    this.app.use('/api/export', exportLimiter, exportRouter);
 
     // Ollama status
     this.app.get('/api/ollama/status', async (_req: Request, res: Response) => {

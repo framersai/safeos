@@ -9,6 +9,7 @@
 
 import { getDefaultOllamaClient, type OllamaClient } from '../ollama/client.js';
 import { getPetPrompt, getBabyPrompt, getElderlyPrompt } from './profiles/index.js';
+import { cloudFallbackAnalysis } from './cloud-fallback.js';
 import type {
   MonitoringScenario,
   ConcernLevel,
@@ -168,9 +169,8 @@ export class FrameAnalyzer {
   }
 
   private async cloudAnalysis(frameData: string, prompt: string): Promise<string> {
-    // This would integrate with LLMProviderManager from super-cloud-mcps
-    // For now, throw to indicate not implemented
-    throw new Error('Cloud fallback not yet implemented - requires LLMProviderManager integration');
+    const result = await cloudFallbackAnalysis(frameData, prompt);
+    return result.content;
   }
 
   // ===========================================================================

@@ -10,8 +10,10 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import { Nav, Footer } from '@/components/layout';
+import { Providers } from '@/components/Providers';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { NotificationPermission } from '@/components/NotificationPermission';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import './globals.css';
 
 // =============================================================================
@@ -46,7 +48,7 @@ export const metadata: Metadata = {
     template: '%s | SafeOS Guardian',
   },
   description:
-    'Free AI-powered monitoring service for pets, babies, and elderly care. Local-first, privacy-preserving. Part of SuperCloud\'s 10% for Humanity initiative.',
+    'Free AI-powered monitoring service for pets, babies, and elderly care. Local-first, privacy-preserving. By Frame.',
   keywords: [
     'baby monitor',
     'pet monitor',
@@ -59,9 +61,9 @@ export const metadata: Metadata = {
     'Ollama',
     'home security',
   ],
-  authors: [{ name: 'SuperCloud', url: 'https://supercloud.dev' }],
-  creator: 'SuperCloud',
-  publisher: 'SuperCloud',
+  authors: [{ name: 'Frame', url: 'https://frame.dev' }],
+  creator: 'Frame',
+  publisher: 'Frame',
   
   // Icons
   icons: {
@@ -85,7 +87,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://safeos.supercloud.dev',
+    url: 'https://safeos.sh',
     siteName: 'SafeOS Guardian',
     title: 'SafeOS Guardian - Humanitarian AI Monitoring',
     description: 'Free AI-powered monitoring for pets, babies, and elderly care. Local-first, privacy-preserving.',
@@ -106,7 +108,7 @@ export const metadata: Metadata = {
     title: 'SafeOS Guardian - Humanitarian AI Monitoring',
     description: 'Free AI-powered monitoring for pets, babies, and elderly care.',
     images: ['/og-image.svg'],
-    creator: '@superclouddev',
+    creator: '@framersai',
   },
   
   // Robots
@@ -175,17 +177,21 @@ export default function RootLayout({
         />
       </head>
       <body className="app-layout">
-        <Nav />
-        <div className="app-content">
-          {children}
-        </div>
-        <Footer />
+        <Providers>
+          <ErrorBoundary>
+            <Nav />
+            <div className="app-content">
+              {children}
+            </div>
+            <Footer />
 
-        {/* PWA Install Prompt */}
-        <PWAInstallPrompt />
+            {/* PWA Install Prompt */}
+            <PWAInstallPrompt />
 
-        {/* Notification Permission Request */}
-        <NotificationPermission />
+            {/* Notification Permission Request */}
+            <NotificationPermission />
+          </ErrorBoundary>
+        </Providers>
 
         {/* Service Worker Registration */}
         <script

@@ -7,6 +7,7 @@
  */
 
 import { Router } from 'express';
+import { createHmac, randomBytes } from 'crypto';
 import { getSafeOSDatabase, generateId, now } from '../../db/index.js';
 
 // =============================================================================
@@ -362,20 +363,16 @@ export async function triggerWebhooks(
 // =============================================================================
 
 function generateWebhookSecret(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let secret = 'whsec_';
-  for (let i = 0; i < 32; i++) {
-    secret += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return secret;
+  // Use cryptographically secure random bytes
+  return `whsec_${randomBytes(32).toString('hex')}`;
 }
 
 function generateSignature(payload: string, secret: string): string {
-  // Simple HMAC-like signature (in production, use crypto.createHmac)
-  const hash = payload.split('').reduce((acc, char) => {
-    return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
-  }, 0);
-  return `sha256=${Math.abs(hash).toString(16)}${secret.slice(-8)}`;
+  // HMAC-SHA256 signature for secure webhook verification
+  const signature = createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  return `sha256=${signature}`;
 }
 
 
