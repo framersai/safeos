@@ -156,7 +156,7 @@ export function PWAInstallPrompt() {
   if (!mounted || !showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[100] md:left-auto md:right-4 md:max-w-sm animate-slide-up">
+    <div className="fixed bottom-4 left-4 right-4 z-[100] md:right-auto md:left-4 md:max-w-sm animate-slide-up">
       <div className="bg-[rgba(15,20,25,0.98)] backdrop-blur-xl border border-emerald-500/20 rounded-xl p-4 shadow-2xl shadow-black/50">
         {/* Close button */}
         <button
