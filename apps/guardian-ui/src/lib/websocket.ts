@@ -9,6 +9,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { isStaticMode } from './env';
 
 // =============================================================================
 // Types
@@ -65,7 +66,25 @@ export function useWebSocket(url: string, options: UseWebSocketOptions = {}) {
 
   // Connect to WebSocket
   const connect = useCallback(() => {
+    // Skip WebSocket connection in static mode (GitHub Pages deployment)
+    if (isStaticMode()) {
+      console.log('[WebSocket] Skipping connection in static mode');
+      return;
+    }
+
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    // Don't attempt connection with empty or invalid URL
+    if (!url || url.startsWith('ws://localhost') || url.startsWith('wss://localhost')) {
+      // Only connect to localhost when actually running locally
+      if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+          console.log('[WebSocket] Skipping localhost connection from remote host');
+          return;
+        }
+      }
+    }
 
     try {
       const ws = new WebSocket(url);
@@ -238,7 +257,24 @@ export class WebSocketClient {
   }
 
   connect(): void {
+    // Skip WebSocket connection in static mode (GitHub Pages deployment)
+    if (isStaticMode()) {
+      console.log('[WebSocket] Skipping connection in static mode');
+      return;
+    }
+
     if (this.ws?.readyState === WebSocket.OPEN) return;
+
+    // Don't attempt connection with empty or invalid URL
+    if (!this.url || this.url.startsWith('ws://localhost') || this.url.startsWith('wss://localhost')) {
+      if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+          console.log('[WebSocket] Skipping localhost connection from remote host');
+          return;
+        }
+      }
+    }
 
     this.ws = new WebSocket(this.url);
 

@@ -15,12 +15,13 @@ import {
   cacheAlert,
   cacheStream,
 } from './client-db';
+import { isStaticMode, getApiUrl } from './env';
 
 // =============================================================================
 // Configuration
 // =============================================================================
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = getApiUrl();
 const MAX_RETRIES = 5;
 const SYNC_INTERVAL_MS = 30000; // 30 seconds
 const RETRY_DELAYS = [1000, 5000, 15000, 30000, 60000]; // Progressive backoff
@@ -92,6 +93,11 @@ export async function syncPendingActions(): Promise<{
   failed: number;
   pending: number;
 }> {
+  // Skip sync in static mode (GitHub Pages deployment)
+  if (isStaticMode() || !API_URL) {
+    return { synced: 0, failed: 0, pending: 0 };
+  }
+
   if (!isOnline || isSyncing) {
     return { synced: 0, failed: 0, pending: 0 };
   }

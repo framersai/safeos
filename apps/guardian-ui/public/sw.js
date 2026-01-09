@@ -56,15 +56,22 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  
+
   // Skip non-GET requests
   if (request.method !== 'GET') return;
-  
+
   // Skip API requests (they should always be fresh)
   if (url.pathname.startsWith('/api/')) return;
-  
+
   // Skip WebSocket connections
   if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
+
+  // Skip range requests (partial content - cannot be cached)
+  if (request.headers.get('Range')) return;
+
+  // Skip media files that might trigger range requests
+  const ext = url.pathname.split('.').pop()?.toLowerCase();
+  if (['mp4', 'webm', 'mp3', 'wav', 'ogg', 'avi', 'mov'].includes(ext)) return;
   
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
@@ -72,7 +79,8 @@ self.addEventListener('fetch', (event) => {
         // Return cached version, but update cache in background
         event.waitUntil(
           fetch(request).then((networkResponse) => {
-            if (networkResponse.ok) {
+            // Only cache full responses (status 200), not partial (206)
+            if (networkResponse.ok && networkResponse.status === 200) {
               caches.open(CACHE_NAME).then((cache) => {
                 cache.put(request, networkResponse);
               });
@@ -83,11 +91,11 @@ self.addEventListener('fetch', (event) => {
         );
         return cachedResponse;
       }
-      
+
       // Not in cache, fetch from network
       return fetch(request).then((networkResponse) => {
-        // Cache successful responses
-        if (networkResponse.ok && url.origin === location.origin) {
+        // Cache successful full responses only (not partial 206)
+        if (networkResponse.ok && networkResponse.status === 200 && url.origin === location.origin) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(request, responseToCache);

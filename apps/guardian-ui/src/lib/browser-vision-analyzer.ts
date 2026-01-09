@@ -12,18 +12,32 @@
 
 'use client';
 
-import { pipeline, env } from '@xenova/transformers';
 import { saveSetting, getSetting } from './client-db';
 
 // =============================================================================
-// Configuration
+// Dynamic Import for Transformers.js
 // =============================================================================
 
-// Configure Transformers.js for browser environment
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-// Force use of onnxruntime-web instead of onnxruntime-node
-env.backends.onnx.wasm.proxy = true;
+// We use dynamic import to avoid bundling Node.js-specific code
+// that breaks static exports for GitHub Pages
+let transformersModule: typeof import('@xenova/transformers') | null = null;
+let transformersConfigured = false;
+
+async function getTransformers() {
+  if (!transformersModule) {
+    transformersModule = await import('@xenova/transformers');
+
+    // Configure Transformers.js for browser environment (only once)
+    if (!transformersConfigured) {
+      transformersModule.env.allowLocalModels = false;
+      transformersModule.env.useBrowserCache = true;
+      // Force use of onnxruntime-web instead of onnxruntime-node
+      transformersModule.env.backends.onnx.wasm.proxy = true;
+      transformersConfigured = true;
+    }
+  }
+  return transformersModule;
+}
 
 // =============================================================================
 // Types
@@ -223,6 +237,9 @@ class BrowserVisionAnalyzer {
 
     try {
       this.updateProgress({ status: 'downloading', progress: 0 });
+
+      // Dynamically import Transformers.js to avoid Node.js code in static build
+      const { pipeline } = await getTransformers();
 
       this.classifier = await pipeline(
         'image-classification',
