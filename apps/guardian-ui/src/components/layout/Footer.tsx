@@ -33,7 +33,7 @@ const footerSections: FooterSection[] = [
   {
     title: 'Product',
     links: [
-      { href: '/', label: 'Dashboard' },
+      { href: '/dashboard', label: 'Dashboard' },
       { href: '/monitor', label: 'Monitor' },
       { href: '/history', label: 'History' },
       { href: '/settings', label: 'Settings' },
@@ -49,12 +49,12 @@ const footerSections: FooterSection[] = [
     ],
   },
   {
-    title: 'SuperCloud',
+    title: 'Frame',
     links: [
-      { href: 'https://super.cloud', label: 'super.cloud', external: true },
-      { href: 'https://github.com/supercloud', label: 'GitHub', external: true },
-      { href: 'https://twitter.com/superclouddev', label: 'Twitter', external: true },
-      { href: 'https://discord.gg/supercloud', label: 'Discord', external: true },
+      { href: 'https://frame.dev', label: 'frame.dev', external: true },
+      { href: 'https://github.com/framersai', label: 'GitHub', external: true },
+      { href: 'https://twitter.com/framedev', label: 'Twitter', external: true },
+      { href: 'https://discord.gg/frame', label: 'Discord', external: true },
     ],
   },
 ];
@@ -92,8 +92,8 @@ export function Footer() {
               </span>
             </div>
             <p className="text-sm leading-relaxed text-zinc-500 mb-4">
-              Free AI-powered monitoring for pets, babies, and elderly care. 
-              Local-first, privacy-preserving. Part of SuperCloud&apos;s 10% for Humanity initiative.
+              Free AI-powered monitoring for pets, babies, and elderly care.
+              Local-first, privacy-preserving. Part of Frame&apos;s 10% for Humanity initiative.
             </p>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-medium text-emerald-500">
               <span className="text-sm">♥</span>
@@ -138,7 +138,7 @@ export function Footer() {
         {/* Bottom Section */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-12 pt-6 border-t border-white/5">
           <span className="text-xs text-zinc-500">
-            © {currentYear} SuperCloud. All rights reserved.
+            © {currentYear} Frame. All rights reserved.
           </span>
           <div className="inline-flex items-center gap-2 text-xs text-zinc-500">
             <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_theme(colors.emerald.500)] animate-pulse" />

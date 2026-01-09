@@ -25,7 +25,7 @@ import {
   IconChevronLeft,
   IconX,
 } from '../../components/icons';
-import { SafeOSLogo, SuperCloudWordmark } from '../../components/Logo';
+import { SafeOSLogo, FrameWordmark } from '../../components/Logo';
 
 // =============================================================================
 // Types
@@ -189,7 +189,7 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
           Humanitarian AI monitoring for pets, babies, and elderly care.
         </p>
         <div className="flex justify-center mb-8">
-          <SuperCloudWordmark />
+          <FrameWordmark />
         </div>
 
         {/* Feature List */}

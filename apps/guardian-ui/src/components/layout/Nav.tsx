@@ -40,7 +40,7 @@ interface NavLink {
 // =============================================================================
 
 const navLinks: NavLink[] = [
-  { href: '/', label: 'Dashboard', icon: IconHome },
+  { href: '/dashboard', label: 'Dashboard', icon: IconHome },
   { href: '/monitor', label: 'Monitor', icon: IconCamera },
   { href: '/history', label: 'History', icon: IconHistory },
   { href: '/settings', label: 'Settings', icon: IconSettings },
@@ -104,7 +104,7 @@ export function Nav() {
         <div className="flex items-center gap-2">
           {/* SuperCloud CTA - Desktop */}
           <a
-            href="https://super.cloud"
+            href="https://frame.dev"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden lg:flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors group"
@@ -121,7 +121,7 @@ export function Nav() {
             </svg>
             <span className="font-[family-name:var(--font-space-grotesk)] text-xs tracking-wide">
               <span className="text-zinc-500">Superintelligence for All</span>
-              <span className="text-emerald-500 font-medium ml-1.5">super.cloud</span>
+              <span className="text-emerald-500 font-medium ml-1.5">frame.dev</span>
             </span>
             <IconExternalLink size={12} className="opacity-40 group-hover:opacity-70 transition-opacity" />
           </a>
@@ -193,7 +193,7 @@ export function Nav() {
           {/* SuperCloud CTA - Mobile */}
           <div className="border-t border-white/5 mt-3 pt-3">
             <a
-              href="https://super.cloud"
+              href="https://frame.dev"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 px-4 py-3.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
@@ -211,7 +211,7 @@ export function Nav() {
               </svg>
               <span className="flex flex-col">
                 <span className="text-xs text-zinc-500">Superintelligence for All</span>
-                <span className="text-sm font-medium text-emerald-500">super.cloud</span>
+                <span className="text-sm font-medium text-emerald-500">frame.dev</span>
               </span>
               <IconExternalLink size={14} className="ml-auto opacity-40" />
             </a>

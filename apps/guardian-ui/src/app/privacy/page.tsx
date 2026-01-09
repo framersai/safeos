@@ -181,7 +181,7 @@ export default function PrivacyPage() {
           </h2>
           <div className="text-slate-400 space-y-4">
             <p>
-              SafeOS Guardian is part of SuperCloud&apos;s <strong className="text-emerald-400">10% for Humanity</strong> initiative. 
+              SafeOS Guardian is part of Frame&apos;s <strong className="text-emerald-400">10% for Humanity</strong> initiative. 
               We dedicate 10% of our resources to building free tools that benefit humanity.
             </p>
             <p>
@@ -198,11 +198,11 @@ export default function PrivacyPage() {
           </h2>
           <p className="text-slate-400">
             If you have any privacy concerns or questions, reach out at{' '}
-            <a 
-              href="mailto:privacy@super.cloud" 
+            <a
+              href="mailto:privacy@frame.dev"
               className="text-emerald-400 hover:text-emerald-300 transition-colors"
             >
-              privacy@super.cloud
+              privacy@frame.dev
             </a>
           </p>
         </section>

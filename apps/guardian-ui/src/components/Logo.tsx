@@ -1,7 +1,7 @@
 /**
  * SafeOS Guardian Logo Components
  *
- * Custom SVG logos for SafeOS and SuperCloud.
+ * Custom SVG logos for SafeOS and Frame.
  *
  * @module components/Logo
  */
@@ -117,9 +117,9 @@ export function SafeOSWordmark({ className = '' }: { className?: string }) {
 }
 
 /**
- * SuperCloud Logo - Cloud with Neural Network
+ * Frame Logo - Cloud with Neural Network
  */
-export function SuperCloudLogo({ size = 40, className = '' }: LogoProps) {
+export function FrameLogo({ size = 40, className = '' }: LogoProps) {
   return (
     <svg
       width={size}
@@ -128,7 +128,7 @@ export function SuperCloudLogo({ size = 40, className = '' }: LogoProps) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
-      aria-label="SuperCloud"
+      aria-label="Frame"
     >
       {/* Cloud */}
       <path
@@ -165,21 +165,25 @@ export function SuperCloudLogo({ size = 40, className = '' }: LogoProps) {
 }
 
 /**
- * SuperCloud Wordmark
+ * Frame Wordmark
  */
-export function SuperCloudWordmark({ className = '' }: { className?: string }) {
+export function FrameWordmark({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <SuperCloudLogo size={24} className="text-[#3B82F6]" />
+      <FrameLogo size={24} className="text-[#3B82F6]" />
       <span className="font-mono text-xs text-[var(--color-steel-500)] uppercase tracking-wider">
-        SuperCloud
+        Frame
       </span>
     </div>
   );
 }
 
+// Legacy alias for backwards compatibility
+export const SuperCloudWordmark = FrameWordmark;
+export const SuperCloudLogo = FrameLogo;
+
 /**
- * Combined Logo - SafeOS + SuperCloud Attribution
+ * Combined Logo - SafeOS + Frame Attribution
  */
 export function SafeOSFullLogo({ className = '' }: { className?: string }) {
   return (
@@ -187,8 +191,8 @@ export function SafeOSFullLogo({ className = '' }: { className?: string }) {
       <SafeOSWordmark />
       <div className="flex items-center gap-1.5 opacity-60">
         <span className="text-[10px] text-[var(--color-steel-500)]">powered by</span>
-        <SuperCloudLogo size={16} className="text-[#3B82F6]" />
-        <span className="font-mono text-[10px] text-[var(--color-steel-500)]">SuperCloud</span>
+        <FrameLogo size={16} className="text-[#3B82F6]" />
+        <span className="font-mono text-[10px] text-[var(--color-steel-500)]">Frame</span>
       </div>
     </div>
   );
@@ -200,29 +204,32 @@ export function SafeOSFullLogo({ className = '' }: { className?: string }) {
  */
 interface UnifiedLogoProps {
   size?: 'sm' | 'md' | 'lg';
+  showFrame?: boolean;
+  /** @deprecated Use showFrame instead */
   showSuperCloud?: boolean;
   className?: string;
 }
 
-export function Logo({ size = 'md', showSuperCloud = true, className = '' }: UnifiedLogoProps) {
+export function Logo({ size = 'md', showFrame = true, showSuperCloud, className = '' }: UnifiedLogoProps) {
   const logoSize = size === 'sm' ? 28 : size === 'md' ? 32 : 40;
-  
+  const shouldShowFrame = showSuperCloud ?? showFrame;
+
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <SafeOSLogo size={logoSize} className="text-[var(--color-accent-500)]" />
       <div className="flex flex-col">
-        <span 
+        <span
           className="font-mono font-semibold uppercase tracking-wider leading-tight"
-          style={{ 
+          style={{
             fontSize: size === 'sm' ? '11px' : size === 'md' ? '13px' : '15px',
             color: 'var(--color-steel-100)'
           }}
         >
           SafeOS
         </span>
-        <span 
+        <span
           className="font-mono uppercase tracking-widest"
-          style={{ 
+          style={{
             fontSize: size === 'sm' ? '8px' : size === 'md' ? '9px' : '10px',
             color: 'var(--color-steel-500)'
           }}
@@ -230,9 +237,9 @@ export function Logo({ size = 'md', showSuperCloud = true, className = '' }: Uni
           Guardian
         </span>
       </div>
-      {showSuperCloud && (
+      {shouldShowFrame && (
         <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-[var(--color-steel-800)]">
-          <SuperCloudLogo size={size === 'sm' ? 16 : 18} className="text-[#3B82F6]" />
+          <FrameLogo size={size === 'sm' ? 16 : 18} className="text-[#3B82F6]" />
         </div>
       )}
     </div>

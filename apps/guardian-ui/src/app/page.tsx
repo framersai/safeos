@@ -279,7 +279,7 @@ function LandingPage() {
                           rounded-full text-emerald-400">
             <IconHeart size={20} className="text-red-400" />
             <span className="text-sm font-medium">
-              Part of SuperCloud&apos;s 10% for Humanity initiative
+              Part of Frame&apos;s 10% for Humanity initiative
             </span>
           </div>
           

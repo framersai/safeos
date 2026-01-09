@@ -36,12 +36,12 @@ const faqs: FAQItem[] = [
   {
     category: 'general',
     question: 'What is SafeOS Guardian?',
-    answer: 'SafeOS Guardian is a free, AI-powered monitoring service for pets, babies, and elderly care. It uses your device\'s camera and microphone to detect potential issues and alert you in real-time. It\'s part of SuperCloud\'s 10% for Humanity initiative.',
+    answer: 'SafeOS Guardian is a free, AI-powered monitoring service for pets, babies, and elderly care. It uses your device\'s camera and microphone to detect potential issues and alert you in real-time. It\'s part of Frame\'s 10% for Humanity initiative.',
   },
   {
     category: 'general',
     question: 'Is SafeOS free?',
-    answer: 'Yes! SafeOS is completely free to use. We believe everyone deserves access to safety monitoring tools. The service is funded through SuperCloud\'s humanitarian commitment.',
+    answer: 'Yes! SafeOS is completely free to use. We believe everyone deserves access to safety monitoring tools. The service is funded through Frame\'s humanitarian commitment.',
   },
   {
     category: 'general',
@@ -362,7 +362,7 @@ export default function HelpPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <a
-                    href="https://github.com/supercloud/safeos/issues"
+                    href="https://github.com/framersai/safeos/issues"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
@@ -373,7 +373,7 @@ export default function HelpPage() {
                   </a>
 
                   <a
-                    href="https://discord.gg/supercloud"
+                    href="https://discord.gg/frame"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
@@ -393,14 +393,14 @@ export default function HelpPage() {
                   </a>
 
                   <a
-                    href="https://twitter.com/supercloud"
+                    href="https://twitter.com/framedev"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
                   >
                     <span className="text-2xl">𝕏</span>
                     <h3 className="text-white font-medium mt-2">Twitter/X</h3>
-                    <p className="text-sm text-slate-400">@supercloud</p>
+                    <p className="text-sm text-slate-400">@framedev</p>
                   </a>
                 </div>
               </div>

@@ -41,8 +41,8 @@ const termsSections: TermSection[] = [
           happens locally on your device.
         </p>
         <p>
-          This is a <strong>humanitarian project</strong>—part of SuperCloud&apos;s 10% for 
-          Humanity initiative. We provide this service at no cost, with no premium tiers, 
+          This is a <strong>humanitarian project</strong>—part of Frame&apos;s 10% for
+          Humanity initiative. We provide this service at no cost, with no premium tiers,
           and no hidden monetization.
         </p>
       </div>
@@ -286,11 +286,11 @@ export default function TermsPage() {
           </h2>
           <p className="text-slate-400">
             If you have questions about these terms, contact us at{' '}
-            <a 
-              href="mailto:legal@super.cloud" 
+            <a
+              href="mailto:legal@frame.dev"
               className="text-blue-400 hover:text-blue-300 transition-colors"
             >
-              legal@super.cloud
+              legal@frame.dev
             </a>
           </p>
         </section>
