@@ -288,6 +288,44 @@ export default function NapModePage() {
                             </pre>
                         </div>
 
+                        {/* How Pixel Detection Works */}
+                        <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-6">
+                            <h3 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                                <EyeIcon className="w-4 h-4" />
+                                How Pixel Detection Works
+                            </h3>
+                            <p className="text-sm text-slate-300 mb-4">
+                                Nap Mode uses <strong className="text-white">pixel detection</strong> to monitor
+                                for movement. Here's how it works:
+                            </p>
+                            <ol className="space-y-3 text-sm text-slate-300">
+                                <li className="flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                                    <span>The camera captures video frames continuously (about 30 per second)</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                                    <span>Each frame is compared pixel-by-pixel to the previous frame</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                                    <span>When <strong className="text-white">5 or more pixels</strong> change position, motion is detected</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
+                                    <span>A loud alarm sounds immediately to wake you</span>
+                                </li>
+                            </ol>
+                            <div className="mt-4 p-3 bg-slate-800/50 rounded-lg">
+                                <p className="text-xs text-slate-400">
+                                    <strong className="text-emerald-400">5px threshold</strong> = Ultra-sensitive.
+                                    Even subtle movements like rolling over, reaching arms, or shifting position
+                                    will trigger the alarm. This runs <strong className="text-emerald-400">100% locally</strong> on
+                                    your device with zero network latency.
+                                </p>
+                            </div>
+                        </div>
+
                         {/* Best For Section */}
                         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-6">
                             <h3 className="text-sm font-semibold text-emerald-400 mb-3">
@@ -678,6 +716,15 @@ function CameraIcon({ className = '' }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+    );
+}
+
+function EyeIcon({ className = '' }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
         </svg>
     );
 }

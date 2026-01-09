@@ -76,10 +76,10 @@ export function Nav() {
         {/* Desktop Navigation */}
         <div className="nav-links-desktop">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href || 
+            const isActive = pathname === link.href ||
               (link.href !== '/' && pathname?.startsWith(link.href));
             const Icon = link.icon;
-            
+
             return (
               <Link
                 key={link.href}
@@ -87,8 +87,8 @@ export function Nav() {
                 className={`
                   flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
                   transition-all duration-150 font-[family-name:var(--font-space-grotesk)]
-                  ${isActive 
-                    ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/15' 
+                  ${isActive
+                    ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/15'
                     : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'
                   }
                 `}
@@ -98,6 +98,47 @@ export function Nav() {
               </Link>
             );
           })}
+
+          {/* Separator */}
+          <div className="w-px h-6 bg-white/10 mx-2" />
+
+          {/* Resources Links - Desktop */}
+          <Link
+            href="/about"
+            className={`
+              px-3 py-2 rounded-md text-sm font-medium transition-all duration-150
+              ${pathname === '/about'
+                ? 'text-emerald-400 bg-emerald-500/10'
+                : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/5'
+              }
+            `}
+          >
+            About
+          </Link>
+          <Link
+            href="/faq"
+            className={`
+              px-3 py-2 rounded-md text-sm font-medium transition-all duration-150
+              ${pathname === '/faq'
+                ? 'text-emerald-400 bg-emerald-500/10'
+                : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/5'
+              }
+            `}
+          >
+            FAQ
+          </Link>
+          <Link
+            href="/blog"
+            className={`
+              px-3 py-2 rounded-md text-sm font-medium transition-all duration-150
+              ${pathname === '/blog' || pathname?.startsWith('/blog/')
+                ? 'text-emerald-400 bg-emerald-500/10'
+                : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/5'
+              }
+            `}
+          >
+            Blog
+          </Link>
         </div>
 
         {/* Right Side Actions */}
