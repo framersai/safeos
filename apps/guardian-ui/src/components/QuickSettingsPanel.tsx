@@ -39,6 +39,7 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -137,55 +138,41 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
           </div>
 
           {/* Content - Scrollable */}
-          <div className="p-3 space-y-3 overflow-y-auto max-h-[calc(70vh-44px)]">
-            {/* Preset Selector - Compact */}
+          <div className="p-3 space-y-2.5 overflow-y-auto max-h-[calc(70vh-44px)]">
+            {/* Preset Selector - Dropdown (compact) */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1">
                 <label className="text-[10px] text-slate-400 uppercase tracking-wider">
                   Mode
                 </label>
                 <button
                   onClick={() => setShowInfoModal(true)}
-                  className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-0.5"
                   aria-label="Learn about monitoring modes"
                 >
                   <IconInfo size={12} />
+                  <span>Info</span>
                 </button>
               </div>
-              <div className="space-y-1">
+              <select
+                value={activePresetId}
+                onChange={(e) => setActivePreset(e.target.value as PresetId)}
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-700 text-white text-sm
+                           border border-slate-600 focus:border-emerald-500 focus:outline-none
+                           appearance-none cursor-pointer"
+                style={{ minHeight: '44px' }}
+                aria-label="Select monitoring mode"
+              >
                 {presets.map((preset) => {
                   const presetId = preset.id as PresetId;
                   const isSleep = isSleepPreset(presetId);
-                  const isActive = activePresetId === presetId;
-
                   return (
-                    <button
-                      key={preset.id}
-                      onClick={() => setActivePreset(presetId)}
-                      className={`w-full px-2.5 py-1.5 rounded-md text-left transition-all flex items-center gap-2 ${
-                        isActive
-                          ? isSleep
-                            ? 'bg-purple-500/20 border border-purple-500/40 text-white'
-                            : 'bg-emerald-500/20 border border-emerald-500/40 text-white'
-                          : 'bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 border border-transparent'
-                      }`}
-                    >
-                      <span className="font-medium text-xs flex-1 truncate">{preset.name}</span>
-                      {isSleep && (
-                        <span className="px-1 py-0.5 text-[8px] font-medium uppercase bg-purple-500/30 text-purple-300 rounded">
-                          Sleep
-                        </span>
-                      )}
-                      {preset.useAbsoluteThreshold && (
-                        <span className="text-[9px] font-mono text-emerald-400/60">
-                          {preset.absolutePixelThreshold}px
-                        </span>
-                      )}
-                      {isActive && <IconCheck size={12} className="text-emerald-400" />}
-                    </button>
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name} {isSleep ? '(Sleep)' : ''} {preset.useAbsoluteThreshold ? `[${preset.absolutePixelThreshold}px]` : ''}
+                    </option>
                   );
                 })}
-              </div>
+              </select>
             </div>
 
             {/* Quick Toggles */}
@@ -241,20 +228,6 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
               </div>
             </div>
 
-            {/* Sensitivity Sliders */}
-            <div className="space-y-2">
-              <SensitivitySlider
-                label="Motion"
-                value={globalSettings.motionSensitivity}
-                onChange={(value) => updateGlobalSettings({ motionSensitivity: value })}
-              />
-              <SensitivitySlider
-                label="Audio"
-                value={globalSettings.audioSensitivity}
-                onChange={(value) => updateGlobalSettings({ audioSensitivity: value })}
-              />
-            </div>
-
             {/* Emergency Mode Toggle */}
             <button
               onClick={() => {
@@ -274,16 +247,49 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
               {emergencyModeActive ? 'EMERGENCY ACTIVE' : 'Emergency Mode'}
             </button>
 
-            {/* Test Sounds */}
-            <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 block">Test</label>
-              <div className="flex gap-1">
-                <TestSoundButton label="🔔" onClick={() => soundManager.test('notification')} title="Notification" />
-                <TestSoundButton label="⚠️" onClick={() => soundManager.test('alert')} title="Alert" />
-                <TestSoundButton label="🚨" onClick={() => soundManager.test('warning')} title="Warning" />
-                <TestSoundButton label="🔊" onClick={() => soundManager.test('alarm')} title="Alarm" />
+            {/* Advanced Toggle */}
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full py-1.5 text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1 transition-colors"
+              aria-expanded={showAdvanced}
+              aria-controls="advanced-settings"
+            >
+              <IconChevronUp
+                size={12}
+                className={`transition-transform ${showAdvanced ? '' : 'rotate-180'}`}
+              />
+              {showAdvanced ? 'Less options' : 'More options'}
+            </button>
+
+            {/* Advanced Section - Collapsible */}
+            {showAdvanced && (
+              <div id="advanced-settings" className="space-y-2.5 pt-2 border-t border-slate-700/50">
+                {/* Sensitivity Sliders */}
+                <div className="space-y-2">
+                  <SensitivitySlider
+                    label="Motion"
+                    value={globalSettings.motionSensitivity}
+                    onChange={(value) => updateGlobalSettings({ motionSensitivity: value })}
+                  />
+                  <SensitivitySlider
+                    label="Audio"
+                    value={globalSettings.audioSensitivity}
+                    onChange={(value) => updateGlobalSettings({ audioSensitivity: value })}
+                  />
+                </div>
+
+                {/* Test Sounds */}
+                <div>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 block">Test Sounds</label>
+                  <div className="flex gap-1">
+                    <TestSoundButton label="🔔" onClick={() => soundManager.test('notification')} title="Notification" />
+                    <TestSoundButton label="⚠️" onClick={() => soundManager.test('alert')} title="Alert" />
+                    <TestSoundButton label="🚨" onClick={() => soundManager.test('warning')} title="Warning" />
+                    <TestSoundButton label="🔊" onClick={() => soundManager.test('alarm')} title="Alarm" />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

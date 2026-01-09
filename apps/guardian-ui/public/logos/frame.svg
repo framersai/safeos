@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="48" height="48">
+  <defs>
+    <linearGradient id="frame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <!-- Frame logo - stylized F with frame elements -->
+  <rect x="10" y="10" width="80" height="80" rx="16" fill="url(#frame)"/>
+  <!-- F letter -->
+  <path d="M30 25h40v10H40v10h25v10H40v20H30V25z" fill="#fff"/>
+  <!-- Frame corners -->
+  <path d="M70 55v20h-8v-12h-7v-8h15z" fill="#fff" fill-opacity="0.3"/>
+</svg>

@@ -43,18 +43,18 @@ const footerSections: FooterSection[] = [
     title: 'Resources',
     links: [
       { href: '/help', label: 'Help Center' },
-      { href: '/docs', label: 'Documentation' },
-      { href: '/privacy', label: 'Privacy Policy' },
-      { href: '/terms', label: 'Terms of Service' },
+      { href: '/faq', label: 'FAQ' },
+      { href: '/blog', label: 'Blog' },
+      { href: '/about', label: 'About' },
     ],
   },
   {
     title: 'Frame',
     links: [
       { href: 'https://frame.dev', label: 'frame.dev', external: true },
-      { href: 'https://github.com/framersai', label: 'GitHub', external: true },
+      { href: 'mailto:team@frame.dev', label: 'team@frame.dev', external: true },
+      { href: 'https://github.com/super-cloud-mcps/safeos', label: 'GitHub', external: true },
       { href: 'https://twitter.com/framedev', label: 'Twitter', external: true },
-      { href: 'https://discord.gg/frame', label: 'Discord', external: true },
     ],
   },
 ];

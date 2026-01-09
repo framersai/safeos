@@ -9,12 +9,14 @@
  */
 
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   IconChevronLeft,
   IconShield,
   IconHeart,
   IconGlobe,
   IconDatabase,
+  IconExternalLink,
 } from '../../components/icons';
 
 // =============================================================================
@@ -57,6 +59,59 @@ function TeamMember({
       </div>
       <h4 className="font-medium text-white">{name}</h4>
       <p className="text-sm text-slate-400">{role}</p>
+    </div>
+  );
+}
+
+function TechStackItem({
+  name,
+  description,
+  logo,
+}: {
+  name: string;
+  description: string;
+  logo: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl hover:border-emerald-500/50 transition-colors">
+      <div className="w-12 h-12 relative">
+        <Image
+          src={`/logos/${logo}`}
+          alt={name}
+          width={48}
+          height={48}
+          className="object-contain"
+        />
+      </div>
+      <span className="text-sm font-medium text-white">{name}</span>
+      <span className="text-xs text-slate-400 text-center">{description}</span>
+    </div>
+  );
+}
+
+function ArchitectureStep({
+  step,
+  icon,
+  title,
+  description,
+}: {
+  step: number;
+  icon: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold">
+        {step}
+      </div>
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xl">{icon}</span>
+          <h4 className="font-medium text-white">{title}</h4>
+        </div>
+        <p className="text-sm text-slate-400">{description}</p>
+      </div>
     </div>
   );
 }
@@ -189,45 +244,121 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Technology */}
+        {/* Tech Stack */}
         <section className="mb-16">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <span className="text-emerald-400">04</span>
-            Technology
+            Tech Stack
+          </h3>
+          <p className="text-slate-400 mb-6">
+            SafeOS Guardian is built with cutting-edge, production-ready technologies:
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <TechStackItem
+              name="Next.js 14"
+              description="React framework"
+              logo="nextjs.svg"
+            />
+            <TechStackItem
+              name="React 18"
+              description="UI library"
+              logo="react.svg"
+            />
+            <TechStackItem
+              name="TypeScript"
+              description="Type safety"
+              logo="typescript.svg"
+            />
+            <TechStackItem
+              name="TensorFlow.js"
+              description="On-device ML"
+              logo="tensorflow.svg"
+            />
+            <TechStackItem
+              name="Zustand"
+              description="State management"
+              logo="zustand.svg"
+            />
+            <TechStackItem
+              name="Tailwind CSS"
+              description="Styling"
+              logo="tailwind.svg"
+            />
+            <TechStackItem
+              name="IndexedDB"
+              description="Local storage"
+              logo="indexeddb.svg"
+            />
+            <TechStackItem
+              name="Capacitor"
+              description="Mobile apps"
+              logo="capacitor.svg"
+            />
+          </div>
+          <div className="mt-6 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
+            <p className="text-sm text-slate-400">
+              <span className="text-emerald-400 font-medium">100% Browser-Based:</span>{' '}
+              All ML inference runs locally using TensorFlow.js. No data ever leaves your device
+              unless you explicitly enable optional cloud features.
+            </p>
+          </div>
+        </section>
+
+        {/* Architecture */}
+        <section className="mb-16">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="text-emerald-400">05</span>
+            How It Works
           </h3>
           <div className="p-6 bg-slate-900 border border-slate-700 rounded-xl">
-            <p className="text-slate-300 leading-relaxed mb-4">
-              SafeOS Guardian is built with modern web technologies:
+            <p className="text-slate-300 leading-relaxed mb-6">
+              SafeOS Guardian uses a local-first architecture that keeps your data private while
+              delivering powerful AI-driven monitoring:
             </p>
-            <ul className="space-y-2 text-slate-400">
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-1">•</span>
-                <span><strong className="text-white">Next.js & React</strong> — Fast, responsive user interface</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-1">•</span>
-                <span><strong className="text-white">TensorFlow.js</strong> — AI detection running in your browser</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-1">•</span>
-                <span><strong className="text-white">IndexedDB</strong> — Local-first data storage</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-1">•</span>
-                <span><strong className="text-white">Web Audio API</strong> — Real-time audio analysis</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-1">•</span>
-                <span><strong className="text-white">MediaDevices API</strong> — Camera and microphone access</span>
-              </li>
-            </ul>
+            <div className="space-y-6">
+              <ArchitectureStep
+                step={1}
+                icon="📹"
+                title="Camera & Microphone Access"
+                description="Your browser requests permission to access your device's camera and microphone. Video and audio streams never leave your device."
+              />
+              <ArchitectureStep
+                step={2}
+                icon="🧠"
+                title="Local AI Processing"
+                description="TensorFlow.js analyzes frames in real-time directly in your browser. Motion detection, cry analysis, and pixel monitoring all happen on your device."
+              />
+              <ArchitectureStep
+                step={3}
+                icon="🔔"
+                title="Instant Alerts"
+                description="When motion or sound is detected, you receive immediate browser notifications and audio alerts. No server round-trip delay."
+              />
+              <ArchitectureStep
+                step={4}
+                icon="💾"
+                title="Local Storage"
+                description="All settings, alert history, and preferences are stored in IndexedDB on your device. Nothing is sent to remote servers."
+              />
+              <ArchitectureStep
+                step={5}
+                icon="☁️"
+                title="Optional Cloud Sync"
+                description="If enabled, only encrypted metadata syncs across your devices. Video and audio data always stays local."
+              />
+            </div>
+            <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+              <p className="text-sm text-emerald-300 font-medium">
+                Privacy by Design: Even we can&apos;t see your camera feed or hear your audio.
+              </p>
+            </div>
           </div>
         </section>
 
         {/* Abuse Policy */}
         <section className="mb-16">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <span className="text-emerald-400">05</span>
+            <span className="text-emerald-400">06</span>
             Abuse Prevention
           </h3>
           <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-xl">
@@ -256,10 +387,61 @@ export default function AboutPage() {
           </div>
         </section>
 
+        {/* Built by Frame.dev */}
+        <section className="mb-16">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="text-emerald-400">07</span>
+            Built by Frame.dev
+          </h3>
+          <div className="p-6 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-xl">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 relative flex-shrink-0">
+                <Image
+                  src="/logos/frame.svg"
+                  alt="Frame.dev"
+                  width={64}
+                  height={64}
+                  className="object-contain"
+                />
+              </div>
+              <div>
+                <h4 className="font-semibold text-white text-lg">Frame.dev</h4>
+                <p className="text-sm text-slate-400">Building tools for humanity</p>
+              </div>
+            </div>
+            <p className="text-slate-300 leading-relaxed mb-4">
+              SafeOS Guardian is created by the team at{' '}
+              <a
+                href="https://frame.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 font-medium"
+              >
+                Frame.dev
+              </a>
+              . We&apos;re a small team of developers passionate about building open-source tools
+              that make a real difference in people&apos;s lives.
+            </p>
+            <p className="text-slate-400 leading-relaxed mb-4">
+              We believe AI should be accessible to everyone, not just large corporations. That&apos;s why
+              SafeOS runs entirely in your browser—no expensive servers, no subscriptions, no gatekeeping.
+            </p>
+            <a
+              href="https://frame.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:bg-blue-500/30 transition-colors"
+            >
+              Visit Frame.dev
+              <IconExternalLink size={16} />
+            </a>
+          </div>
+        </section>
+
         {/* Contact */}
         <section className="mb-16">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <span className="text-emerald-400">06</span>
+            <span className="text-emerald-400">08</span>
             Contact
           </h3>
           <div className="p-6 bg-slate-900 border border-slate-700 rounded-xl">
@@ -281,10 +463,21 @@ export default function AboutPage() {
               <p className="text-slate-400">
                 <strong className="text-white">Email:</strong>{' '}
                 <a
-                  href="mailto:safeos@example.com"
+                  href="mailto:team@frame.dev"
                   className="text-emerald-400 hover:text-emerald-300"
                 >
-                  safeos@example.com
+                  team@frame.dev
+                </a>
+              </p>
+              <p className="text-slate-400">
+                <strong className="text-white">Website:</strong>{' '}
+                <a
+                  href="https://frame.dev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 hover:text-emerald-300"
+                >
+                  frame.dev
                 </a>
               </p>
             </div>

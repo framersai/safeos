@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="48" height="48">
+  <defs>
+    <linearGradient id="pwa1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3DDC84"/>
+      <stop offset="100%" stop-color="#5865F2"/>
+    </linearGradient>
+  </defs>
+  <!-- App icon shape -->
+  <rect x="10" y="10" width="80" height="80" rx="18" fill="url(#pwa1)"/>
+  <!-- P -->
+  <path d="M25 30h12c6 0 10 4 10 10s-4 10-10 10h-6v15h-6V30zm6 14h5c2.5 0 4.5-2 4.5-4.5s-2-4.5-4.5-4.5h-5v9z" fill="#fff"/>
+  <!-- W -->
+  <path d="M50 30h5l4 25 5-25h5l5 25 4-25h5l-7 35h-5l-5-23-5 23h-5l-6-35z" fill="#fff"/>
+</svg>

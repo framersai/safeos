@@ -178,7 +178,38 @@ export function Nav() {
             );
           })}
 
-          {/* SuperCloud CTA - Mobile */}
+          {/* Resources - Mobile */}
+          <div className="border-t border-white/5 mt-3 pt-3">
+            <span className="block px-4 py-2 text-xs text-zinc-500 uppercase tracking-wider font-medium">
+              Resources
+            </span>
+            <Link
+              href="/about"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span className="text-lg">📖</span>
+              <span>About</span>
+            </Link>
+            <Link
+              href="/faq"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span className="text-lg">❓</span>
+              <span>FAQ</span>
+            </Link>
+            <Link
+              href="/blog"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span className="text-lg">📝</span>
+              <span>Blog</span>
+            </Link>
+          </div>
+
+          {/* Frame.dev CTA - Mobile */}
           <div className="border-t border-white/5 mt-3 pt-3">
             <a
               href="https://frame.dev"
@@ -187,8 +218,8 @@ export function Nav() {
               className="flex items-center gap-3 px-4 py-3.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <svg 
-                viewBox="0 0 24 24" 
+              <svg
+                viewBox="0 0 24 24"
                 className="w-5 h-5 text-emerald-500"
                 fill="none"
                 stroke="currentColor"

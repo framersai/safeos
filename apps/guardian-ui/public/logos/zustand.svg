@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="48" height="48">
+  <defs>
+    <linearGradient id="bear" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#764abc"/>
+      <stop offset="100%" stop-color="#5a3d9a"/>
+    </linearGradient>
+  </defs>
+  <!-- Bear face -->
+  <circle cx="50" cy="55" r="35" fill="url(#bear)"/>
+  <!-- Ears -->
+  <circle cx="25" cy="30" r="12" fill="url(#bear)"/>
+  <circle cx="75" cy="30" r="12" fill="url(#bear)"/>
+  <circle cx="25" cy="30" r="6" fill="#e8d5f2"/>
+  <circle cx="75" cy="30" r="6" fill="#e8d5f2"/>
+  <!-- Eyes -->
+  <circle cx="38" cy="50" r="5" fill="#fff"/>
+  <circle cx="62" cy="50" r="5" fill="#fff"/>
+  <circle cx="39" cy="51" r="3" fill="#333"/>
+  <circle cx="63" cy="51" r="3" fill="#333"/>
+  <!-- Nose -->
+  <ellipse cx="50" cy="65" rx="8" ry="6" fill="#e8d5f2"/>
+  <ellipse cx="50" cy="63" rx="4" ry="3" fill="#333"/>
+  <!-- Mouth -->
+  <path d="M45 70 Q50 76 55 70" stroke="#333" stroke-width="2" fill="none"/>
+</svg>
