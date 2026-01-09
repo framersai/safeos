@@ -11,7 +11,7 @@
 'use client';
 
 import { cacheAlert, getCachedAlerts, saveSetting, getSetting } from './client-db';
-import { notificationManager } from './notification-manager';
+import { getNotificationManager } from './notification-manager';
 
 // =============================================================================
 // Types
@@ -648,7 +648,7 @@ class LocalAlertEngine {
 
   private async showNotification(alert: LocalAlert): Promise<void> {
     try {
-      await notificationManager.show(alert.message, {
+      await getNotificationManager().show(alert.message, {
         body: alert.description,
         tag: alert.id,
         requireInteraction: alert.severity === 'critical' || alert.severity === 'emergency',
