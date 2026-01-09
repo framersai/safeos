@@ -20,12 +20,52 @@ import { useLostFoundStore, createMatchFrame, getMatcherSettings } from '../../s
 import { getSubjectMatcher, type MatchResult } from '../../lib/subject-matcher';
 import { saveMatchFrame, type MatchFrameDB } from '../../lib/client-db';
 import { useWebSocket, type WSMessage } from '../../lib/websocket';
+import { getSoundManager } from '../../lib/sound-manager';
 
 // =============================================================================
 // Constants
 // =============================================================================
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
+const THUMBNAIL_WIDTH = 160;
+const THUMBNAIL_HEIGHT = 120;
+const THUMBNAIL_QUALITY = 0.3;
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Create a compressed thumbnail from frame data
+ * @param frameData - Base64 image data URL
+ * @returns Promise resolving to compressed thumbnail data URL
+ */
+async function createThumbnail(frameData: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = THUMBNAIL_WIDTH;
+      canvas.height = THUMBNAIL_HEIGHT;
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Draw scaled-down image
+        ctx.drawImage(img, 0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
+        // Export as compressed JPEG
+        resolve(canvas.toDataURL('image/jpeg', THUMBNAIL_QUALITY));
+      } else {
+        // Fallback to original if canvas fails
+        resolve(frameData);
+      }
+    };
+    img.onerror = () => {
+      // Fallback to original on error
+      resolve(frameData);
+    };
+    img.src = frameData;
+  });
+}
 
 // =============================================================================
 // Component
@@ -95,32 +135,35 @@ export default function MonitorPage() {
       
       // Check if should record
       if (matcher.shouldRecord() && result.frameData) {
-        // Create match frame and save to IndexedDB
-        const matchFrame: MatchFrameDB = {
-          id: result.id,
-          subjectId: activeSubject.id,
-          frameData: result.frameData,
-          thumbnailData: result.frameData, // TODO: Create thumbnail
-          confidence: result.confidence,
-          timestamp: result.timestamp,
-          details: result.details,
-          region: result.region || null,
-          acknowledged: false,
-          notes: '',
-          exported: false,
-        };
-        
-        saveMatchFrame(matchFrame);
+        // Create match frame and save to IndexedDB (async thumbnail creation)
+        const frameData = result.frameData;
+        createThumbnail(frameData).then((thumbnailData) => {
+          const matchFrame: MatchFrameDB = {
+            id: result.id,
+            subjectId: activeSubject.id,
+            frameData: frameData,
+            thumbnailData: thumbnailData,
+            confidence: result.confidence,
+            timestamp: result.timestamp,
+            details: result.details,
+            region: result.region || null,
+            acknowledged: false,
+            notes: '',
+            exported: false,
+          };
+
+          saveMatchFrame(matchFrame);
+        });
         addMatchFrameToStore(createMatchFrame(activeSubject.id, result));
       }
-      
+
       // Check if should alert
       if (matcher.shouldAlert()) {
         recordLostFoundAlert();
-        
+
         // Play sound if enabled
         if (lostFoundSettings.alertSound) {
-          // TODO: Play alert sound
+          getSoundManager().play('alert');
         }
         
         // Show notification if enabled
