@@ -9,11 +9,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSettingsStore, DEFAULT_PRESETS, PresetId, isSleepPreset, getProcessingModeInfo } from '../stores/settings-store';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSettingsStore, DEFAULT_PRESETS, PresetId, isSleepPreset } from '../stores/settings-store';
 import { useSoundManager } from '../lib/sound-manager';
-import { useNotifications } from '../lib/notification-manager';
-import { PresetTooltip } from './PresetTooltip';
 import { PresetInfoModal } from './PresetInfoModal';
 import {
   IconSettings,
@@ -22,12 +20,10 @@ import {
   IconShield,
   IconCamera,
   IconMicrophone,
-  IconBell,
   IconAlertTriangle,
   IconCheck,
   IconX,
   IconChevronUp,
-  IconChevronDown,
   IconInfo,
 } from './icons';
 
@@ -43,7 +39,8 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
-  
+  const panelRef = useRef<HTMLDivElement>(null);
+
   const {
     activePresetId,
     globalSettings,
@@ -55,13 +52,45 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
     activateEmergencyMode,
     deactivateEmergencyMode,
   } = useSettingsStore();
-  
+
   const soundManager = useSoundManager();
-  const notifications = useNotifications();
+
+  // Close panel handler
+  const closePanel = useCallback(() => {
+    setIsExpanded(false);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Escape key to close
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closePanel();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded, closePanel]);
+
+  // Click outside to close
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        closePanel();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isExpanded, closePanel]);
 
   if (!mounted) return null;
 
@@ -84,117 +113,97 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
 
       {/* Expanded Panel */}
       {isExpanded && (
-        <div className="bg-slate-800/95 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-2xl 
-                        w-80 overflow-hidden animate-in">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Quick Settings"
+          className="bg-slate-800/95 backdrop-blur-sm border border-slate-700/50 rounded-xl shadow-2xl
+                     w-72 max-h-[70vh] overflow-hidden animate-in"
+        >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-700/50 bg-slate-900/50">
             <div className="flex items-center gap-2">
-              <IconSettings size={18} className="text-emerald-500" />
-              <span className="text-white font-semibold">Quick Settings</span>
+              <IconSettings size={16} className="text-emerald-500" />
+              <span className="text-white font-semibold text-sm">Quick Settings</span>
             </div>
             <button
-              onClick={() => setIsExpanded(false)}
-              className="p-1.5 rounded-lg hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
+              onClick={closePanel}
+              className="p-1 rounded-md hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
+              aria-label="Close settings (Escape)"
             >
-              <IconChevronDown size={18} />
+              <IconX size={16} />
             </button>
           </div>
 
-          {/* Content */}
-          <div className="p-4 space-y-4">
-            {/* Preset Selector */}
+          {/* Content - Scrollable */}
+          <div className="p-3 space-y-3 overflow-y-auto max-h-[calc(70vh-44px)]">
+            {/* Preset Selector - Compact */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs text-slate-400 uppercase tracking-wider">
-                  Security Preset
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] text-slate-400 uppercase tracking-wider">
+                  Mode
                 </label>
                 <button
                   onClick={() => setShowInfoModal(true)}
-                  className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
                   aria-label="Learn about monitoring modes"
                 >
-                  <IconInfo size={14} />
-                  <span>What do these do?</span>
+                  <IconInfo size={12} />
                 </button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {presets.map((preset) => {
                   const presetId = preset.id as PresetId;
                   const isSleep = isSleepPreset(presetId);
-                  const processingInfo = getProcessingModeInfo(preset.processingMode);
                   const isActive = activePresetId === presetId;
 
                   return (
-                    <PresetTooltip key={preset.id} presetId={presetId} position="left">
-                      <button
-                        onClick={() => setActivePreset(presetId)}
-                        className={`w-full p-3 rounded-lg text-left transition-all ${
-                          isActive
-                            ? isSleep
-                              ? 'bg-purple-500/20 border border-purple-500/50 text-white'
-                              : 'bg-emerald-500/20 border border-emerald-500/50 text-white'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{preset.name}</span>
-                          {isSleep && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider
-                                           bg-purple-500/30 text-purple-300 rounded">
-                              Sleep
-                            </span>
-                          )}
-                          {isActive && (
-                            <IconCheck size={14} className="ml-auto text-emerald-400" />
-                          )}
-                        </div>
-                        {/* Inline description */}
-                        <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">
-                          {preset.description.split('.')[0]}
-                        </p>
-                        {/* Stats row */}
-                        <div className="flex items-center gap-2 mt-1.5">
-                          {preset.useAbsoluteThreshold && (
-                            <span className="text-[9px] font-mono text-emerald-400/70">
-                              {preset.absolutePixelThreshold}px
-                            </span>
-                          )}
-                          <span className={`text-[9px] uppercase ${
-                            processingInfo.color === 'green' ? 'text-emerald-400/70' :
-                            processingInfo.color === 'amber' ? 'text-amber-400/70' :
-                            'text-blue-400/70'
-                          }`}>
-                            {processingInfo.label}
-                          </span>
-                        </div>
-                      </button>
-                    </PresetTooltip>
+                    <button
+                      key={preset.id}
+                      onClick={() => setActivePreset(presetId)}
+                      className={`w-full px-2.5 py-1.5 rounded-md text-left transition-all flex items-center gap-2 ${
+                        isActive
+                          ? isSleep
+                            ? 'bg-purple-500/20 border border-purple-500/40 text-white'
+                            : 'bg-emerald-500/20 border border-emerald-500/40 text-white'
+                          : 'bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 border border-transparent'
+                      }`}
+                    >
+                      <span className="font-medium text-xs flex-1 truncate">{preset.name}</span>
+                      {isSleep && (
+                        <span className="px-1 py-0.5 text-[8px] font-medium uppercase bg-purple-500/30 text-purple-300 rounded">
+                          Sleep
+                        </span>
+                      )}
+                      {preset.useAbsoluteThreshold && (
+                        <span className="text-[9px] font-mono text-emerald-400/60">
+                          {preset.absolutePixelThreshold}px
+                        </span>
+                      )}
+                      {isActive && <IconCheck size={12} className="text-emerald-400" />}
+                    </button>
                   );
                 })}
               </div>
             </div>
 
             {/* Quick Toggles */}
-            <div className="grid grid-cols-3 gap-2">
-              {/* Motion Detection */}
+            <div className="grid grid-cols-3 gap-1.5">
               <QuickToggle
-                icon={<IconCamera size={18} />}
+                icon={<IconCamera size={14} />}
                 label="Motion"
                 active={globalSettings.motionDetectionEnabled}
                 onChange={(enabled) => updateGlobalSettings({ motionDetectionEnabled: enabled })}
               />
-              
-              {/* Audio Detection */}
               <QuickToggle
-                icon={<IconMicrophone size={18} />}
+                icon={<IconMicrophone size={14} />}
                 label="Audio"
                 active={globalSettings.audioDetectionEnabled}
                 onChange={(enabled) => updateGlobalSettings({ audioDetectionEnabled: enabled })}
               />
-              
-              {/* Pixel Detection */}
               <QuickToggle
-                icon={<IconShield size={18} />}
+                icon={<IconShield size={14} />}
                 label="Pixel"
                 active={globalSettings.pixelDetectionEnabled}
                 onChange={(enabled) => updateGlobalSettings({ pixelDetectionEnabled: enabled })}
@@ -203,24 +212,19 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
 
             {/* Volume Slider */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs text-slate-400 uppercase tracking-wider">
-                  Alert Volume
-                </label>
-                <span className="text-xs text-emerald-500 font-mono">
-                  {globalSettings.alertVolume}%
-                </span>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] text-slate-400 uppercase tracking-wider">Volume</label>
+                <span className="text-[10px] text-emerald-500 font-mono">{globalSettings.alertVolume}%</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={toggleGlobalMute}
-                  className={`p-2 rounded-lg transition-colors ${
-                    globalMute
-                      ? 'bg-red-500/20 text-red-400'
-                      : 'bg-slate-700/50 text-slate-400 hover:text-white'
+                  className={`p-1.5 rounded transition-colors ${
+                    globalMute ? 'bg-red-500/20 text-red-400' : 'bg-slate-700/50 text-slate-400 hover:text-white'
                   }`}
+                  aria-label={globalMute ? 'Unmute' : 'Mute'}
                 >
-                  {globalMute ? <IconVolumeX size={18} /> : <IconVolume2 size={18} />}
+                  {globalMute ? <IconVolumeX size={14} /> : <IconVolume2 size={14} />}
                 </button>
                 <input
                   type="range"
@@ -228,85 +232,58 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
                   max="100"
                   value={globalSettings.alertVolume}
                   onChange={(e) => updateGlobalSettings({ alertVolume: parseInt(e.target.value) })}
-                  className="flex-1 h-2 rounded-full appearance-none bg-slate-700 
-                             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 
-                             [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full 
+                  className="flex-1 h-1.5 rounded-full appearance-none bg-slate-700
+                             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3
+                             [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full
                              [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer"
+                  aria-label="Alert volume"
                 />
               </div>
             </div>
 
             {/* Sensitivity Sliders */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <SensitivitySlider
-                label="Motion Sensitivity"
+                label="Motion"
                 value={globalSettings.motionSensitivity}
                 onChange={(value) => updateGlobalSettings({ motionSensitivity: value })}
               />
               <SensitivitySlider
-                label="Audio Sensitivity"
+                label="Audio"
                 value={globalSettings.audioSensitivity}
                 onChange={(value) => updateGlobalSettings({ audioSensitivity: value })}
               />
             </div>
 
             {/* Emergency Mode Toggle */}
-            <div className="pt-2 border-t border-slate-700/50">
-              <button
-                onClick={() => {
-                  if (emergencyModeActive) {
-                    deactivateEmergencyMode();
-                  } else {
-                    activateEmergencyMode('manual');
-                  }
-                }}
-                className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                  emergencyModeActive
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : 'bg-slate-700/50 text-slate-300 hover:bg-red-500/20 hover:text-red-400'
-                }`}
-              >
-                <IconAlertTriangle size={18} />
-                {emergencyModeActive ? 'EMERGENCY MODE ACTIVE' : 'Enable Emergency Mode'}
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                if (emergencyModeActive) {
+                  deactivateEmergencyMode();
+                } else {
+                  activateEmergencyMode('manual');
+                }
+              }}
+              className={`w-full py-2 rounded-lg font-medium text-xs flex items-center justify-center gap-1.5 transition-all ${
+                emergencyModeActive
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-slate-700/50 text-slate-300 hover:bg-red-500/20 hover:text-red-400 border border-slate-600/50'
+              }`}
+            >
+              <IconAlertTriangle size={14} />
+              {emergencyModeActive ? 'EMERGENCY ACTIVE' : 'Emergency Mode'}
+            </button>
 
             {/* Test Sounds */}
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block">
-                Test Sounds
-              </label>
-              <div className="flex gap-2">
-                <TestSoundButton 
-                  label="Notification" 
-                  onClick={() => soundManager.test('notification')} 
-                />
-                <TestSoundButton 
-                  label="Alert" 
-                  onClick={() => soundManager.test('alert')} 
-                />
-                <TestSoundButton 
-                  label="Warning" 
-                  onClick={() => soundManager.test('warning')} 
-                />
-                <TestSoundButton 
-                  label="Alarm" 
-                  onClick={() => soundManager.test('alarm')} 
-                />
+              <label className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 block">Test</label>
+              <div className="flex gap-1">
+                <TestSoundButton label="🔔" onClick={() => soundManager.test('notification')} title="Notification" />
+                <TestSoundButton label="⚠️" onClick={() => soundManager.test('alert')} title="Alert" />
+                <TestSoundButton label="🚨" onClick={() => soundManager.test('warning')} title="Warning" />
+                <TestSoundButton label="🔊" onClick={() => soundManager.test('alarm')} title="Alarm" />
               </div>
             </div>
-
-            {/* Notification Permission */}
-            {!notifications.isGranted && (
-              <button
-                onClick={notifications.requestPermission}
-                className="w-full py-2 px-4 bg-blue-500/20 text-blue-400 rounded-lg text-sm
-                           flex items-center justify-center gap-2 hover:bg-blue-500/30 transition-colors"
-              >
-                <IconBell size={16} />
-                Enable Browser Notifications
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -335,15 +312,17 @@ function QuickToggle({ icon, label, active, onChange }: QuickToggleProps) {
   return (
     <button
       onClick={() => onChange(!active)}
-      className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
+      className={`flex flex-col items-center gap-0.5 py-2 px-1.5 rounded-md transition-all ${
         active
           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-          : 'bg-slate-700/50 text-slate-400 border border-transparent hover:bg-slate-700'
+          : 'bg-slate-700/30 text-slate-400 border border-transparent hover:bg-slate-700/50'
       }`}
+      aria-pressed={active}
+      aria-label={`${label} detection`}
     >
       {icon}
-      <span className="text-xs">{label}</span>
-      <div className={`w-3 h-3 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+      <span className="text-[10px]">{label}</span>
+      <div className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-600'}`} />
     </button>
   );
 }
@@ -356,22 +335,21 @@ interface SensitivitySliderProps {
 
 function SensitivitySlider({ label, value, onChange }: SensitivitySliderProps) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <label className="text-xs text-slate-400">{label}</label>
-        <span className="text-xs text-emerald-500 font-mono">{value}%</span>
-      </div>
+    <div className="flex items-center gap-2">
+      <label className="text-[10px] text-slate-400 w-12">{label}</label>
       <input
         type="range"
         min="0"
         max="100"
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none bg-slate-700 
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 
-                   [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full 
+        className="flex-1 h-1 rounded-full appearance-none bg-slate-700
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5
+                   [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full
                    [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer"
+        aria-label={`${label} sensitivity`}
       />
+      <span className="text-[10px] text-emerald-500 font-mono w-8 text-right">{value}%</span>
     </div>
   );
 }
@@ -379,14 +357,17 @@ function SensitivitySlider({ label, value, onChange }: SensitivitySliderProps) {
 interface TestSoundButtonProps {
   label: string;
   onClick: () => void;
+  title?: string;
 }
 
-function TestSoundButton({ label, onClick }: TestSoundButtonProps) {
+function TestSoundButton({ label, onClick, title }: TestSoundButtonProps) {
   return (
     <button
       onClick={onClick}
-      className="flex-1 py-1.5 px-2 bg-slate-700/50 rounded text-xs text-slate-300 
-                 hover:bg-slate-700 hover:text-white transition-colors"
+      title={title}
+      className="flex-1 py-1 px-1.5 bg-slate-700/30 rounded text-sm
+                 hover:bg-slate-700/50 transition-colors"
+      aria-label={`Test ${title || label} sound`}
     >
       {label}
     </button>

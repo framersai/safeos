@@ -32,14 +32,13 @@ jobs:
         working-directory: packages/safeos
       
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: packages/safeos/coverage/lcov.info
           flags: safeos
           name: safeos-coverage
           fail_ci_if_error: false
-          verbose: true
 
   lint:
     runs-on: ubuntu-latest

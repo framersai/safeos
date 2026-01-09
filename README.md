@@ -1,13 +1,25 @@
 # SafeOS Guardian
 
 <div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/guardian-ui/public/logo.svg">
+    <source media="(prefers-color-scheme: light)" srcset="apps/guardian-ui/public/logo.svg">
+    <img alt="SafeOS Guardian Logo" src="apps/guardian-ui/public/logo.svg" width="200" height="200">
+  </picture>
+
   <h3>🛡️ Free AI-Powered Monitoring for Pets, Babies, and Elderly Care</h3>
-  <p>Part of SuperCloud's 10% for Humanity Initiative</p>
+  <p><strong>Part of Frame's Humanitarian Initiative</strong></p>
+
+  <p>
+    <a href="https://frame.dev">🌐 frame.dev</a> •
+    <a href="https://safeos.sh">🔗 safeos.sh</a> •
+    <a href="mailto:team@frame.dev">📧 team@frame.dev</a>
+  </p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
   [![Ollama](https://img.shields.io/badge/Ollama-Local%20AI-purple.svg)](https://ollama.com/)
-  [![codecov](https://codecov.io/gh/your-org/super-cloud-mcps/branch/main/graph/badge.svg?flag=safeos)](https://codecov.io/gh/your-org/super-cloud-mcps)
+  [![Frame](https://img.shields.io/badge/By-Frame-emerald.svg)](https://frame.dev)
 </div>
 
 ---
