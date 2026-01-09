@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { CreateProfileModal, ProfileFormData } from '@/components/CreateProfileModal';
 
 // =============================================================================
 // Types
@@ -77,6 +78,7 @@ export default function ProfilesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState<MonitoringProfile | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     fetchProfiles();
@@ -102,13 +104,43 @@ export default function ProfilesPage() {
   };
 
   const handleActivate = async (profileId: string) => {
-    // TODO: Implement activate profile API
-    setProfiles((prev) =>
-      prev.map((p) => ({
-        ...p,
-        is_active: p.id === profileId,
-      }))
-    );
+    try {
+      const response = await fetch(`/api/profiles/${profileId}/activate`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state to reflect activation
+        setProfiles((prev) =>
+          prev.map((p) => ({
+            ...p,
+            is_active: p.id === profileId,
+          }))
+        );
+      } else {
+        setError(data.error || 'Failed to activate profile');
+      }
+    } catch (err) {
+      setError('Failed to activate profile. Please try again.');
+    }
+  };
+
+  const handleCreateProfile = async (data: ProfileFormData) => {
+    const response = await fetch('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to create profile');
+    }
+
+    // Add new profile to list and refresh
+    await fetchProfiles();
   };
 
   return (
@@ -126,9 +158,7 @@ export default function ProfilesPage() {
           </div>
 
           <button
-            onClick={() => {
-              // TODO: Open create profile modal
-            }}
+            onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,9 +307,7 @@ export default function ProfilesPage() {
 
             {/* Create New Card */}
             <button
-              onClick={() => {
-                // TODO: Open create profile modal
-              }}
+              onClick={() => setIsCreateModalOpen(true)}
               className="p-6 rounded-xl border-2 border-dashed border-slate-700 hover:border-slate-500 transition-colors flex flex-col items-center justify-center text-center min-h-[300px]"
             >
               <div className="w-16 h-16 rounded-xl bg-slate-800 flex items-center justify-center mb-4">
@@ -313,6 +341,13 @@ export default function ProfilesPage() {
           </div>
         </div>
       </div>
+
+      {/* Create Profile Modal */}
+      <CreateProfileModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateProfile}
+      />
     </div>
   );
 }
