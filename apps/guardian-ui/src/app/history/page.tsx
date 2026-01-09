@@ -103,7 +103,15 @@ export default function HistoryPage() {
     setError(null);
 
     // Skip API calls in static mode (GitHub Pages deployment)
-    if (isStaticMode()) {
+    // Check both the utility function and directly check hostname
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isStatic = isStaticMode() ||
+      hostname === 'safeos.sh' ||
+      hostname.endsWith('.github.io') ||
+      hostname.endsWith('.pages.dev');
+
+    if (isStatic) {
+      console.log('[History] Static mode detected, skipping API calls');
       setAlerts([]);
       setAnalysisResults([]);
       setIsLoading(false);
