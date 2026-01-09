@@ -47,6 +47,28 @@ interface RecentActivity {
   severity?: 'info' | 'warning' | 'error';
 }
 
+interface Stream {
+  id: string;
+  scenario: 'pet' | 'baby' | 'elderly';
+  status: 'active' | 'paused' | 'ended' | 'banned';
+  createdAt: string;
+  updatedAt: string;
+  alertCount?: number;
+  lastActivity?: string;
+}
+
+interface User {
+  id: string;
+  email?: string;
+  deviceId?: string;
+  displayName?: string;
+  role: 'admin' | 'user' | 'viewer';
+  status: 'active' | 'suspended' | 'banned';
+  createdAt: string;
+  lastActive?: string;
+  streamCount?: number;
+}
+
 type AdminTab = 'overview' | 'reviews' | 'streams' | 'users' | 'system' | 'logs';
 
 // =============================================================================
@@ -418,28 +440,463 @@ function ReviewsTab({ flags, onAction }: { flags: ContentFlag[]; onAction: (id: 
 }
 
 function StreamsTab() {
+  const [streams, setStreams] = useState<Stream[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'active' | 'paused' | 'ended'>('all');
+
+  useEffect(() => {
+    fetchStreams();
+  }, []);
+
+  const fetchStreams = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/streams');
+      if (res.ok) {
+        const data = await res.json();
+        setStreams(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch streams:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStreamAction = async (streamId: string, action: 'pause' | 'resume' | 'end' | 'ban') => {
+    try {
+      const statusMap: Record<string, string> = {
+        pause: 'paused',
+        resume: 'active',
+        end: 'ended',
+        ban: 'banned',
+      };
+      await fetch(`/api/streams/${streamId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: statusMap[action] }),
+      });
+      fetchStreams();
+    } catch (error) {
+      console.error('Failed to update stream:', error);
+    }
+  };
+
+  const filteredStreams = filter === 'all'
+    ? streams
+    : streams.filter((s) => s.status === filter);
+
+  const scenarioIcons: Record<string, string> = {
+    pet: '🐾',
+    baby: '👶',
+    elderly: '👵',
+  };
+
+  const statusColors: Record<string, string> = {
+    active: 'bg-emerald-500/20 text-emerald-400',
+    paused: 'bg-yellow-500/20 text-yellow-400',
+    ended: 'bg-slate-500/20 text-slate-400',
+    banned: 'bg-red-500/20 text-red-400',
+  };
+
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-      <h3 className="text-white font-semibold mb-4">Stream Management</h3>
-      <p className="text-slate-400">View and manage all active and historical streams.</p>
-      {/* TODO: Implement stream management table */}
-      <div className="mt-4 p-8 bg-slate-700/30 rounded-lg text-center">
-        <span className="text-4xl opacity-50">📹</span>
-        <p className="text-slate-500 mt-2">Stream management coming soon</p>
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {(['all', 'active', 'paused', 'ended'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors ${
+                filter === f
+                  ? 'bg-slate-700 text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={fetchStreams}
+          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-6 h-6 border-2 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
+          </div>
+        ) : filteredStreams.length === 0 ? (
+          <div className="p-8 text-center">
+            <span className="text-4xl opacity-50">📹</span>
+            <p className="text-slate-500 mt-2">No streams found</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700/50">
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">ID</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Scenario</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Alerts</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Created</th>
+                <th className="text-right p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/30">
+              {filteredStreams.map((stream) => (
+                <tr key={stream.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="p-4">
+                    <span className="text-sm font-mono text-white">{stream.id.slice(0, 8)}...</span>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      <span>{scenarioIcons[stream.scenario] || '📹'}</span>
+                      <span className="text-sm text-white capitalize">{stream.scenario}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 text-xs font-medium rounded capitalize ${statusColors[stream.status]}`}>
+                      {stream.status}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-sm text-slate-300">{stream.alertCount || 0}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-sm text-slate-400">{formatTime(stream.createdAt)}</span>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center justify-end gap-2">
+                      {stream.status === 'active' && (
+                        <button
+                          onClick={() => handleStreamAction(stream.id, 'pause')}
+                          className="px-2 py-1 text-xs bg-yellow-500/20 text-yellow-400 rounded hover:bg-yellow-500/30 transition-colors"
+                        >
+                          Pause
+                        </button>
+                      )}
+                      {stream.status === 'paused' && (
+                        <button
+                          onClick={() => handleStreamAction(stream.id, 'resume')}
+                          className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors"
+                        >
+                          Resume
+                        </button>
+                      )}
+                      {(stream.status === 'active' || stream.status === 'paused') && (
+                        <button
+                          onClick={() => handleStreamAction(stream.id, 'end')}
+                          className="px-2 py-1 text-xs bg-slate-500/20 text-slate-400 rounded hover:bg-slate-500/30 transition-colors"
+                        >
+                          End
+                        </button>
+                      )}
+                      {stream.status !== 'banned' && (
+                        <button
+                          onClick={() => handleStreamAction(stream.id, 'ban')}
+                          className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
+                        >
+                          Ban
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-white">{streams.length}</p>
+          <p className="text-xs text-slate-400">Total Streams</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-emerald-400">{streams.filter((s) => s.status === 'active').length}</p>
+          <p className="text-xs text-slate-400">Active</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-yellow-400">{streams.filter((s) => s.status === 'paused').length}</p>
+          <p className="text-xs text-slate-400">Paused</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-red-400">{streams.filter((s) => s.status === 'banned').length}</p>
+          <p className="text-xs text-slate-400">Banned</p>
+        </div>
       </div>
     </div>
   );
 }
 
 function UsersTab() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'active' | 'suspended' | 'banned'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user' | 'viewer'>('all');
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth/sessions');
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUserAction = async (userId: string, action: 'activate' | 'suspend' | 'ban' | 'delete' | 'promote' | 'demote') => {
+    try {
+      if (action === 'delete') {
+        await fetch(`/api/auth/sessions/${userId}`, { method: 'DELETE' });
+      } else if (action === 'promote') {
+        await fetch(`/api/auth/sessions/${userId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'admin' }),
+        });
+      } else if (action === 'demote') {
+        await fetch(`/api/auth/sessions/${userId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'user' }),
+        });
+      } else {
+        const statusMap: Record<string, string> = {
+          activate: 'active',
+          suspend: 'suspended',
+          ban: 'banned',
+        };
+        await fetch(`/api/auth/sessions/${userId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: statusMap[action] }),
+        });
+      }
+      fetchUsers();
+    } catch (error) {
+      console.error('Failed to update user:', error);
+    }
+  };
+
+  const filteredUsers = users
+    .filter((u) => filter === 'all' || u.status === filter)
+    .filter((u) => roleFilter === 'all' || u.role === roleFilter);
+
+  const roleIcons: Record<string, string> = {
+    admin: '👑',
+    user: '👤',
+    viewer: '👁️',
+  };
+
+  const roleColors: Record<string, string> = {
+    admin: 'bg-purple-500/20 text-purple-400',
+    user: 'bg-blue-500/20 text-blue-400',
+    viewer: 'bg-slate-500/20 text-slate-400',
+  };
+
+  const statusColors: Record<string, string> = {
+    active: 'bg-emerald-500/20 text-emerald-400',
+    suspended: 'bg-yellow-500/20 text-yellow-400',
+    banned: 'bg-red-500/20 text-red-400',
+  };
+
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-      <h3 className="text-white font-semibold mb-4">User Management</h3>
-      <p className="text-slate-400">Manage user accounts, sessions, and permissions.</p>
-      {/* TODO: Implement user management */}
-      <div className="mt-4 p-8 bg-slate-700/30 rounded-lg text-center">
-        <span className="text-4xl opacity-50">👥</span>
-        <p className="text-slate-500 mt-2">User management coming soon</p>
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Status:</span>
+            {(['all', 'active', 'suspended', 'banned'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors ${
+                  filter === f
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Role Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Role:</span>
+            {(['all', 'admin', 'user', 'viewer'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRoleFilter(r)}
+                className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors ${
+                  roleFilter === r
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={fetchUsers}
+          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-6 h-6 border-2 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="p-8 text-center">
+            <span className="text-4xl opacity-50">👥</span>
+            <p className="text-slate-500 mt-2">No users found</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700/50">
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">User</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Role</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Streams</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Last Active</th>
+                <th className="text-right p-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/30">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="p-4">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-white">
+                        {user.displayName || user.email || `Device: ${user.deviceId?.slice(0, 8)}...`}
+                      </span>
+                      <span className="text-xs text-slate-500 font-mono">
+                        {user.id.slice(0, 8)}...
+                      </span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded capitalize ${roleColors[user.role]}`}>
+                      <span>{roleIcons[user.role]}</span>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 text-xs font-medium rounded capitalize ${statusColors[user.status]}`}>
+                      {user.status}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-sm text-slate-300">{user.streamCount || 0}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-sm text-slate-400">
+                      {user.lastActive ? formatTime(user.lastActive) : 'Never'}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Status actions */}
+                      {user.status === 'active' && (
+                        <button
+                          onClick={() => handleUserAction(user.id, 'suspend')}
+                          className="px-2 py-1 text-xs bg-yellow-500/20 text-yellow-400 rounded hover:bg-yellow-500/30 transition-colors"
+                        >
+                          Suspend
+                        </button>
+                      )}
+                      {user.status === 'suspended' && (
+                        <button
+                          onClick={() => handleUserAction(user.id, 'activate')}
+                          className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors"
+                        >
+                          Activate
+                        </button>
+                      )}
+                      {user.status !== 'banned' && (
+                        <button
+                          onClick={() => handleUserAction(user.id, 'ban')}
+                          className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
+                        >
+                          Ban
+                        </button>
+                      )}
+                      {/* Role actions */}
+                      {user.role !== 'admin' && (
+                        <button
+                          onClick={() => handleUserAction(user.id, 'promote')}
+                          className="px-2 py-1 text-xs bg-purple-500/20 text-purple-400 rounded hover:bg-purple-500/30 transition-colors"
+                          title="Promote to Admin"
+                        >
+                          ↑
+                        </button>
+                      )}
+                      {user.role === 'admin' && (
+                        <button
+                          onClick={() => handleUserAction(user.id, 'demote')}
+                          className="px-2 py-1 text-xs bg-slate-500/20 text-slate-400 rounded hover:bg-slate-500/30 transition-colors"
+                          title="Demote to User"
+                        >
+                          ↓
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-white">{users.length}</p>
+          <p className="text-xs text-slate-400">Total Users</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-emerald-400">{users.filter((u) => u.status === 'active').length}</p>
+          <p className="text-xs text-slate-400">Active</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-purple-400">{users.filter((u) => u.role === 'admin').length}</p>
+          <p className="text-xs text-slate-400">Admins</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-4 text-center">
+          <p className="text-2xl font-bold text-red-400">{users.filter((u) => u.status === 'banned').length}</p>
+          <p className="text-xs text-slate-400">Banned</p>
+        </div>
       </div>
     </div>
   );
