@@ -11,6 +11,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Howl } from 'howler';
 import { useMonitoringStore, type Alert } from '../stores/monitoring-store';
+import { isStaticMode, getApiUrl } from '../lib/env';
 
 // =============================================================================
 // Types
@@ -167,11 +168,14 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
           return next;
         });
 
-        // Call API to acknowledge
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/alerts/${alertId}/acknowledge`,
-          { method: 'POST' }
-        );
+        // Call API to acknowledge (skip in static mode)
+        const apiUrl = getApiUrl();
+        if (!isStaticMode() && apiUrl) {
+          await fetch(
+            `${apiUrl}/api/alerts/${alertId}/acknowledge`,
+            { method: 'POST' }
+          );
+        }
 
         // Update store or call callback
         if (onAcknowledge) {

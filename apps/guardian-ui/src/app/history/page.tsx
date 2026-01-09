@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { isStaticMode } from '@/lib/env';
 
 // =============================================================================
 // Types
@@ -100,6 +101,14 @@ export default function HistoryPage() {
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
+
+    // Skip API calls in static mode (GitHub Pages deployment)
+    if (isStaticMode()) {
+      setAlerts([]);
+      setAnalysisResults([]);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       if (viewMode === 'alerts') {
