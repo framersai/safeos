@@ -14,9 +14,10 @@ import { CameraFeed } from '../../components/CameraFeed';
 import { AlertPanel } from '../../components/AlertPanel';
 import { SubjectPreviewOverlay, SubjectPreview } from '../../components/SubjectPreview';
 import { QuickSettingsPanel } from '../../components/QuickSettingsPanel';
-import { IconSearch, IconFingerprint, IconRadar } from '../../components/icons';
+import { IconSearch, IconFingerprint, IconRadar, IconChevronDown, IconShield } from '../../components/icons';
 import { useMonitoringStore } from '../../stores/monitoring-store';
 import { useOnboardingStore } from '../../stores/onboarding-store';
+import { useSettingsStore, DEFAULT_PRESETS, type PresetId, isSleepPreset } from '../../stores/settings-store';
 import { useLostFoundStore, createMatchFrame, getMatcherSettings } from '../../stores/lost-found-store';
 import { getSubjectMatcher, type MatchResult } from '../../lib/subject-matcher';
 import { saveMatchFrame, type MatchFrameDB } from '../../lib/client-db';
@@ -102,8 +103,25 @@ export default function MonitorPage() {
   } = useLostFoundStore();
   
   const [showLostFoundPanel, setShowLostFoundPanel] = useState(false);
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const matcherRef = useRef(getSubjectMatcher());
+  const modeDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Settings store for security modes/presets
+  const { activePresetId, setActivePreset, activeSleepPreset } = useSettingsStore();
+  const currentPreset = DEFAULT_PRESETS[activePresetId];
+
+  // Close mode dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (modeDropdownRef.current && !modeDropdownRef.current.contains(event.target as Node)) {
+        setShowModeDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Lost & Found Integration
@@ -317,6 +335,105 @@ export default function MonitorPage() {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Security Mode Selector */}
+              <div ref={modeDropdownRef} className="relative">
+                <button
+                  onClick={() => setShowModeDropdown(!showModeDropdown)}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                    isSleepPreset(activePresetId)
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                      : currentPreset.emergencyMode
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  aria-label="Select Security Mode"
+                  aria-expanded={showModeDropdown}
+                  aria-haspopup="listbox"
+                >
+                  <IconShield size={18} />
+                  <span className="hidden sm:inline max-w-[120px] truncate">
+                    {currentPreset.name}
+                  </span>
+                  <IconChevronDown size={14} className={`transition-transform ${showModeDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showModeDropdown && (
+                  <div className="absolute right-0 mt-2 w-72 bg-gray-800 rounded-xl border border-gray-700 shadow-xl z-50 overflow-hidden">
+                    <div className="p-2 border-b border-gray-700">
+                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Security Modes</p>
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto">
+                      {/* Sleep Presets */}
+                      <div className="p-2 border-b border-gray-700/50">
+                        <p className="text-[10px] text-blue-400 font-medium uppercase tracking-wider px-2 py-1">Sleep Monitoring</p>
+                        {(['infant_sleep', 'pet_sleep', 'deep_sleep_minimal'] as const).map((presetId) => {
+                          const preset = DEFAULT_PRESETS[presetId];
+                          const isActive = activePresetId === presetId;
+                          return (
+                            <button
+                              key={presetId}
+                              onClick={() => {
+                                setActivePreset(presetId);
+                                setShowModeDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                isActive
+                                  ? 'bg-blue-500/20 text-blue-400'
+                                  : 'text-gray-300 hover:bg-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm">{preset.name}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                                  {preset.absolutePixelThreshold}px
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{preset.description}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* General Presets */}
+                      <div className="p-2">
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider px-2 py-1">General Modes</p>
+                        {(['silent', 'night', 'maximum', 'ultimate'] as const).map((presetId) => {
+                          const preset = DEFAULT_PRESETS[presetId];
+                          const isActive = activePresetId === presetId;
+                          return (
+                            <button
+                              key={presetId}
+                              onClick={() => {
+                                setActivePreset(presetId);
+                                setShowModeDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                isActive
+                                  ? preset.emergencyMode
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : 'bg-emerald-500/20 text-emerald-400'
+                                  : 'text-gray-300 hover:bg-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm">{preset.name}</span>
+                                {preset.emergencyMode && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
+                                    EMERGENCY
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{preset.description}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Lost & Found toggle */}
               <button
                 onClick={() => setShowLostFoundPanel(!showLostFoundPanel)}
