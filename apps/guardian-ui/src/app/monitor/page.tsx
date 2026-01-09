@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { CameraFeed } from '../../components/CameraFeed';
 import { AlertPanel } from '../../components/AlertPanel';
 import { SubjectPreviewOverlay, SubjectPreview } from '../../components/SubjectPreview';
+import { QuickSettingsPanel } from '../../components/QuickSettingsPanel';
 import { IconSearch, IconFingerprint, IconRadar } from '../../components/icons';
 import { useMonitoringStore } from '../../stores/monitoring-store';
 import { useOnboardingStore } from '../../stores/onboarding-store';
@@ -481,6 +482,9 @@ export default function MonitorPage() {
           </div>
         </div>
       </main>
+
+      {/* Quick Settings Panel - floating bottom-right */}
+      <QuickSettingsPanel />
     </div>
   );
 }
