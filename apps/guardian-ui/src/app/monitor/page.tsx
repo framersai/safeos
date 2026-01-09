@@ -536,9 +536,77 @@ export default function MonitorPage() {
               />
               <StatCard
                 label="Mode"
-                value={selectedScenario || scenario || 'Standard'}
-                color="blue"
+                value={currentPreset.name}
+                color={isSleepPreset(activePresetId) ? 'blue' : currentPreset.emergencyMode ? 'red' : 'green'}
               />
+            </div>
+
+            {/* Active Mode Info Panel */}
+            <div
+              key={activePresetId}
+              className="mt-4 p-4 bg-gray-800/50 border border-gray-700 rounded-xl animate-fade-in"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full animate-pulse ${
+                    currentPreset.emergencyMode ? 'bg-red-500' : 'bg-emerald-500'
+                  }`} />
+                  {currentPreset.name}
+                </h3>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  currentPreset.processingMode === 'local'
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-blue-500/20 text-blue-400'
+                }`}>
+                  {currentPreset.processingMode === 'local' ? 'Local Processing' : 'Cloud AI'}
+                </span>
+              </div>
+
+              <p className="text-xs text-gray-400 mb-4">{currentPreset.description}</p>
+
+              {/* Mode Stats Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="text-center p-2 bg-gray-900/50 rounded-lg">
+                  <div className="text-lg font-bold text-emerald-500">
+                    {currentPreset.absolutePixelThreshold}px
+                  </div>
+                  <div className="text-[10px] text-gray-500 uppercase">Pixel Threshold</div>
+                </div>
+                <div className="text-center p-2 bg-gray-900/50 rounded-lg">
+                  <div className="text-lg font-bold text-blue-400">
+                    {Math.round(currentPreset.motionSensitivity * 100)}%
+                  </div>
+                  <div className="text-[10px] text-gray-500 uppercase">Motion</div>
+                </div>
+                <div className="text-center p-2 bg-gray-900/50 rounded-lg">
+                  <div className="text-lg font-bold text-purple-400">
+                    {Math.round(currentPreset.audioSensitivity * 100)}%
+                  </div>
+                  <div className="text-[10px] text-gray-500 uppercase">Audio</div>
+                </div>
+                <div className="text-center p-2 bg-gray-900/50 rounded-lg">
+                  <div className="text-lg font-bold text-amber-400">
+                    {currentPreset.analysisInterval}ms
+                  </div>
+                  <div className="text-[10px] text-gray-500 uppercase">Interval</div>
+                </div>
+              </div>
+
+              {/* Emergency Mode Badge */}
+              {currentPreset.emergencyMode && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-red-400">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  Emergency Mode Active - Instant escalation enabled
+                </div>
+              )}
+
+              {/* Sleep Mode Info */}
+              {isSleepPreset(activePresetId) && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-blue-400">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  Nap Mode - Pixel detection for sleeping subject
+                </div>
+              )}
             </div>
           </div>
 
