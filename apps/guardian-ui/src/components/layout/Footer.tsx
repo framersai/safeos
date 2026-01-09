@@ -53,7 +53,7 @@ const footerSections: FooterSection[] = [
     links: [
       { href: 'https://frame.dev', label: 'frame.dev', external: true },
       { href: 'mailto:team@frame.dev', label: 'team@frame.dev', external: true },
-      { href: 'https://github.com/super-cloud-mcps/safeos', label: 'GitHub', external: true },
+      { href: 'https://github.com/framersai/safeos', label: 'GitHub', external: true },
       { href: 'https://twitter.com/framedev', label: 'Twitter', external: true },
     ],
   },

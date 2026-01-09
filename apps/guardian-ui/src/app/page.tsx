@@ -226,6 +226,46 @@ function LandingPage() {
           <p className="mt-4 text-sm text-[var(--color-steel-500)]">
             {isSetupComplete ? 'Your monitoring dashboard awaits' : 'Takes less than 2 minutes · No account required'}
           </p>
+
+          {/* Open Source Badge */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="https://github.com/framersai/safeos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm text-slate-300 font-medium">Open Source</span>
+              <span className="text-xs text-slate-500">MIT License</span>
+            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href="https://github.com/framersai/safeos/stargazers"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/30 hover:bg-slate-700/40 border border-slate-700/30 rounded-md transition-colors"
+              >
+                <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                <span className="text-xs text-slate-400">Star</span>
+              </a>
+              <a
+                href="https://github.com/framersai/safeos/fork"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/30 hover:bg-slate-700/40 border border-slate-700/30 rounded-md transition-colors"
+              >
+                <svg className="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M7 5C7 3.89543 7.89543 3 9 3C10.1046 3 11 3.89543 11 5C11 5.74028 10.5978 6.38663 10 6.73244V8H14V6.73244C13.4022 6.38663 13 5.74028 13 5C13 3.89543 13.8954 3 15 3C16.1046 3 17 3.89543 17 5C17 5.74028 16.5978 6.38663 16 6.73244V9C16 9.55228 15.5523 10 15 10H13V12.2676C13.5978 12.6134 14 13.2597 14 14C14 15.1046 13.1046 16 12 16C10.8954 16 10 15.1046 10 14C10 13.2597 10.4022 12.6134 11 12.2676V10H9C8.44772 10 8 9.55228 8 9V6.73244C7.40221 6.38663 7 5.74028 7 5Z" />
+                </svg>
+                <span className="text-xs text-slate-400">Fork</span>
+              </a>
+            </div>
+          </div>
         </div>
 
         {/* Features Grid */}
