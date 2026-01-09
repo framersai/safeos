@@ -13,12 +13,12 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Logo } from '../Logo';
+import { NotificationDropdown } from '../NotificationDropdown';
 import {
   IconHome,
   IconCamera,
   IconHistory,
   IconSettings,
-  IconBell,
   IconMenu,
   IconX,
   IconHelp,
@@ -128,19 +128,7 @@ export function Nav() {
 
           <div className="hidden lg:block w-px h-6 bg-white/10 mx-1" />
 
-          <button 
-            className="relative flex items-center justify-center w-10 h-10 rounded-lg
-                       text-zinc-400 hover:text-zinc-100 hover:bg-white/5 
-                       border border-transparent hover:border-white/10 transition-all"
-            aria-label="Notifications"
-          >
-            <IconBell size={20} />
-            <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 rounded-full
-                           bg-red-500 text-white text-[10px] font-semibold
-                           flex items-center justify-center">
-              3
-            </span>
-          </button>
+          <NotificationDropdown />
           <button 
             className="flex items-center justify-center w-10 h-10 rounded-lg
                        text-zinc-400 hover:text-zinc-100 hover:bg-white/5 

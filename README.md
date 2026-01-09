@@ -378,13 +378,13 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ## 📜 License
 
-MIT License - Part of SuperCloud's humanitarian mission.
+MIT License - Part of Frame's humanitarian mission.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **SuperCloud Team**: For dedicating 10% to humanity
+- **Frame Team**: For dedicating 10% to humanity
 - **Ollama**: For making local AI accessible
 - **Open Source Community**: For the tools that make this possible
 
@@ -395,6 +395,6 @@ MIT License - Part of SuperCloud's humanitarian mission.
     <strong>Remember:</strong> This tool supplements, never replaces, human care.
   </p>
   <p>
-    Built with ❤️ by SuperCloud for humanity's most vulnerable.
+    Built with ❤️ by Frame for humanity's most vulnerable.
   </p>
 </div>
