@@ -791,6 +791,102 @@ html.light .text-\[var\(--color-steel-600\)\] {
   color: var(--color-steel-600) !important;
 }
 
+/* Fix colored text for light mode - make them darker for contrast */
+html.light .text-emerald-400,
+html.light .text-emerald-500 {
+  color: #047857 !important; /* emerald-700 */
+}
+
+html.light .text-emerald-500\/80 {
+  color: rgba(4, 120, 87, 0.9) !important;
+}
+
+html.light .text-amber-200,
+html.light .text-amber-200\/70 {
+  color: #92400e !important; /* amber-800 */
+}
+
+html.light .text-amber-400,
+html.light .text-amber-500 {
+  color: #b45309 !important; /* amber-700 */
+}
+
+html.light .text-red-400,
+html.light .text-red-500 {
+  color: #b91c1c !important; /* red-700 */
+}
+
+html.light .text-blue-400,
+html.light .text-blue-500 {
+  color: #1d4ed8 !important; /* blue-700 */
+}
+
+html.light .text-indigo-400,
+html.light .text-indigo-500 {
+  color: #4338ca !important; /* indigo-700 */
+}
+
+/* Fix warning box backgrounds and text */
+html.light .bg-amber-500\/10 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(180, 83, 9, 0.4) !important;
+}
+
+html.light .border-amber-500\/30 {
+  border-color: rgba(180, 83, 9, 0.4) !important;
+}
+
+/* Fix use case card colors for light mode */
+html.light [class*="bg-emerald-"] {
+  background-color: rgba(4, 120, 87, 0.1) !important;
+}
+
+html.light [class*="bg-amber-"][class*="\/"] {
+  background-color: rgba(180, 83, 9, 0.1) !important;
+}
+
+html.light [class*="bg-rose-"],
+html.light [class*="bg-red-"] {
+  background-color: rgba(185, 28, 28, 0.1) !important;
+}
+
+html.light [class*="bg-blue-"] {
+  background-color: rgba(29, 78, 216, 0.1) !important;
+}
+
+html.light [class*="bg-indigo-"] {
+  background-color: rgba(67, 56, 202, 0.1) !important;
+}
+
+html.light [class*="bg-purple-"] {
+  background-color: rgba(126, 34, 206, 0.1) !important;
+}
+
+html.light [class*="bg-cyan-"] {
+  background-color: rgba(8, 145, 178, 0.1) !important;
+}
+
+/* Notification popup - keep dark in light mode */
+html.light .fixed.bottom-4 .bg-\[var\(--color-steel-900\)\],
+html.light [class*="notification"] {
+  background-color: #1f2937 !important;
+  color: #e5e7eb !important;
+}
+
+/* Fix card text to be dark in light mode */
+html.light .text-white {
+  color: var(--color-steel-100) !important;
+}
+
+/* Override card backgrounds to be white */
+html.light [class*="rounded-xl"][class*="border"] {
+  background-color: #ffffff !important;
+}
+
+html.light [class*="rounded-2xl"][class*="border"] {
+  background-color: #ffffff !important;
+}
+
 /* =============================================================================
    Accessibility - Reduced Motion
    ============================================================================= */
