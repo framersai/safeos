@@ -9,7 +9,7 @@
 
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
-import { Nav, Footer } from '@/components/layout';
+import { Nav, Footer, MobileBottomNav } from '@/components/layout';
 import { Providers } from '@/components/Providers';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { NotificationPermission } from '@/components/NotificationPermission';
@@ -184,6 +184,9 @@ export default function RootLayout({
               {children}
             </div>
             <Footer />
+
+            {/* Mobile Bottom Navigation */}
+            <MobileBottomNav />
 
             {/* PWA Install Prompt */}
             <PWAInstallPrompt />
