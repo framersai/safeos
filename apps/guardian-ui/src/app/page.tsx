@@ -289,7 +289,7 @@ function LandingPage() {
         </div>
 
         {/* Use Case Showcase */}
-        <div className="mt-16 w-full">
+        <div className="mt-16 max-w-6xl mx-auto w-full px-4">
           <UseCaseShowcase />
         </div>
 
