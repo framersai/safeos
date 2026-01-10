@@ -1147,6 +1147,77 @@ html.light .text-green-400 {
 }
 
 /* =============================================================================
+   Blog Post Prose Light Mode
+   ============================================================================= */
+
+/* Blog prose headings */
+html.light .prose h2,
+html.light .prose-invert h2,
+html.light [class*="prose"] h2 {
+  color: #111827 !important;
+}
+
+/* Blog prose paragraphs */
+html.light .prose p,
+html.light .prose-invert p,
+html.light [class*="prose"] p {
+  color: #374151 !important;
+}
+
+/* Blog lead paragraph */
+html.light .prose .lead,
+html.light [class*="prose"] .lead {
+  color: #4b5563 !important;
+}
+
+/* Blog lists */
+html.light .prose ul,
+html.light .prose ol,
+html.light .prose li,
+html.light .prose-invert ul,
+html.light .prose-invert ol,
+html.light .prose-invert li,
+html.light [class*="prose"] ul,
+html.light [class*="prose"] ol,
+html.light [class*="prose"] li {
+  color: #374151 !important;
+}
+
+/* Blog strong text */
+html.light .prose strong,
+html.light .prose-invert strong,
+html.light [class*="prose"] strong {
+  color: #111827 !important;
+}
+
+/* Blog links - keep emerald but darker */
+html.light .prose a,
+html.light .prose-invert a,
+html.light [class*="prose"] a {
+  color: #047857 !important;
+}
+
+html.light .prose a:hover,
+html.light .prose-invert a:hover,
+html.light [class*="prose"] a:hover {
+  color: #065f46 !important;
+}
+
+/* Blog code blocks */
+html.light .prose code,
+html.light [class*="prose"] code {
+  color: #111827 !important;
+  background-color: #f3f4f6 !important;
+}
+
+/* Blog blockquotes */
+html.light .prose blockquote,
+html.light [class*="prose"] blockquote {
+  color: #4b5563 !important;
+  border-left-color: #10b981 !important;
+}
+
+/* =============================================================================
    Accessibility - Reduced Motion
    ============================================================================= */
 
