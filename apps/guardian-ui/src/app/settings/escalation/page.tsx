@@ -78,7 +78,7 @@ export default function EscalationSettingsPage() {
     const [escalationLevels, setEscalationLevels] = useState(DEFAULT_ESCALATION_LEVELS);
     const [testingLevel, setTestingLevel] = useState<number | null>(null);
 
-    const { globalSettings, timingSettings, updateTimingSettings, updateGlobalSettings } = useSettingsStore();
+    const { globalSettings, timingSettings, updateTimingSettings, updateGlobalSettings, severityCooldowns, updateSeverityCooldowns } = useSettingsStore();
     const soundManager = useSoundManager();
 
     useEffect(() => {
@@ -264,6 +264,156 @@ export default function EscalationSettingsPage() {
                             </p>
                         </div>
                     </div>
+                </section>
+
+                {/* Per-Severity Cooldowns */}
+                <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
+                    <h2 className="text-lg font-semibold text-white mb-2">Per-Severity Cooldowns</h2>
+                    <p className="text-sm text-slate-400 mb-6">
+                        Set different cooldown periods for each alert severity level. Lower severity alerts
+                        wait longer before repeating, while critical alerts have no cooldown.
+                    </p>
+
+                    <div className="space-y-4">
+                        {/* Info Severity */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-blue-500" />
+                                    <label className="text-sm font-medium text-slate-300">Info</label>
+                                </div>
+                                <span className="text-sm font-mono text-blue-400">{severityCooldowns.info}s</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="60"
+                                step="5"
+                                value={severityCooldowns.info}
+                                onChange={(e) => updateSeverityCooldowns({ info: Number(e.target.value) })}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                                           [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-blue-500
+                                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                                aria-label="Info severity cooldown"
+                            />
+                        </div>
+
+                        {/* Low Severity */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                                    <label className="text-sm font-medium text-slate-300">Low</label>
+                                </div>
+                                <span className="text-sm font-mono text-emerald-400">{severityCooldowns.low}s</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="120"
+                                step="5"
+                                value={severityCooldowns.low}
+                                onChange={(e) => updateSeverityCooldowns({ low: Number(e.target.value) })}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                                           [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-emerald-500
+                                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                                aria-label="Low severity cooldown"
+                            />
+                        </div>
+
+                        {/* Medium Severity */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-yellow-500" />
+                                    <label className="text-sm font-medium text-slate-300">Medium</label>
+                                </div>
+                                <span className="text-sm font-mono text-yellow-400">{severityCooldowns.medium}s</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="180"
+                                step="10"
+                                value={severityCooldowns.medium}
+                                onChange={(e) => updateSeverityCooldowns({ medium: Number(e.target.value) })}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                                           [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-yellow-500
+                                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                                aria-label="Medium severity cooldown"
+                            />
+                        </div>
+
+                        {/* High Severity */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-orange-500" />
+                                    <label className="text-sm font-medium text-slate-300">High</label>
+                                </div>
+                                <span className="text-sm font-mono text-orange-400">{severityCooldowns.high}s</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="300"
+                                step="15"
+                                value={severityCooldowns.high}
+                                onChange={(e) => updateSeverityCooldowns({ high: Number(e.target.value) })}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                                           [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-orange-500
+                                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                                aria-label="High severity cooldown"
+                            />
+                        </div>
+
+                        {/* Critical Severity */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-red-500" />
+                                    <label className="text-sm font-medium text-slate-300">Critical</label>
+                                </div>
+                                <span className="text-sm font-mono text-red-400">
+                                    {severityCooldowns.critical === 0 ? 'No cooldown' : `${severityCooldowns.critical}s`}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="60"
+                                step="5"
+                                value={severityCooldowns.critical}
+                                onChange={(e) => updateSeverityCooldowns({ critical: Number(e.target.value) })}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                                           [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-red-500
+                                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                                aria-label="Critical severity cooldown"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                Critical alerts typically have no cooldown to ensure immediate attention.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Reset to Defaults */}
+                    <button
+                        onClick={() => updateSeverityCooldowns({
+                            info: 5,
+                            low: 10,
+                            medium: 30,
+                            high: 60,
+                            critical: 0,
+                        })}
+                        className="mt-4 px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors"
+                    >
+                        Reset to defaults
+                    </button>
                 </section>
 
                 {/* Auto-Emergency Toggle */}
