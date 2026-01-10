@@ -126,7 +126,7 @@ export function Dashboard() {
       {showOnboarding && <OnboardingWizard onComplete={completeOnboarding} />}
 
       {/* Header */}
-      <Header isConnected={isConnected} systemHealth={stats.systemHealth} />
+      <Header systemHealth={stats.systemHealth} />
 
       {/* Main Content */}
       <main className="container py-6">
@@ -182,15 +182,28 @@ export function Dashboard() {
         )}
       </main>
 
-      {/* Footer */}
+      {/* Footer with API Status */}
       <footer className="border-t border-[var(--color-steel-800)] py-4 mt-auto">
         <div className="container flex items-center justify-between text-[var(--color-steel-500)]">
           <span className="font-mono text-xs uppercase tracking-wider">
             SafeOS Guardian v1.0
           </span>
-          <span className="font-mono text-xs">
-            Last update: {lastUpdate.toLocaleTimeString()}
-          </span>
+          <div className="flex items-center gap-4">
+            {/* Administrative API Monitoring */}
+            <div className="flex items-center gap-2">
+              {isConnected ? (
+                <IconWifi size={12} className="text-[var(--color-status-online)]" />
+              ) : (
+                <IconWifiOff size={12} className="text-[var(--color-steel-600)]" />
+              )}
+              <span className="font-mono text-xs text-[var(--color-steel-600)]">
+                Admin API: {isConnected ? 'Connected' : 'Offline'}
+              </span>
+            </div>
+            <span className="font-mono text-xs">
+              {lastUpdate.toLocaleTimeString()}
+            </span>
+          </div>
         </div>
       </footer>
     </div>
@@ -202,11 +215,10 @@ export function Dashboard() {
 // =============================================================================
 
 interface HeaderProps {
-  isConnected: boolean;
   systemHealth: 'healthy' | 'degraded' | 'offline';
 }
 
-function Header({ isConnected, systemHealth }: HeaderProps) {
+function Header({ systemHealth }: HeaderProps) {
   return (
     <header className="border-b border-[var(--color-steel-800)] bg-[var(--color-steel-900)]">
       <div className="container py-4">
@@ -226,37 +238,19 @@ function Header({ isConnected, systemHealth }: HeaderProps) {
             </div>
           </div>
 
-          {/* Status Indicators */}
-          <div className="flex items-center gap-4">
-            {/* Connection Status */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--color-steel-850)] border border-[var(--color-steel-700)]">
-              {isConnected ? (
-                <>
-                  <IconWifi size={14} className="text-[var(--color-status-online)]" />
-                  <span className="font-mono text-xs text-[var(--color-steel-300)]">CONNECTED</span>
-                </>
-              ) : (
-                <>
-                  <IconWifiOff size={14} className="text-[var(--color-status-offline)]" />
-                  <span className="font-mono text-xs text-[var(--color-steel-500)]">OFFLINE</span>
-                </>
-              )}
-            </div>
-
-            {/* System Health */}
-            <div className="flex items-center gap-2">
-              <div
-                className={`status-dot ${systemHealth === 'healthy'
-                  ? 'status-dot--online'
-                  : systemHealth === 'degraded'
-                    ? 'status-dot--warning'
-                    : 'status-dot--offline'
-                  } ${systemHealth === 'healthy' ? 'status-dot--pulse' : ''}`}
-              />
-              <span className="font-mono text-xs text-[var(--color-steel-400)] uppercase">
-                {systemHealth}
-              </span>
-            </div>
+          {/* System Health */}
+          <div className="flex items-center gap-2">
+            <div
+              className={`status-dot ${systemHealth === 'healthy'
+                ? 'status-dot--online'
+                : systemHealth === 'degraded'
+                  ? 'status-dot--warning'
+                  : 'status-dot--offline'
+                } ${systemHealth === 'healthy' ? 'status-dot--pulse' : ''}`}
+            />
+            <span className="font-mono text-xs text-[var(--color-steel-400)] uppercase">
+              {systemHealth}
+            </span>
           </div>
         </div>
       </div>
