@@ -1000,6 +1000,140 @@ html.light .border-emerald-500\/30 {
 }
 
 /* =============================================================================
+   Page-Level Light Mode Overrides (History, Monitor, Settings pages)
+   ============================================================================= */
+
+/* Override gradient backgrounds on pages */
+html.light .bg-gradient-to-br {
+  background: var(--color-steel-950) !important;
+}
+
+html.light .from-slate-900,
+html.light .from-gray-900 {
+  --tw-gradient-from: var(--color-steel-950) !important;
+}
+
+html.light .via-slate-800,
+html.light .via-gray-800 {
+  --tw-gradient-via: var(--color-steel-900) !important;
+}
+
+html.light .to-slate-900,
+html.light .to-gray-900 {
+  --tw-gradient-to: var(--color-steel-950) !important;
+}
+
+/* Override slate backgrounds */
+html.light .bg-slate-900,
+html.light .bg-slate-900\/50 {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-slate-800,
+html.light .bg-slate-800\/50 {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-slate-700 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Override gray backgrounds */
+html.light .bg-gray-900,
+html.light .bg-gray-900\/50 {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-gray-800,
+html.light .bg-gray-800\/50 {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-gray-700 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Override slate borders */
+html.light .border-slate-700,
+html.light .border-slate-700\/50,
+html.light .border-slate-600 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Override gray borders */
+html.light .border-gray-700,
+html.light .border-gray-700\/50,
+html.light .border-gray-600 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Header/nav backgrounds on subpages */
+html.light header.border-b {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(8px);
+}
+
+/* Input fields - light mode */
+html.light input[type="text"],
+html.light input[type="time"],
+html.light select {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+html.light input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Range sliders in light mode */
+html.light input[type="range"] {
+  background-color: #e2e8f0 !important;
+}
+
+/* Hover states */
+html.light .hover\:bg-slate-800:hover,
+html.light .hover\:bg-gray-800:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .hover\:bg-slate-700:hover,
+html.light .hover\:bg-gray-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html.light .hover\:bg-slate-600:hover,
+html.light .hover\:bg-gray-600:hover {
+  background-color: #cbd5e1 !important;
+}
+
+/* Status/alert backgrounds - slightly more visible in light mode */
+html.light .bg-green-500\/20 {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+}
+
+html.light .bg-red-500\/20 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+html.light .bg-yellow-500\/20 {
+  background-color: rgba(234, 179, 8, 0.15) !important;
+}
+
+html.light .bg-blue-500\/20 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+html.light .bg-purple-500\/20 {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+}
+
+/* Green text for light mode */
+html.light .text-green-400 {
+  color: #15803d !important;
+}
+
+/* =============================================================================
    Accessibility - Reduced Motion
    ============================================================================= */
 
