@@ -120,7 +120,7 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
           aria-modal="true"
           aria-label="Quick Settings"
           className="bg-slate-800/95 backdrop-blur-sm border border-slate-700/50 rounded-xl shadow-2xl
-                     w-72 max-h-[70vh] overflow-hidden animate-in"
+                     w-full max-w-[288px] sm:w-72 max-h-[70vh] overflow-hidden animate-in"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-700/50 bg-slate-900/50">
@@ -206,12 +206,12 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleGlobalMute}
-                  className={`p-1.5 rounded transition-colors ${
+                  className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${
                     globalMute ? 'bg-red-500/20 text-red-400' : 'bg-slate-700/50 text-slate-400 hover:text-white'
                   }`}
                   aria-label={globalMute ? 'Unmute' : 'Mute'}
                 >
-                  {globalMute ? <IconVolumeX size={14} /> : <IconVolume2 size={14} />}
+                  {globalMute ? <IconVolumeX size={18} /> : <IconVolume2 size={18} />}
                 </button>
                 <input
                   type="range"
@@ -219,10 +219,12 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
                   max="100"
                   value={globalSettings.alertVolume}
                   onChange={(e) => updateGlobalSettings({ alertVolume: parseInt(e.target.value) })}
-                  className="flex-1 h-1.5 rounded-full appearance-none bg-slate-700
-                             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3
-                             [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full
-                             [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer"
+                  className="flex-1 h-2 rounded-full appearance-none bg-slate-700
+                             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                             [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full
+                             [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer
+                             [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2
+                             [&::-webkit-slider-thumb]:border-white/20"
                   aria-label="Alert volume"
                 />
               </div>
@@ -318,7 +320,7 @@ function QuickToggle({ icon, label, active, onChange }: QuickToggleProps) {
   return (
     <button
       onClick={() => onChange(!active)}
-      className={`flex flex-col items-center gap-0.5 py-2 px-1.5 rounded-md transition-all ${
+      className={`flex flex-col items-center justify-center gap-1 py-3 px-2 min-h-[56px] rounded-lg transition-all ${
         active
           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
           : 'bg-slate-700/30 text-slate-400 border border-transparent hover:bg-slate-700/50'
@@ -327,8 +329,8 @@ function QuickToggle({ icon, label, active, onChange }: QuickToggleProps) {
       aria-label={`${label} detection`}
     >
       {icon}
-      <span className="text-[10px]">{label}</span>
-      <div className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+      <span className="text-xs sm:text-[10px]">{label}</span>
+      <div className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-600'}`} />
     </button>
   );
 }
@@ -341,21 +343,23 @@ interface SensitivitySliderProps {
 
 function SensitivitySlider({ label, value, onChange }: SensitivitySliderProps) {
   return (
-    <div className="flex items-center gap-2">
-      <label className="text-[10px] text-slate-400 w-12">{label}</label>
+    <div className="flex items-center gap-2 min-h-[44px]">
+      <label className="text-xs sm:text-[10px] text-slate-400 w-14">{label}</label>
       <input
         type="range"
         min="0"
         max="100"
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="flex-1 h-1 rounded-full appearance-none bg-slate-700
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5
-                   [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full
-                   [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer"
+        className="flex-1 h-2 rounded-full appearance-none bg-slate-700
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                   [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full
+                   [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer
+                   [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2
+                   [&::-webkit-slider-thumb]:border-white/20"
         aria-label={`${label} sensitivity`}
       />
-      <span className="text-[10px] text-emerald-500 font-mono w-8 text-right">{value}%</span>
+      <span className="text-xs sm:text-[10px] text-emerald-500 font-mono w-10 text-right">{value}%</span>
     </div>
   );
 }
@@ -371,8 +375,9 @@ function TestSoundButton({ label, onClick, title }: TestSoundButtonProps) {
     <button
       onClick={onClick}
       title={title}
-      className="flex-1 py-1 px-1.5 bg-slate-700/30 rounded text-sm
-                 hover:bg-slate-700/50 transition-colors"
+      className="flex-1 py-2.5 px-2 min-h-[44px] bg-slate-700/30 rounded-lg text-base
+                 hover:bg-slate-700/50 active:bg-slate-600/50 transition-colors
+                 flex items-center justify-center"
       aria-label={`Test ${title || label} sound`}
     >
       {label}
