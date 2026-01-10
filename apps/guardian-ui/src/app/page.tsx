@@ -303,15 +303,23 @@ function LandingPage() {
                   Abuse Prevention & Rate Limiting
                 </p>
                 <p className="text-xs text-[var(--color-steel-500)] leading-relaxed mb-2">
-                  We actively monitor for misuse patterns and inappropriate behavior. Users who 
-                  attempt to abuse this service or use it in ways it&apos;s not intended will receive 
-                  <strong className="text-[var(--color-steel-400)]"> rate limitation warnings</strong> and 
+                  We actively monitor for misuse patterns and inappropriate behavior. Users who
+                  attempt to abuse this service or use it in ways it&apos;s not intended will receive
+                  <strong className="text-[var(--color-steel-400)]"> rate limitation warnings</strong> and
                   may be restricted from access.
                 </p>
-                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed">
-                  <strong className="text-amber-400">Note:</strong> This service may be temporarily 
-                  taken offline at times while we develop better safeguards. We are committed to 
+                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed mb-2">
+                  <strong className="text-amber-400">Note:</strong> This service may be temporarily
+                  taken offline at times while we develop better safeguards. We are committed to
                   responsible deployment and will not rush features that could enable harm.
+                </p>
+                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed">
+                  <strong className="text-blue-400">Future Optional Service:</strong> We may offer an
+                  administrative service with higher-level alerts, manual operator controls, and
+                  enhanced AI/LLM integrations for users who choose to opt in. This service would be
+                  <strong className="text-[var(--color-steel-400)]"> entirely optional</strong> and may
+                  involve usage-based costs. This is <strong className="text-amber-400">not live yet</strong> and
+                  will only be developed if community demand warrants it.
                 </p>
               </div>
             </div>
