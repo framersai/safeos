@@ -548,6 +548,235 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* =============================================================================
+   Light Theme
+   ============================================================================= */
+
+html.light {
+  /* Primary Palette - Light Steel */
+  --color-steel-950: #f8f9fa;
+  --color-steel-900: #f1f3f4;
+  --color-steel-850: #e8ebee;
+  --color-steel-800: #dee2e6;
+  --color-steel-700: #ced4da;
+  --color-steel-600: #adb5bd;
+  --color-steel-500: #868e96;
+  --color-steel-400: #5a6270;
+  --color-steel-300: #495057;
+  --color-steel-200: #343a40;
+  --color-steel-100: #212529;
+  --color-steel-50: #0f1215;
+
+  /* Shadows - Softer for light mode */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+html.light body {
+  color: var(--color-steel-200);
+  background-color: var(--color-steel-950);
+}
+
+/* Light mode specific overrides */
+html.light .panel {
+  background-color: #ffffff;
+  border-color: var(--color-steel-800);
+  box-shadow: var(--shadow-sm);
+}
+
+html.light .card {
+  background-color: #ffffff;
+  border-color: var(--color-steel-700);
+}
+
+html.light .input {
+  background-color: #ffffff;
+  border-color: var(--color-steel-700);
+  color: var(--color-steel-100);
+}
+
+html.light .input::placeholder {
+  color: var(--color-steel-500);
+}
+
+html.light .btn-secondary {
+  background-color: var(--color-steel-900);
+  border-color: var(--color-steel-700);
+  color: var(--color-steel-200);
+}
+
+html.light .btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-steel-850);
+  border-color: var(--color-steel-600);
+}
+
+html.light .btn-ghost {
+  color: var(--color-steel-400);
+}
+
+html.light .btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-steel-900);
+  color: var(--color-steel-200);
+}
+
+html.light .badge--neutral {
+  background-color: var(--color-steel-900);
+  color: var(--color-steel-400);
+  border-color: var(--color-steel-700);
+}
+
+html.light .divider {
+  background-color: var(--color-steel-800);
+}
+
+html.light .text-label {
+  color: var(--color-steel-500);
+}
+
+html.light .text-data {
+  color: var(--color-steel-100);
+}
+
+html.light .text-heading-lg {
+  color: var(--color-steel-50);
+}
+
+html.light .text-heading-md {
+  color: var(--color-steel-100);
+}
+
+html.light .text-heading-sm {
+  color: var(--color-steel-400);
+}
+
+/* Scrollbar - Light mode */
+html.light ::-webkit-scrollbar-track {
+  background: var(--color-steel-950);
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: var(--color-steel-700);
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-steel-600);
+}
+
+/* Skeleton - Light mode */
+html.light .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-steel-850) 0%,
+    var(--color-steel-800) 50%,
+    var(--color-steel-850) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* =============================================================================
+   Accessibility - Reduced Motion
+   ============================================================================= */
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+html.reduce-motion .skeleton {
+  animation: none !important;
+  background: var(--color-steel-800) !important;
+}
+
+html.reduce-motion .spinner {
+  animation: none !important;
+}
+
+html.reduce-motion .status-dot--pulse {
+  animation: none !important;
+}
+
+/* =============================================================================
+   Accessibility - High Contrast
+   ============================================================================= */
+
+html.high-contrast {
+  /* Increase contrast ratios */
+  --color-steel-400: #9ca3af;
+  --color-steel-300: #d1d5db;
+  --color-steel-200: #e5e7eb;
+  --color-steel-100: #f3f4f6;
+  --color-steel-50: #ffffff;
+}
+
+html.high-contrast .panel,
+html.high-contrast .card {
+  border-width: 2px;
+}
+
+html.high-contrast .btn {
+  border-width: 2px;
+  font-weight: 600;
+}
+
+html.high-contrast .input {
+  border-width: 2px;
+}
+
+html.high-contrast *:focus-visible {
+  outline-width: 3px;
+  outline-offset: 3px;
+}
+
+/* Light mode high contrast */
+html.light.high-contrast {
+  --color-steel-400: #495057;
+  --color-steel-300: #343a40;
+  --color-steel-200: #212529;
+  --color-steel-100: #0f1215;
+  --color-steel-50: #000000;
+}
+
+/* =============================================================================
+   Accessibility - Large Text
+   ============================================================================= */
+
+html.large-text {
+  /* Scale up typography */
+  --text-xs: 0.8125rem;    /* 13px (was 11px) */
+  --text-sm: 0.9375rem;    /* 15px (was 12px) */
+  --text-base: 1.0625rem;  /* 17px (was 14px) */
+  --text-lg: 1.1875rem;    /* 19px (was 16px) */
+  --text-xl: 1.375rem;     /* 22px (was 18px) */
+  --text-2xl: 1.75rem;     /* 28px (was 24px) */
+  --text-3xl: 2.25rem;     /* 36px (was 32px) */
+  --text-4xl: 2.875rem;    /* 46px (was 40px) */
+
+  /* Increase line height for readability */
+  line-height: 1.6;
+}
+
+html.large-text body {
+  font-size: var(--text-base);
+}
+
+html.large-text .btn {
+  padding: var(--space-3) var(--space-5);
+}
+
+html.large-text .badge {
+  padding: var(--space-2) var(--space-3);
+}
+
+html.large-text .input {
+  padding: var(--space-3) var(--space-4);
+}
+
 
 
 
