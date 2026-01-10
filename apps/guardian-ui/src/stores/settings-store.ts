@@ -62,6 +62,31 @@ export interface TimingSettings {
   emergencyEscalationDelay: number; // seconds before auto-emergency (0 = disabled)
 }
 
+/**
+ * Per-severity cooldown periods (seconds)
+ */
+export interface SeverityCooldowns {
+  info: number;     // Default: 5s
+  low: number;      // Default: 10s
+  medium: number;   // Default: 30s
+  high: number;     // Default: 60s
+  critical: number; // Default: 0s (no cooldown)
+}
+
+export type AlertSeverity = keyof SeverityCooldowns;
+
+/**
+ * Quiet hours settings - mute or reduce alerts during specified times
+ */
+export interface QuietHoursSettings {
+  enabled: boolean;
+  startTime: string;    // "22:00" format (24h)
+  endTime: string;      // "07:00" format
+  days: number[];       // 0-6, where 0 = Sunday
+  mode: 'silent' | 'reduced' | 'emergency_only';
+  reducedVolume: number; // 0-100, used when mode = 'reduced'
+}
+
 export type PresetId = 'silent' | 'night' | 'maximum' | 'ultimate' | 'infant_sleep' | 'pet_sleep' | 'deep_sleep_minimal' | 'custom';
 export type SleepPresetId = 'infant_sleep' | 'pet_sleep' | 'deep_sleep_minimal';
 export type ScenarioType = 'pet' | 'baby' | 'elderly' | 'security';
@@ -348,7 +373,13 @@ interface SettingsState {
   
   // Timing settings
   timingSettings: TimingSettings;
-  
+
+  // Per-severity cooldowns
+  severityCooldowns: SeverityCooldowns;
+
+  // Quiet hours settings
+  quietHoursSettings: QuietHoursSettings;
+
   // Emergency mode state
   emergencyModeActive: boolean;
   emergencyAlertId: string | null;
@@ -377,7 +408,16 @@ interface SettingsState {
   
   // Timing settings actions
   updateTimingSettings: (settings: Partial<TimingSettings>) => void;
-  
+
+  // Severity cooldown actions
+  updateSeverityCooldowns: (cooldowns: Partial<SeverityCooldowns>) => void;
+  getCooldownForSeverity: (severity: AlertSeverity) => number;
+
+  // Quiet hours actions
+  updateQuietHoursSettings: (settings: Partial<QuietHoursSettings>) => void;
+  isQuietHoursActive: () => boolean;
+  getEffectiveVolume: () => number;
+
   // Emergency mode actions
   activateEmergencyMode: (alertId: string) => void;
   deactivateEmergencyMode: () => void;
@@ -422,6 +462,21 @@ export const useSettingsStore = create<SettingsState>()(
         cooldownPeriod: 30,
         minimumMotionDuration: 500,
         emergencyEscalationDelay: 300, // 5 minutes
+      },
+      severityCooldowns: {
+        info: 5,
+        low: 10,
+        medium: 30,
+        high: 60,
+        critical: 0, // No cooldown for critical alerts
+      },
+      quietHoursSettings: {
+        enabled: false,
+        startTime: '22:00',
+        endTime: '07:00',
+        days: [0, 1, 2, 3, 4, 5, 6], // All days by default
+        mode: 'reduced',
+        reducedVolume: 30,
       },
       emergencyModeActive: false,
       emergencyAlertId: null,
@@ -532,7 +587,81 @@ export const useSettingsStore = create<SettingsState>()(
           timingSettings: { ...state.timingSettings, ...settings },
         }));
       },
-      
+
+      // Severity cooldown actions
+      updateSeverityCooldowns: (cooldowns) => {
+        set((state) => ({
+          severityCooldowns: { ...state.severityCooldowns, ...cooldowns },
+        }));
+      },
+
+      getCooldownForSeverity: (severity) => {
+        const state = get();
+        return state.severityCooldowns[severity];
+      },
+
+      // Quiet hours actions
+      updateQuietHoursSettings: (settings) => {
+        set((state) => ({
+          quietHoursSettings: { ...state.quietHoursSettings, ...settings },
+        }));
+      },
+
+      isQuietHoursActive: () => {
+        const state = get();
+        const { enabled, startTime, endTime, days } = state.quietHoursSettings;
+
+        if (!enabled) return false;
+
+        const now = new Date();
+        const currentDay = now.getDay();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        // Check if today is in the enabled days
+        if (!days.includes(currentDay)) return false;
+
+        // Parse start and end times
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+
+        // Handle overnight quiet hours (e.g., 22:00 - 07:00)
+        if (startMinutes > endMinutes) {
+          // Overnight: active if current time is after start OR before end
+          return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+        } else {
+          // Same day: active if current time is between start and end
+          return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+        }
+      },
+
+      getEffectiveVolume: () => {
+        const state = get();
+
+        // Emergency mode always overrides to max
+        if (state.emergencyModeActive) return 100;
+
+        // Global mute takes precedence (except emergency)
+        if (state.globalMute) return 0;
+
+        // Check quiet hours
+        const isQuietHours = get().isQuietHoursActive();
+        if (isQuietHours) {
+          const { mode, reducedVolume } = state.quietHoursSettings;
+          switch (mode) {
+            case 'silent':
+              return 0;
+            case 'reduced':
+              return reducedVolume;
+            case 'emergency_only':
+              return 0; // Non-emergency alerts are silent
+          }
+        }
+
+        return state.globalSettings.alertVolume;
+      },
+
       // Emergency mode actions
       activateEmergencyMode: (alertId) => {
         set({
@@ -600,6 +729,8 @@ export const useSettingsStore = create<SettingsState>()(
           detectionZones: state.detectionZones,
           audioSettings: state.audioSettings,
           timingSettings: state.timingSettings,
+          severityCooldowns: state.severityCooldowns,
+          quietHoursSettings: state.quietHoursSettings,
           customPresets: state.customPresets,
         }, null, 2);
       },
@@ -614,6 +745,8 @@ export const useSettingsStore = create<SettingsState>()(
             detectionZones: data.detectionZones || DEFAULT_DETECTION_ZONES,
             audioSettings: data.audioSettings || get().audioSettings,
             timingSettings: data.timingSettings || get().timingSettings,
+            severityCooldowns: data.severityCooldowns || get().severityCooldowns,
+            quietHoursSettings: data.quietHoursSettings || get().quietHoursSettings,
             customPresets: data.customPresets || [],
           });
           return true;
@@ -641,6 +774,21 @@ export const useSettingsStore = create<SettingsState>()(
             minimumMotionDuration: 500,
             emergencyEscalationDelay: 300,
           },
+          severityCooldowns: {
+            info: 5,
+            low: 10,
+            medium: 30,
+            high: 60,
+            critical: 0,
+          },
+          quietHoursSettings: {
+            enabled: false,
+            startTime: '22:00',
+            endTime: '07:00',
+            days: [0, 1, 2, 3, 4, 5, 6],
+            mode: 'reduced',
+            reducedVolume: 30,
+          },
           emergencyModeActive: false,
           emergencyAlertId: null,
           globalMute: false,
@@ -659,6 +807,8 @@ export const useSettingsStore = create<SettingsState>()(
         detectionZones: state.detectionZones,
         audioSettings: state.audioSettings,
         timingSettings: state.timingSettings,
+        severityCooldowns: state.severityCooldowns,
+        quietHoursSettings: state.quietHoursSettings,
         globalMute: state.globalMute,
         customPresets: state.customPresets,
       }),
