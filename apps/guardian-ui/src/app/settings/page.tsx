@@ -235,12 +235,13 @@ export default function SettingsPage() {
             <ul className="space-y-1">
               {sections.map((section) => (
                 <li key={section.id}>
-                  {['ai-models', 'detection-zones', 'escalation'].includes(section.id) ? (
+                  {['ai-models', 'detection-zones', 'escalation', 'detection'].includes(section.id) ? (
                     <Link
                       href={
                         section.id === 'ai-models' ? '/settings/models' :
                           section.id === 'detection-zones' ? '/settings/zones' :
-                            '/settings/escalation'
+                            section.id === 'detection' ? '/settings/detection' :
+                              '/settings/escalation'
                       }
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800"
                     >

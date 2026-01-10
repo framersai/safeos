@@ -87,6 +87,29 @@ export interface QuietHoursSettings {
   reducedVolume: number; // 0-100, used when mode = 'reduced'
 }
 
+/**
+ * Detection feature settings - controls for AI detection types and inactivity monitoring
+ */
+export interface DetectionFeatureSettings {
+  // AI Detection toggles
+  personDetectionEnabled: boolean;
+  animalDetectionEnabled: boolean;
+
+  // Person detection config
+  personConfidenceThreshold: number;  // 0.1-1.0
+  maxPersonDetections: number;        // 1-20
+
+  // Animal detection config
+  animalConfidenceThreshold: number;  // 0.1-1.0
+  alertOnLargeAnimals: boolean;
+  alertOnDangerousAnimals: boolean;
+
+  // Inactivity monitoring
+  inactivityMonitoringEnabled: boolean;
+  inactivityAlertMinutes: number;     // 1-60
+  inactivitySeverity: AlertSeverity;
+}
+
 export type PresetId = 'silent' | 'night' | 'maximum' | 'ultimate' | 'infant_sleep' | 'pet_sleep' | 'deep_sleep_minimal' | 'custom';
 export type SleepPresetId = 'infant_sleep' | 'pet_sleep' | 'deep_sleep_minimal';
 export type ScenarioType = 'pet' | 'baby' | 'elderly' | 'security';
@@ -380,6 +403,9 @@ interface SettingsState {
   // Quiet hours settings
   quietHoursSettings: QuietHoursSettings;
 
+  // Detection feature settings (AI detection, inactivity monitoring)
+  detectionFeatureSettings: DetectionFeatureSettings;
+
   // Emergency mode state
   emergencyModeActive: boolean;
   emergencyAlertId: string | null;
@@ -417,6 +443,9 @@ interface SettingsState {
   updateQuietHoursSettings: (settings: Partial<QuietHoursSettings>) => void;
   isQuietHoursActive: () => boolean;
   getEffectiveVolume: () => number;
+
+  // Detection feature settings actions
+  updateDetectionFeatureSettings: (settings: Partial<DetectionFeatureSettings>) => void;
 
   // Emergency mode actions
   activateEmergencyMode: (alertId: string) => void;
@@ -477,6 +506,18 @@ export const useSettingsStore = create<SettingsState>()(
         days: [0, 1, 2, 3, 4, 5, 6], // All days by default
         mode: 'reduced',
         reducedVolume: 30,
+      },
+      detectionFeatureSettings: {
+        personDetectionEnabled: false,
+        animalDetectionEnabled: false,
+        personConfidenceThreshold: 0.5,
+        maxPersonDetections: 10,
+        animalConfidenceThreshold: 0.5,
+        alertOnLargeAnimals: true,
+        alertOnDangerousAnimals: true,
+        inactivityMonitoringEnabled: false,
+        inactivityAlertMinutes: 10,
+        inactivitySeverity: 'medium',
       },
       emergencyModeActive: false,
       emergencyAlertId: null,
@@ -662,6 +703,13 @@ export const useSettingsStore = create<SettingsState>()(
         return state.globalSettings.alertVolume;
       },
 
+      // Detection feature settings actions
+      updateDetectionFeatureSettings: (settings) => {
+        set((state) => ({
+          detectionFeatureSettings: { ...state.detectionFeatureSettings, ...settings },
+        }));
+      },
+
       // Emergency mode actions
       activateEmergencyMode: (alertId) => {
         set({
@@ -731,6 +779,7 @@ export const useSettingsStore = create<SettingsState>()(
           timingSettings: state.timingSettings,
           severityCooldowns: state.severityCooldowns,
           quietHoursSettings: state.quietHoursSettings,
+          detectionFeatureSettings: state.detectionFeatureSettings,
           customPresets: state.customPresets,
         }, null, 2);
       },
@@ -747,6 +796,7 @@ export const useSettingsStore = create<SettingsState>()(
             timingSettings: data.timingSettings || get().timingSettings,
             severityCooldowns: data.severityCooldowns || get().severityCooldowns,
             quietHoursSettings: data.quietHoursSettings || get().quietHoursSettings,
+            detectionFeatureSettings: data.detectionFeatureSettings || get().detectionFeatureSettings,
             customPresets: data.customPresets || [],
           });
           return true;
@@ -789,6 +839,18 @@ export const useSettingsStore = create<SettingsState>()(
             mode: 'reduced',
             reducedVolume: 30,
           },
+          detectionFeatureSettings: {
+            personDetectionEnabled: false,
+            animalDetectionEnabled: false,
+            personConfidenceThreshold: 0.5,
+            maxPersonDetections: 10,
+            animalConfidenceThreshold: 0.5,
+            alertOnLargeAnimals: true,
+            alertOnDangerousAnimals: true,
+            inactivityMonitoringEnabled: false,
+            inactivityAlertMinutes: 10,
+            inactivitySeverity: 'medium',
+          },
           emergencyModeActive: false,
           emergencyAlertId: null,
           globalMute: false,
@@ -809,6 +871,7 @@ export const useSettingsStore = create<SettingsState>()(
         timingSettings: state.timingSettings,
         severityCooldowns: state.severityCooldowns,
         quietHoursSettings: state.quietHoursSettings,
+        detectionFeatureSettings: state.detectionFeatureSettings,
         globalMute: state.globalMute,
         customPresets: state.customPresets,
       }),
