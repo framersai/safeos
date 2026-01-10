@@ -321,22 +321,6 @@ export default function MonitorPage() {
                 🛡️
               </Link>
               <h1 className="text-xl font-bold text-white">Live Monitor</h1>
-
-              {/* Connection status */}
-              <div
-                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-                  wsConnected
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-red-500/20 text-red-400'
-                }`}
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    wsConnected ? 'bg-green-400' : 'bg-red-400'
-                  }`}
-                />
-                {wsConnected ? 'Connected' : 'Disconnected'}
-              </div>
             </div>
 
             <div className="flex items-center gap-4">
@@ -460,16 +444,7 @@ export default function MonitorPage() {
                 )}
               </button>
               
-              {!wsConnected && (
-                <button
-                  onClick={reconnect}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  Reconnect
-                </button>
-              )}
-
-              {wsConnected && !isStreaming && (
+              {!isStreaming && (
                 <button
                   onClick={startStream}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
