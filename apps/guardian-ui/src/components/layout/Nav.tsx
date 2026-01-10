@@ -70,7 +70,7 @@ export function Nav() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-[rgba(10,12,15,0.95)] backdrop-blur-xl border-b border-emerald-500/15">
+    <nav className="fixed top-0 left-0 right-0 z-[100] bg-[rgba(10,12,15,0.95)] backdrop-blur-xl border-b border-emerald-500/15">
       <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between gap-8">
         {/* Logo */}
         <Link href="/" className="flex-shrink-0">

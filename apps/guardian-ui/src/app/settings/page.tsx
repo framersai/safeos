@@ -221,7 +221,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-x-hidden">
       {/* Header */}
       <header className="p-4 sm:p-6 border-b border-slate-700/50">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -268,13 +268,13 @@ export default function SettingsPage() {
       )}
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 pb-24 md:pb-6">
-        <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 pb-24 md:pb-6 overflow-y-auto">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6 min-h-0">
           {/* Sidebar - Horizontal scroll on mobile */}
           <nav className="md:w-56 flex-shrink-0 -mx-4 px-4 md:mx-0 md:px-0">
-            <ul className="flex md:flex-col gap-2 md:gap-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 scrollbar-hide">
+            <ul className="flex md:flex-col gap-2 md:gap-1 overflow-x-auto md:overflow-x-visible pb-4 md:pb-0 scrollbar-hide snap-x snap-mandatory md:snap-none">
               {sections.map((section) => (
-                <li key={section.id}>
+                <li key={section.id} className="snap-start flex-shrink-0">
                   {['ai-models', 'detection-zones', 'escalation', 'detection', 'appearance', 'schedule', 'sounds'].includes(section.id) ? (
                     <Link
                       href={
@@ -315,7 +315,7 @@ export default function SettingsPage() {
           </nav>
 
           {/* Content */}
-          <div className="flex-1 bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
+          <div className="flex-1 min-h-[50vh] md:min-h-0 bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 sm:p-6">
             {activeSection === 'general' && (
               <div className="space-y-6">
                 <h2 className="text-lg font-semibold text-white">General Settings</h2>
