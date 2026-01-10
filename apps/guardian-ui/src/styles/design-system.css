@@ -675,6 +675,122 @@ html.light .skeleton {
   background-size: 200% 100%;
 }
 
+/* Progress bar - Light mode */
+html.light .progress-bar {
+  background-color: var(--color-steel-850);
+}
+
+/* Spinner - Light mode */
+html.light .spinner {
+  border-color: var(--color-steel-700);
+  border-top-color: var(--color-accent-600);
+}
+
+/* Generic light mode overrides for Tailwind hardcoded colors */
+html.light .bg-slate-800\/50,
+html.light .bg-slate-800\/30,
+html.light [class*="bg-slate-8"] {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+html.light .bg-slate-700\/50,
+html.light .bg-slate-700\/40,
+html.light [class*="bg-slate-7"] {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .border-slate-700,
+html.light .border-slate-700\/50,
+html.light .border-slate-700\/30,
+html.light [class*="border-slate-7"] {
+  border-color: var(--color-steel-700) !important;
+}
+
+html.light .text-slate-300,
+html.light .text-slate-400,
+html.light .text-slate-500 {
+  color: var(--color-steel-400) !important;
+}
+
+html.light .text-zinc-400,
+html.light .text-zinc-500 {
+  color: var(--color-steel-400) !important;
+}
+
+html.light .text-zinc-100,
+html.light .text-zinc-200,
+html.light .text-zinc-300 {
+  color: var(--color-steel-200) !important;
+}
+
+/* Override white/black opacity backgrounds for light mode */
+html.light .bg-white\/5,
+html.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .border-white\/5,
+html.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Fix hover states */
+html.light .hover\:bg-white\/5:hover {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light .hover\:border-white\/10:hover {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+html.light .hover\:text-zinc-100:hover,
+html.light .hover\:text-white:hover {
+  color: var(--color-steel-100) !important;
+}
+
+/* Fix specific page backgrounds */
+html.light .bg-\[var\(--color-steel-950\)\] {
+  background-color: var(--color-steel-950) !important;
+}
+
+html.light .bg-\[var\(--color-steel-900\)\] {
+  background-color: #ffffff !important;
+}
+
+/* Card-like elements in light mode */
+html.light .bg-emerald-500\/10 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+
+html.light .bg-amber-500\/10 {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+/* Text improvements for light mode readability */
+html.light .text-\[var\(--color-steel-100\)\] {
+  color: var(--color-steel-100) !important;
+}
+
+html.light .text-\[var\(--color-steel-200\)\] {
+  color: var(--color-steel-200) !important;
+}
+
+html.light .text-\[var\(--color-steel-300\)\] {
+  color: var(--color-steel-300) !important;
+}
+
+html.light .text-\[var\(--color-steel-400\)\] {
+  color: var(--color-steel-400) !important;
+}
+
+html.light .text-\[var\(--color-steel-500\)\] {
+  color: var(--color-steel-500) !important;
+}
+
+html.light .text-\[var\(--color-steel-600\)\] {
+  color: var(--color-steel-600) !important;
+}
+
 /* =============================================================================
    Accessibility - Reduced Motion
    ============================================================================= */
