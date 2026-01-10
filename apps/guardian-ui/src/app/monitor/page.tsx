@@ -109,8 +109,9 @@ export default function MonitorPage() {
   const modeDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Settings store for security modes/presets
-  const { activePresetId, setActivePreset, activeSleepPreset } = useSettingsStore();
-  const currentPreset = DEFAULT_PRESETS[activePresetId];
+  const { activePresetId, setActivePreset, activeSleepPreset, globalSettings, updateGlobalSettings } = useSettingsStore();
+  const currentPreset = globalSettings; // Use globalSettings to reflect slider overrides
+  const [showOverrides, setShowOverrides] = useState(false);
 
   // Close mode dropdown when clicking outside
   useEffect(() => {
@@ -574,13 +575,13 @@ export default function MonitorPage() {
                 </div>
                 <div className="text-center p-2 bg-gray-900/50 rounded-lg">
                   <div className="text-lg font-bold text-blue-400">
-                    {Math.round(currentPreset.motionSensitivity * 100)}%
+                    {currentPreset.motionSensitivity}%
                   </div>
                   <div className="text-[10px] text-gray-500 uppercase">Motion</div>
                 </div>
                 <div className="text-center p-2 bg-gray-900/50 rounded-lg">
                   <div className="text-lg font-bold text-purple-400">
-                    {Math.round(currentPreset.audioSensitivity * 100)}%
+                    {currentPreset.audioSensitivity}%
                   </div>
                   <div className="text-[10px] text-gray-500 uppercase">Audio</div>
                 </div>
@@ -605,6 +606,108 @@ export default function MonitorPage() {
                 <div className="mt-3 flex items-center gap-2 text-xs text-blue-400">
                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                   Nap Mode - Pixel detection for sleeping subject
+                </div>
+              )}
+
+              {/* Override Sliders Toggle */}
+              <button
+                onClick={() => setShowOverrides(!showOverrides)}
+                className="w-full mt-3 py-2 text-xs text-gray-400 hover:text-white
+                           flex items-center justify-center gap-1 border-t border-gray-700/50"
+              >
+                {showOverrides ? '▲ Hide Fine-Tuning' : '▼ Fine-Tune Settings'}
+              </button>
+
+              {showOverrides && (
+                <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-4 animate-fade-in">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                    Override until preset changes
+                  </p>
+
+                  {/* Motion Sensitivity Slider */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-400">Motion Sensitivity</span>
+                      <span className="text-blue-400 font-medium">{currentPreset.motionSensitivity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={currentPreset.motionSensitivity}
+                      onChange={(e) => updateGlobalSettings({ motionSensitivity: Number(e.target.value) })}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer
+                                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                                 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500
+                                 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Audio Sensitivity Slider */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-400">Audio Sensitivity</span>
+                      <span className="text-purple-400 font-medium">{currentPreset.audioSensitivity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={currentPreset.audioSensitivity}
+                      onChange={(e) => updateGlobalSettings({ audioSensitivity: Number(e.target.value) })}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer
+                                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                                 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-purple-500
+                                 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Pixel Threshold Slider */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-400">Pixel Threshold</span>
+                      <span className="text-emerald-400 font-medium">{currentPreset.absolutePixelThreshold}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      value={currentPreset.absolutePixelThreshold}
+                      onChange={(e) => updateGlobalSettings({ absolutePixelThreshold: Number(e.target.value) })}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer
+                                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                                 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-emerald-500
+                                 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Analysis Interval Slider */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-400">Analysis Interval</span>
+                      <span className="text-amber-400 font-medium">{currentPreset.analysisInterval}s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={60}
+                      value={currentPreset.analysisInterval}
+                      onChange={(e) => updateGlobalSettings({ analysisInterval: Number(e.target.value) })}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer
+                                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                                 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-amber-500
+                                 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Reset to Preset Defaults */}
+                  <button
+                    onClick={() => setActivePreset(activePresetId)}
+                    className="w-full py-2 text-xs text-gray-400 hover:text-white
+                               bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    Reset to {DEFAULT_PRESETS[activePresetId].name} Defaults
+                  </button>
                 </div>
               )}
             </div>
