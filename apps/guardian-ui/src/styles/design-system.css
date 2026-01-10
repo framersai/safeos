@@ -706,10 +706,16 @@ html.light [class*="border-slate-7"] {
   border-color: var(--color-steel-700) !important;
 }
 
-html.light .text-slate-300,
-html.light .text-slate-400,
+html.light .text-slate-300 {
+  color: #374151 !important; /* gray-700 */
+}
+
+html.light .text-slate-400 {
+  color: #4b5563 !important; /* gray-600 */
+}
+
 html.light .text-slate-500 {
-  color: var(--color-steel-400) !important;
+  color: #6b7280 !important; /* gray-500 */
 }
 
 html.light .text-zinc-400,
@@ -801,10 +807,7 @@ html.light .text-emerald-500\/80 {
   color: rgba(4, 120, 87, 0.9) !important;
 }
 
-html.light .text-amber-200,
-html.light .text-amber-200\/70 {
-  color: #92400e !important; /* amber-800 */
-}
+/* amber-200 handled in more specific rule below */
 
 html.light .text-amber-400,
 html.light .text-amber-500 {
@@ -875,7 +878,42 @@ html.light [class*="notification"] {
 
 /* Fix card text to be dark in light mode */
 html.light .text-white {
-  color: var(--color-steel-100) !important;
+  color: #111827 !important; /* gray-900 - very dark */
+}
+
+/* Fix product card titles specifically */
+html.light h2.text-white,
+html.light h3.text-white,
+html.light [class*="font-semibold"].text-white,
+html.light [class*="font-bold"].text-white {
+  color: #111827 !important;
+}
+
+/* Warning/disclaimer box text - amber on light backgrounds */
+html.light .text-amber-200 {
+  color: #78350f !important; /* amber-900 - very dark */
+}
+
+html.light .text-amber-200\/70 {
+  color: #92400e !important; /* amber-800 */
+}
+
+/* Pink text for baby monitoring cards */
+html.light .text-pink-400,
+html.light .text-pink-500 {
+  color: #be185d !important; /* pink-700 */
+}
+
+/* Purple text for lost & found cards */
+html.light .text-purple-400,
+html.light .text-purple-500 {
+  color: #7e22ce !important; /* purple-700 */
+}
+
+/* Cyan text */
+html.light .text-cyan-400,
+html.light .text-cyan-500 {
+  color: #0e7490 !important; /* cyan-700 */
 }
 
 /* Override card backgrounds to be white */
