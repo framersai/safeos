@@ -1009,16 +1009,19 @@ html.light .bg-gradient-to-br {
 }
 
 html.light .from-slate-900,
+html.light .from-slate-950,
 html.light .from-gray-900 {
   --tw-gradient-from: var(--color-steel-950) !important;
 }
 
 html.light .via-slate-800,
+html.light .via-slate-900,
 html.light .via-gray-800 {
   --tw-gradient-via: var(--color-steel-900) !important;
 }
 
 html.light .to-slate-900,
+html.light .to-slate-950,
 html.light .to-gray-900 {
   --tw-gradient-to: var(--color-steel-950) !important;
 }
@@ -1056,8 +1059,18 @@ html.light .bg-gray-700 {
 /* Override slate borders */
 html.light .border-slate-700,
 html.light .border-slate-700\/50,
+html.light .border-slate-800,
 html.light .border-slate-600 {
   border-color: #e2e8f0 !important;
+}
+
+/* Override slate-950 backgrounds (blog, etc) */
+html.light .bg-slate-950 {
+  background-color: var(--color-steel-950) !important;
+}
+
+html.light .bg-slate-900\/80 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
 }
 
 /* Override gray borders */

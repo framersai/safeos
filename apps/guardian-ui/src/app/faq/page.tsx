@@ -38,7 +38,7 @@ interface FAQCategory {
 const faqCategories: FAQCategory[] = [
   {
     name: 'Getting Started',
-    icon: '🚀',
+    icon: '01',
     items: [
       {
         question: 'What is SafeOS Guardian?',
@@ -64,7 +64,7 @@ const faqCategories: FAQCategory[] = [
   },
   {
     name: 'Privacy & Security',
-    icon: '🔒',
+    icon: '02',
     items: [
       {
         question: 'Is my video/audio data stored anywhere?',
@@ -90,7 +90,7 @@ const faqCategories: FAQCategory[] = [
   },
   {
     name: 'Detection & Alerts',
-    icon: '🔔',
+    icon: '03',
     items: [
       {
         question: 'How does motion detection work?',
@@ -116,7 +116,7 @@ const faqCategories: FAQCategory[] = [
   },
   {
     name: 'Technical',
-    icon: '⚙️',
+    icon: '04',
     items: [
       {
         question: 'What AI models does SafeOS Guardian use?',
@@ -190,8 +190,10 @@ function FAQCategorySection({ category }: { category: FAQCategory }) {
 
   return (
     <section className="mb-12">
-      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <span className="text-2xl">{category.icon}</span>
+      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-3">
+        <span className="w-8 h-8 flex items-center justify-center bg-emerald-500/20 text-emerald-400 text-sm font-mono rounded-lg border border-emerald-500/30">
+          {category.icon}
+        </span>
         {category.name}
       </h3>
       <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
@@ -250,7 +252,6 @@ export default function FAQPage() {
                 <span className="hidden sm:inline">Back</span>
               </Link>
               <div className="flex items-center gap-2">
-                <span className="text-2xl">❓</span>
                 <h1 className="text-xl font-bold text-white">FAQ</h1>
               </div>
             </div>
