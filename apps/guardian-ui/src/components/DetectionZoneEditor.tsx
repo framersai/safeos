@@ -10,7 +10,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useSettingsStore, type DetectionZone } from '../stores/settings-store';
+import { useSettingsStore, type DetectionZone, type ZoneSensitivityOverride } from '../stores/settings-store';
 
 // =============================================================================
 // Types
@@ -325,6 +325,19 @@ export function DetectionZoneEditor({
                         )}
                     </div>
 
+                    {/* Selected Zone Sensitivity Overrides */}
+                    {selectedZone && (
+                        <ZoneSensitivityPanel
+                            zone={selectedZone}
+                            globalSettings={{
+                                motion: detectionZones.find(z => z.id === 'full')?.sensitivityOverride?.motion,
+                                audio: detectionZones.find(z => z.id === 'full')?.sensitivityOverride?.audio,
+                                pixel: detectionZones.find(z => z.id === 'full')?.sensitivityOverride?.pixel,
+                            }}
+                            onUpdate={(override) => updateDetectionZone(selectedZone.id, { sensitivityOverride: override })}
+                        />
+                    )}
+
                     {/* Zone List */}
                     <div className="space-y-2">
                         <h4 className="text-sm font-medium text-slate-300">Detection Zones</h4>
@@ -439,6 +452,183 @@ function TrashIcon({ className = '' }: { className?: string }) {
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
+    );
+}
+
+function SlidersIcon({ className = '' }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+    );
+}
+
+// =============================================================================
+// Zone Sensitivity Panel Component
+// =============================================================================
+
+interface ZoneSensitivityPanelProps {
+    zone: DetectionZone;
+    globalSettings: {
+        motion?: number;
+        audio?: number;
+        pixel?: number;
+    };
+    onUpdate: (override: ZoneSensitivityOverride) => void;
+}
+
+function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
+    const { globalSettings } = useSettingsStore();
+    const override = zone.sensitivityOverride || {};
+
+    const handleMotionChange = (value: number | undefined) => {
+        onUpdate({ ...override, motion: value });
+    };
+
+    const handleAudioChange = (value: number | undefined) => {
+        onUpdate({ ...override, audio: value });
+    };
+
+    const handlePixelChange = (value: number | undefined) => {
+        onUpdate({ ...override, pixel: value });
+    };
+
+    const hasOverrides = override.motion !== undefined || override.audio !== undefined || override.pixel !== undefined;
+
+    return (
+        <div className="p-4 bg-slate-800/50 border border-slate-700/50 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <SlidersIcon className="w-4 h-4 text-blue-400" />
+                    <h4 className="text-sm font-medium text-white">Zone Sensitivity</h4>
+                </div>
+                {hasOverrides && (
+                    <button
+                        onClick={() => onUpdate({})}
+                        className="text-xs text-slate-400 hover:text-white transition-colors"
+                    >
+                        Reset to Global
+                    </button>
+                )}
+            </div>
+            <p className="text-xs text-slate-500">
+                Override global settings for "{zone.name}". Leave empty to use global values.
+            </p>
+
+            {/* Motion Sensitivity */}
+            <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-400">Motion Sensitivity</label>
+                    <div className="flex items-center gap-2">
+                        {override.motion !== undefined ? (
+                            <span className="text-xs text-blue-400 font-mono">{override.motion}%</span>
+                        ) : (
+                            <span className="text-xs text-slate-500 font-mono">Global ({globalSettings.motionSensitivity}%)</span>
+                        )}
+                        <button
+                            onClick={() => handleMotionChange(override.motion !== undefined ? undefined : globalSettings.motionSensitivity)}
+                            className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-colors ${
+                                override.motion !== undefined
+                                    ? 'bg-blue-500/20 text-blue-400'
+                                    : 'bg-slate-700 text-slate-500 hover:text-slate-300'
+                            }`}
+                            title={override.motion !== undefined ? 'Use global value' : 'Override'}
+                        >
+                            {override.motion !== undefined ? '✓' : '○'}
+                        </button>
+                    </div>
+                </div>
+                {override.motion !== undefined && (
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={override.motion}
+                        onChange={(e) => handleMotionChange(Number(e.target.value))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                                   [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500
+                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                )}
+            </div>
+
+            {/* Audio Sensitivity */}
+            <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-400">Audio Sensitivity</label>
+                    <div className="flex items-center gap-2">
+                        {override.audio !== undefined ? (
+                            <span className="text-xs text-purple-400 font-mono">{override.audio}%</span>
+                        ) : (
+                            <span className="text-xs text-slate-500 font-mono">Global ({globalSettings.audioSensitivity}%)</span>
+                        )}
+                        <button
+                            onClick={() => handleAudioChange(override.audio !== undefined ? undefined : globalSettings.audioSensitivity)}
+                            className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-colors ${
+                                override.audio !== undefined
+                                    ? 'bg-purple-500/20 text-purple-400'
+                                    : 'bg-slate-700 text-slate-500 hover:text-slate-300'
+                            }`}
+                            title={override.audio !== undefined ? 'Use global value' : 'Override'}
+                        >
+                            {override.audio !== undefined ? '✓' : '○'}
+                        </button>
+                    </div>
+                </div>
+                {override.audio !== undefined && (
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={override.audio}
+                        onChange={(e) => handleAudioChange(Number(e.target.value))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                                   [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-purple-500
+                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                )}
+            </div>
+
+            {/* Pixel Threshold */}
+            <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-400">Pixel Threshold</label>
+                    <div className="flex items-center gap-2">
+                        {override.pixel !== undefined ? (
+                            <span className="text-xs text-emerald-400 font-mono">{override.pixel}px</span>
+                        ) : (
+                            <span className="text-xs text-slate-500 font-mono">Global ({globalSettings.absolutePixelThreshold}px)</span>
+                        )}
+                        <button
+                            onClick={() => handlePixelChange(override.pixel !== undefined ? undefined : globalSettings.absolutePixelThreshold)}
+                            className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-colors ${
+                                override.pixel !== undefined
+                                    ? 'bg-emerald-500/20 text-emerald-400'
+                                    : 'bg-slate-700 text-slate-500 hover:text-slate-300'
+                            }`}
+                            title={override.pixel !== undefined ? 'Use global value' : 'Override'}
+                        >
+                            {override.pixel !== undefined ? '✓' : '○'}
+                        </button>
+                    </div>
+                </div>
+                {override.pixel !== undefined && (
+                    <input
+                        type="range"
+                        min={1}
+                        max={100}
+                        value={override.pixel}
+                        onChange={(e) => handlePixelChange(Number(e.target.value))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
+                                   [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-emerald-500
+                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                )}
+            </div>
+        </div>
     );
 }
 

@@ -39,6 +39,12 @@ export interface ScenarioOverrides {
   security?: Partial<SecurityPreset>;
 }
 
+export interface ZoneSensitivityOverride {
+  motion?: number;  // 0-100, undefined = use global
+  audio?: number;   // 0-100, undefined = use global
+  pixel?: number;   // 1-100 pixel threshold, undefined = use global
+}
+
 export interface DetectionZone {
   id: string;
   name: string;
@@ -47,6 +53,7 @@ export interface DetectionZone {
   y: number;      // 0-100 percentage
   width: number;  // 0-100 percentage
   height: number; // 0-100 percentage
+  sensitivityOverride?: ZoneSensitivityOverride;  // Per-zone sensitivity override
 }
 
 export interface AudioSettings {

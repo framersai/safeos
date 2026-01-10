@@ -8,12 +8,14 @@
  * @module app/monitor/page
  */
 
-import React, { useEffect, useCallback, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { CameraFeed } from '../../components/CameraFeed';
 import { AlertPanel } from '../../components/AlertPanel';
 import { SubjectPreviewOverlay, SubjectPreview } from '../../components/SubjectPreview';
 import { QuickSettingsPanel } from '../../components/QuickSettingsPanel';
+import { InlineSettingsPanel } from '../../components/monitor';
 import { IconSearch, IconFingerprint, IconRadar, IconChevronDown, IconShield } from '../../components/icons';
 import { useMonitoringStore } from '../../stores/monitoring-store';
 import { useOnboardingStore } from '../../stores/onboarding-store';
@@ -112,6 +114,8 @@ export default function MonitorPage() {
   const { activePresetId, setActivePreset, activeSleepPreset, globalSettings, updateGlobalSettings } = useSettingsStore();
   const currentPreset = globalSettings; // Use globalSettings to reflect slider overrides
   const [showOverrides, setShowOverrides] = useState(false);
+
+  // URL parameter handling is done via PresetInitializer component below
 
   // Close mode dropdown when clicking outside
   useEffect(() => {
@@ -571,25 +575,25 @@ export default function MonitorPage() {
                   <div className="text-lg font-bold text-emerald-500">
                     {currentPreset.absolutePixelThreshold}px
                   </div>
-                  <div className="text-[10px] text-gray-500 uppercase">Pixel Threshold</div>
+                  <div className="text-xs sm:text-[10px] text-gray-500 uppercase">Pixel Threshold</div>
                 </div>
                 <div className="text-center p-2 bg-gray-900/50 rounded-lg">
                   <div className="text-lg font-bold text-blue-400">
                     {currentPreset.motionSensitivity}%
                   </div>
-                  <div className="text-[10px] text-gray-500 uppercase">Motion</div>
+                  <div className="text-xs sm:text-[10px] text-gray-500 uppercase">Motion</div>
                 </div>
                 <div className="text-center p-2 bg-gray-900/50 rounded-lg">
                   <div className="text-lg font-bold text-purple-400">
                     {currentPreset.audioSensitivity}%
                   </div>
-                  <div className="text-[10px] text-gray-500 uppercase">Audio</div>
+                  <div className="text-xs sm:text-[10px] text-gray-500 uppercase">Audio</div>
                 </div>
                 <div className="text-center p-2 bg-gray-900/50 rounded-lg">
                   <div className="text-lg font-bold text-amber-400">
                     {currentPreset.analysisInterval}ms
                   </div>
-                  <div className="text-[10px] text-gray-500 uppercase">Interval</div>
+                  <div className="text-xs sm:text-[10px] text-gray-500 uppercase">Interval</div>
                 </div>
               </div>
 
@@ -620,7 +624,7 @@ export default function MonitorPage() {
 
               {showOverrides && (
                 <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-4 animate-fade-in">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                  <p className="text-xs sm:text-[10px] text-gray-500 uppercase tracking-wider">
                     Override until preset changes
                   </p>
 
@@ -769,12 +773,50 @@ export default function MonitorPage() {
             )}
           </div>
         </div>
+
+        {/* Inline Settings Panel */}
+        <InlineSettingsPanel defaultExpanded={['detection']} />
       </main>
 
-      {/* Quick Settings Panel - floating bottom-right */}
-      <QuickSettingsPanel />
+      {/* Quick Settings Panel - floating bottom-right (mobile fallback) */}
+      <div className="lg:hidden">
+        <QuickSettingsPanel />
+      </div>
+
+      {/* Preset Initializer - handles URL params */}
+      <Suspense fallback={null}>
+        <PresetInitializer />
+      </Suspense>
     </div>
   );
+}
+
+// =============================================================================
+// Preset Initializer Component (for URL params)
+// =============================================================================
+
+function PresetInitializer() {
+  const searchParams = useSearchParams();
+  const { setActivePreset } = useSettingsStore();
+  const [applied, setApplied] = useState(false);
+
+  useEffect(() => {
+    if (applied) return;
+
+    const presetParam = searchParams.get('preset');
+    const scenarioParam = searchParams.get('scenario');
+
+    if (presetParam && presetParam in DEFAULT_PRESETS) {
+      setActivePreset(presetParam as PresetId);
+      setApplied(true);
+    }
+
+    if (scenarioParam) {
+      console.log(`[Monitor] Quick start for scenario: ${scenarioParam}`);
+    }
+  }, [searchParams, setActivePreset, applied]);
+
+  return null; // This component only handles side effects
 }
 
 // =============================================================================

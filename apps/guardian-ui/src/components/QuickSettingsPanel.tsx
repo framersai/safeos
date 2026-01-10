@@ -142,12 +142,12 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
             {/* Preset Selector - Dropdown (compact) */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] text-slate-400 uppercase tracking-wider">
+                <label className="text-xs sm:text-[10px] text-slate-400 uppercase tracking-wider">
                   Mode
                 </label>
                 <button
                   onClick={() => setShowInfoModal(true)}
-                  className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-0.5"
+                  className="text-xs sm:text-[10px] text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-0.5"
                   aria-label="Learn about monitoring modes"
                 >
                   <IconInfo size={12} />
@@ -200,8 +200,8 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
             {/* Volume Slider */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] text-slate-400 uppercase tracking-wider">Volume</label>
-                <span className="text-[10px] text-emerald-500 font-mono">{globalSettings.alertVolume}%</span>
+                <label className="text-xs sm:text-[10px] text-slate-400 uppercase tracking-wider">Volume</label>
+                <span className="text-xs sm:text-[10px] text-emerald-500 font-mono">{globalSettings.alertVolume}%</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -282,7 +282,7 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
 
                 {/* Test Sounds */}
                 <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 block">Test Sounds</label>
+                  <label className="text-xs sm:text-[10px] text-slate-400 uppercase tracking-wider mb-1 block">Test Sounds</label>
                   <div className="flex gap-1">
                     <TestSoundButton label="🔔" onClick={() => soundManager.test('notification')} title="Notification" />
                     <TestSoundButton label="⚠️" onClick={() => soundManager.test('alert')} title="Alert" />

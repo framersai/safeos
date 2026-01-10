@@ -89,7 +89,7 @@ export function MobileBottomNav() {
               aria-current={isActive ? 'page' : undefined}
             >
               <Icon size={24} className={isActive ? 'text-emerald-500' : ''} />
-              <span className={`text-[10px] font-medium ${isActive ? 'text-emerald-500' : ''}`}>
+              <span className={`text-xs font-medium ${isActive ? 'text-emerald-500' : ''}`}>
                 {item.label}
               </span>
               {isActive && (
