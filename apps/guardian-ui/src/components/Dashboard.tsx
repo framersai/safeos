@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useMonitoringStore } from '../stores/monitoring-store';
 import { useWebSocket } from '../lib/websocket';
+import { OnboardingWizard, useOnboarding } from './OnboardingWizard';
 import {
   IconShieldCheck,
   IconCamera,
@@ -29,6 +30,7 @@ import {
   IconRefresh,
 } from './icons';
 import { SafeOSLogo, SuperCloudLogo } from './Logo';
+import { UseCaseShowcase } from './UseCaseShowcase';
 
 // =============================================================================
 // Types
@@ -64,6 +66,7 @@ export function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const { isStreaming, alerts, addAlert } = useMonitoringStore();
+  const { showOnboarding, isChecking, complete: completeOnboarding } = useOnboarding();
 
   const { sendMessage, isConnected } = useWebSocket(
     process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001',
@@ -108,8 +111,20 @@ export function Dashboard() {
     }
   }, [isConnected, sendMessage]);
 
+  // Show loading while checking onboarding status
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-[var(--color-steel-950)] flex items-center justify-center">
+        <div className="animate-pulse text-slate-500">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-steel-950)]">
+      {/* Onboarding Wizard */}
+      {showOnboarding && <OnboardingWizard onComplete={completeOnboarding} />}
+
       {/* Header */}
       <Header isConnected={isConnected} systemHealth={stats.systemHealth} />
 
@@ -160,6 +175,9 @@ export function Dashboard() {
                 <RecentAlertsPanel alerts={alerts.slice(0, 5)} />
               </div>
             </div>
+
+            {/* Use Cases Showcase */}
+            <UseCaseShowcase className="mt-8" />
           </div>
         )}
       </main>

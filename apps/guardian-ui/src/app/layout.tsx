@@ -14,6 +14,8 @@ import { Providers } from '@/components/Providers';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { NotificationPermission } from '@/components/NotificationPermission';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { KeyboardShortcutsProvider } from '@/components/KeyboardShortcutsProvider';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import './globals.css';
 
 // =============================================================================
@@ -161,7 +163,7 @@ export default function RootLayout({
         {/* Preconnect to font origins for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        
+
         {/* Favicon with dark/light mode support */}
         <link
           rel="icon"
@@ -175,24 +177,59 @@ export default function RootLayout({
           type="image/svg+xml"
           media="(prefers-color-scheme: light)"
         />
+
+        {/* Theme initialization script - prevents flash of wrong theme */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var stored = localStorage.getItem('guardian-theme');
+                  var parsed = stored ? JSON.parse(stored) : null;
+                  var state = parsed && parsed.state ? parsed.state : null;
+                  var mode = state && state.themeMode ? state.themeMode : 'system';
+                  var accessibility = state && state.accessibility ? state.accessibility : {};
+
+                  var theme = mode;
+                  if (mode === 'system') {
+                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                  }
+
+                  document.documentElement.classList.add(theme);
+                  document.documentElement.style.colorScheme = theme;
+
+                  if (accessibility.reducedMotion) document.documentElement.classList.add('reduce-motion');
+                  if (accessibility.highContrast) document.documentElement.classList.add('high-contrast');
+                  if (accessibility.largeText) document.documentElement.classList.add('large-text');
+                } catch (e) {
+                  document.documentElement.classList.add('dark');
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="app-layout">
         <Providers>
           <ErrorBoundary>
-            <Nav />
-            <div className="app-content">
-              {children}
-            </div>
-            <Footer />
+            <ThemeProvider>
+              <KeyboardShortcutsProvider>
+                <Nav />
+                <div className="app-content">
+                  {children}
+                </div>
+                <Footer />
 
-            {/* Mobile Bottom Navigation */}
-            <MobileBottomNav />
+                {/* Mobile Bottom Navigation */}
+                <MobileBottomNav />
 
-            {/* PWA Install Prompt */}
-            <PWAInstallPrompt />
+                {/* PWA Install Prompt */}
+                <PWAInstallPrompt />
 
-            {/* Notification Permission Request */}
-            <NotificationPermission />
+                {/* Notification Permission Request */}
+                <NotificationPermission />
+              </KeyboardShortcutsProvider>
+            </ThemeProvider>
           </ErrorBoundary>
         </Providers>
 

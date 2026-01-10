@@ -131,6 +131,33 @@ export default function SettingsPage() {
         </svg>
       ),
     },
+    {
+      id: 'appearance',
+      title: 'Appearance',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'schedule',
+      title: 'Schedule',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'sounds',
+      title: 'Sounds',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+      ),
+    },
   ];
 
   const handleSave = async () => {
@@ -235,13 +262,16 @@ export default function SettingsPage() {
             <ul className="space-y-1">
               {sections.map((section) => (
                 <li key={section.id}>
-                  {['ai-models', 'detection-zones', 'escalation', 'detection'].includes(section.id) ? (
+                  {['ai-models', 'detection-zones', 'escalation', 'detection', 'appearance', 'schedule', 'sounds'].includes(section.id) ? (
                     <Link
                       href={
                         section.id === 'ai-models' ? '/settings/models' :
                           section.id === 'detection-zones' ? '/settings/zones' :
                             section.id === 'detection' ? '/settings/detection' :
-                              '/settings/escalation'
+                              section.id === 'appearance' ? '/settings/appearance' :
+                                section.id === 'schedule' ? '/settings/schedule' :
+                                  section.id === 'sounds' ? '/settings/sounds' :
+                                    '/settings/escalation'
                       }
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800"
                     >
