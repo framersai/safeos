@@ -1,9 +1,35 @@
 /**
  * Centralized Sound Manager
- * 
+ *
  * Manages all audio playback with priority system and volume overrides.
  * Emergency mode always plays at 100% volume regardless of user settings.
+ *
+ * FEATURES:
+ * - Built-in alert sounds (notification, alert, warning, alarm, emergency)
+ * - Custom sound support via IndexedDB (see /settings/sounds)
+ * - Priority-based playback (higher priority interrupts lower)
+ * - Volume control with emergency override
+ * - Loop and repeat functionality
+ *
+ * CUSTOM SOUNDS:
+ * Custom sounds are stored in IndexedDB and can be triggered by detection events:
+ * - person_detected: AI detected a person
+ * - pet_detected: AI detected a pet (use for pet recall messages!)
+ * - object_found: Lost & Found match detected
+ * - motion_detected: Motion threshold exceeded
+ * - audio_detected: Audio threshold exceeded
+ * - inactivity_alert: No movement for specified time
+ * - emergency: Emergency mode activated
+ *
+ * See /settings/sounds to upload, record, and configure custom sounds.
  */
+
+import {
+  getCustomSoundsByTrigger,
+  recordSoundPlay,
+  type CustomSound,
+  type SoundTrigger,
+} from './custom-sounds-db';
 
 // =============================================================================
 // Types
@@ -11,6 +37,9 @@
 
 export type SoundType = 'notification' | 'alert' | 'warning' | 'alarm' | 'emergency';
 export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+// Re-export trigger type for convenience
+export type { SoundTrigger } from './custom-sounds-db';
 
 export interface SoundConfig {
   type: SoundType;
@@ -409,6 +438,146 @@ class SoundManager {
   }
 
   // ==========================================================================
+  // Custom Sound Methods
+  // ==========================================================================
+
+  /**
+   * Play custom sounds for a specific trigger event
+   *
+   * Loads all enabled custom sounds configured for this trigger from IndexedDB
+   * and plays them according to their individual settings (volume, loop, repeat).
+   *
+   * @param trigger - The event type that triggered this sound
+   * @returns Array of sound IDs that were played
+   *
+   * @example
+   * // When a pet is detected on camera:
+   * await soundManager.playForTrigger('pet_detected');
+   *
+   * @example
+   * // When a person is detected at night:
+   * await soundManager.playForTrigger('person_detected');
+   */
+  async playForTrigger(trigger: SoundTrigger): Promise<string[]> {
+    try {
+      const customSounds = await getCustomSoundsByTrigger(trigger);
+
+      if (customSounds.length === 0) {
+        return [];
+      }
+
+      // Sort by priority (highest first)
+      customSounds.sort((a, b) => b.priority - a.priority);
+
+      const playedIds: string[] = [];
+
+      for (const sound of customSounds) {
+        const id = await this.playCustomSound(sound);
+        if (id) {
+          playedIds.push(id);
+          // Record that we played this sound
+          await recordSoundPlay(sound.id);
+        }
+      }
+
+      return playedIds;
+    } catch (error) {
+      console.warn('Failed to play custom sounds for trigger:', trigger, error);
+      return [];
+    }
+  }
+
+  /**
+   * Play a specific custom sound
+   *
+   * @param sound - The custom sound configuration from IndexedDB
+   * @returns Sound ID or null if failed
+   */
+  async playCustomSound(sound: CustomSound): Promise<string | null> {
+    try {
+      const id = `custom-${sound.id}-${Date.now()}`;
+
+      // Create audio from blob
+      const url = URL.createObjectURL(sound.audioBlob);
+      const audio = new Audio(url);
+
+      // Calculate volume
+      let volume = sound.volume / 100;
+      if (this.emergencyModeActive) {
+        volume = 1.0;
+      }
+      audio.volume = volume;
+
+      // Apply mute (except emergency trigger)
+      if (this.globalMute && !sound.triggers.includes('emergency')) {
+        audio.muted = true;
+      }
+
+      // Handle priority - stop lower priority sounds
+      this.handlePriority(sound.priority);
+
+      // Track as active sound
+      const activeSound: ActiveSound = {
+        id,
+        type: 'notification', // Map custom to notification for typing
+        audio,
+        priority: sound.priority,
+        startTime: Date.now(),
+        loop: sound.loop,
+      };
+      this.activeSounds.set(id, activeSound);
+
+      // Handle repeats
+      let repeatCount = 0;
+      const maxRepeats = sound.loop ? Infinity : sound.repeatCount;
+
+      const playOnce = () => {
+        audio.currentTime = 0;
+        audio.play().catch((err) => {
+          console.warn('Failed to play custom sound:', err);
+          URL.revokeObjectURL(url);
+          this.activeSounds.delete(id);
+        });
+      };
+
+      audio.addEventListener('ended', () => {
+        if (sound.loop) {
+          // Continuous loop
+          audio.currentTime = 0;
+          audio.play();
+        } else if (repeatCount < maxRepeats) {
+          // Repeat with delay
+          repeatCount++;
+          setTimeout(playOnce, sound.repeatDelayMs);
+        } else {
+          // Done playing
+          URL.revokeObjectURL(url);
+          this.activeSounds.delete(id);
+        }
+      });
+
+      // Start playing
+      playOnce();
+
+      return id;
+    } catch (error) {
+      console.warn('Failed to play custom sound:', sound.name, error);
+      return null;
+    }
+  }
+
+  /**
+   * Stop all custom sounds
+   */
+  stopCustomSounds(): void {
+    this.activeSounds.forEach((sound, id) => {
+      if (id.startsWith('custom-')) {
+        this.stop(id, 0);
+      }
+    });
+  }
+
+  // ==========================================================================
   // Private Methods
   // ==========================================================================
 
@@ -578,6 +747,19 @@ export function useSoundManager() {
     manager.testEmergency();
   }, []);
 
+  // Custom sound methods
+  const playForTrigger = useCallback(async (trigger: SoundTrigger) => {
+    return manager.playForTrigger(trigger);
+  }, []);
+
+  const playCustomSound = useCallback(async (sound: CustomSound) => {
+    return manager.playCustomSound(sound);
+  }, []);
+
+  const stopCustomSounds = useCallback(() => {
+    manager.stopCustomSounds();
+  }, []);
+
   return {
     isInitialized,
     volume,
@@ -593,6 +775,10 @@ export function useSoundManager() {
     stopAll,
     test,
     testEmergency,
+    // Custom sound methods
+    playForTrigger,
+    playCustomSound,
+    stopCustomSounds,
     isPlaying: () => manager.isPlaying(),
     getActiveSounds: () => manager.getActiveSounds(),
   };
