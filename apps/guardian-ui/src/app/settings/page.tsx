@@ -160,6 +160,8 @@ export default function SettingsPage() {
     },
   ];
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
   const handleSave = async () => {
     setIsSaving(true);
     setSaveMessage(null);
@@ -167,40 +169,51 @@ export default function SettingsPage() {
     try {
       const token = localStorage.getItem('safeos_session_token');
 
-      const response = await fetch('/api/auth/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Token': token || '',
+      // Save to localStorage as fallback (works offline)
+      const settingsData = {
+        displayName,
+        preferences: {
+          motionSensitivity: motionSensitivity / 100,
+          audioSensitivity: audioSensitivity / 100,
+          alertVolume: alertVolume / 100,
+          theme,
         },
-        body: JSON.stringify({
-          displayName,
-          preferences: {
-            motionSensitivity: motionSensitivity / 100,
-            audioSensitivity: audioSensitivity / 100,
-            alertVolume: alertVolume / 100,
-            theme,
-          },
-          notificationSettings: {
-            browserPush,
-            sms: smsEnabled,
-            telegram: telegramEnabled,
-            quietHoursStart: quietHoursEnabled ? quietHoursStart : null,
-            quietHoursEnd: quietHoursEnabled ? quietHoursEnd : null,
-          },
-        }),
-      });
+        notificationSettings: {
+          browserPush,
+          sms: smsEnabled,
+          telegram: telegramEnabled,
+          quietHoursStart: quietHoursEnabled ? quietHoursStart : null,
+          quietHoursEnd: quietHoursEnabled ? quietHoursEnd : null,
+        },
+      };
 
-      const data = await response.json();
+      // Save locally first (always works)
+      localStorage.setItem('safeos_user_settings', JSON.stringify(settingsData));
 
-      if (data.success) {
-        updateProfile(data.data);
-        setSaveMessage({ type: 'success', text: 'Settings saved successfully!' });
-      } else {
-        setSaveMessage({ type: 'error', text: data.error || 'Failed to save settings' });
+      // Try to sync with backend if available
+      try {
+        const response = await fetch(`${API_URL}/api/auth/profile`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Session-Token': token || '',
+          },
+          body: JSON.stringify(settingsData),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            updateProfile(data.data);
+          }
+        }
+      } catch {
+        // Backend unavailable - settings still saved locally
       }
+
+      setSaveMessage({ type: 'success', text: 'Settings saved!' });
     } catch {
-      setSaveMessage({ type: 'error', text: 'Network error. Please try again.' });
+      setSaveMessage({ type: 'error', text: 'Failed to save settings.' });
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage(null), 3000);
@@ -255,11 +268,11 @@ export default function SettingsPage() {
       )}
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto p-4 sm:p-6">
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Sidebar */}
-          <nav className="md:w-56 flex-shrink-0">
-            <ul className="space-y-1">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 pb-24 md:pb-6">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+          {/* Sidebar - Horizontal scroll on mobile */}
+          <nav className="md:w-56 flex-shrink-0 -mx-4 px-4 md:mx-0 md:px-0">
+            <ul className="flex md:flex-col gap-2 md:gap-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 scrollbar-hide">
               {sections.map((section) => (
                 <li key={section.id}>
                   {['ai-models', 'detection-zones', 'escalation', 'detection', 'appearance', 'schedule', 'sounds'].includes(section.id) ? (
@@ -273,11 +286,11 @@ export default function SettingsPage() {
                                   section.id === 'sounds' ? '/settings/sounds' :
                                     '/settings/escalation'
                       }
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800"
+                      className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-full md:rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800 whitespace-nowrap text-sm md:text-base bg-slate-800/50 md:bg-transparent border border-slate-700 md:border-transparent"
                     >
                       {section.icon}
                       <span>{section.title}</span>
-                      <svg className="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 ml-auto hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </Link>
@@ -285,10 +298,10 @@ export default function SettingsPage() {
                     <button
                       onClick={() => setActiveSection(section.id)}
                       className={`
-                        w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                        flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-full md:rounded-lg transition-colors whitespace-nowrap text-sm md:text-base
                         ${activeSection === section.id
-                          ? 'bg-slate-700 text-white'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 md:bg-slate-700 md:text-white md:border-transparent'
+                          : 'bg-slate-800/50 text-slate-400 border border-slate-700 md:bg-transparent md:border-transparent hover:text-white hover:bg-slate-800'
                         }
                       `}
                     >
