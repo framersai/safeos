@@ -202,8 +202,28 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
   const unacknowledgedAlerts = alerts.filter((a) => !a.acknowledged);
   const acknowledgedAlerts = alerts.filter((a) => a.acknowledged);
 
+  // Get the most recent unacknowledged alert for screen reader announcement
+  const latestAlert = unacknowledgedAlerts[0];
+
   return (
     <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+      {/* Screen reader live region for alert announcements */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {latestAlert && (
+          <span>
+            New {latestAlert.severity} alert: {latestAlert.message}.
+            {unacknowledgedAlerts.length > 1 &&
+              ` ${unacknowledgedAlerts.length} total unacknowledged alerts.`}
+          </span>
+        )}
+        {unacknowledgedAlerts.length === 0 && 'No active alerts. All clear.'}
+      </div>
+
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
         <h3 className="font-semibold text-white flex items-center gap-2">
@@ -219,13 +239,13 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
           onClick={toggleMute}
           aria-label={muted ? 'Unmute alerts' : 'Mute alerts'}
           aria-pressed={muted}
-          className={`p-2 rounded-lg transition-colors ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${
             muted
               ? 'bg-red-500/20 text-red-400'
               : 'bg-slate-700/50 text-slate-400 hover:text-white'
           }`}
         >
-          <span aria-hidden="true">{muted ? '🔇' : '🔊'}</span>
+          <span aria-hidden="true" className="text-lg">{muted ? '🔇' : '🔊'}</span>
         </button>
       </div>
 
@@ -321,7 +341,9 @@ function AlertCard({ alert, escalationLevel, onAcknowledge }: AlertCardProps) {
             </span>
             <button
               onClick={() => onAcknowledge(alert.id)}
-              className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-medium hover:bg-emerald-500/30 transition-colors"
+              className="px-4 py-2.5 min-h-[44px] bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium
+                         hover:bg-emerald-500/30 active:bg-emerald-500/40 transition-colors
+                         flex items-center justify-center"
             >
               Acknowledge
             </button>
@@ -345,7 +367,7 @@ function AcknowledgedSection({ alerts }: AcknowledgedSectionProps) {
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         aria-label={`${expanded ? 'Collapse' : 'Expand'} ${alerts.length} acknowledged alert${alerts.length !== 1 ? 's' : ''}`}
-        className="w-full p-3 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
+        className="w-full p-4 min-h-[52px] flex items-center justify-between text-slate-400 hover:text-white transition-colors"
       >
         <span className="text-sm">
           {alerts.length} acknowledged alert{alerts.length !== 1 ? 's' : ''}
