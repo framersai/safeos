@@ -23,7 +23,10 @@ import {
   IconX,
   IconHelp,
   IconExternalLink,
+  IconSun,
+  IconMoon,
 } from '../icons';
+import { useTheme } from '../../lib/theme-manager';
 
 // =============================================================================
 // Types
@@ -54,6 +57,7 @@ export function Nav() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -169,10 +173,22 @@ export function Nav() {
 
           <div className="hidden lg:block w-px h-6 bg-white/10 mx-1" />
 
-          <NotificationDropdown />
-          <button 
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
             className="flex items-center justify-center w-10 h-10 rounded-lg
-                       text-zinc-400 hover:text-zinc-100 hover:bg-white/5 
+                       text-zinc-400 hover:text-zinc-100 hover:bg-white/5
+                       border border-transparent hover:border-white/10 transition-all"
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? <IconSun size={20} /> : <IconMoon size={20} />}
+          </button>
+
+          <NotificationDropdown />
+          <button
+            className="flex items-center justify-center w-10 h-10 rounded-lg
+                       text-zinc-400 hover:text-zinc-100 hover:bg-white/5
                        border border-transparent hover:border-white/10 transition-all"
             aria-label="Help"
           >
@@ -248,6 +264,20 @@ export function Nav() {
               <span className="text-lg">📝</span>
               <span>Blog</span>
             </Link>
+          </div>
+
+          {/* Theme Toggle - Mobile */}
+          <div className="border-t border-white/5 mt-3 pt-3">
+            <button
+              onClick={() => {
+                toggleTheme();
+                setMobileMenuOpen(false);
+              }}
+              className="flex items-center gap-3 px-4 py-3.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all w-full"
+            >
+              {isDark ? <IconSun size={20} className="text-amber-400" /> : <IconMoon size={20} className="text-indigo-400" />}
+              <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
           </div>
 
           {/* Frame.dev CTA - Mobile */}
