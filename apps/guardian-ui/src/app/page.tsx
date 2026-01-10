@@ -21,6 +21,7 @@ import {
   IconWarning,
   IconInfo,
 } from '../components/icons';
+import { UseCaseShowcase } from '../components/UseCaseShowcase';
 
 // =============================================================================
 // Animated Shield SVG Component
@@ -285,6 +286,11 @@ function LandingPage() {
             title="Privacy First"
             description="All processing happens locally on your device. Your data never leaves."
           />
+        </div>
+
+        {/* Use Case Showcase */}
+        <div className="mt-16 w-full">
+          <UseCaseShowcase />
         </div>
 
         {/* Abuse Prevention Notice */}

@@ -30,7 +30,6 @@ import {
   IconRefresh,
 } from './icons';
 import { SafeOSLogo, SuperCloudLogo } from './Logo';
-import { UseCaseShowcase } from './UseCaseShowcase';
 
 // =============================================================================
 // Types
@@ -175,9 +174,6 @@ export function Dashboard() {
                 <RecentAlertsPanel alerts={alerts.slice(0, 5)} />
               </div>
             </div>
-
-            {/* Use Cases Showcase */}
-            <UseCaseShowcase className="mt-8" />
           </div>
         )}
       </main>
