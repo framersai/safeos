@@ -61,14 +61,16 @@ export function Nav() {
   const { isDark, toggleTheme } = useTheme();
   const { toggle: toggleHelp } = useShortcutsHelp();
 
-  // Prevent hydration mismatch
+  // Prevent hydration mismatch by rendering placeholder during SSR
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Return null during SSR to prevent hydration mismatch
+  // Render a placeholder nav during SSR to prevent layout shift
   if (!mounted) {
-    return null;
+    return (
+      <nav className="fixed top-0 left-0 right-0 z-[100] bg-[rgba(10,12,15,0.95)] backdrop-blur-xl border-b border-emerald-500/15 h-16" />
+    );
   }
 
   return (

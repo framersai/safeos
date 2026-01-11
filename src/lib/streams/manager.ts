@@ -216,6 +216,7 @@ export class StreamManager {
       pet: 0,
       baby: 0,
       elderly: 0,
+      security: 0,
     };
 
     let totalFrames = 0;

@@ -10,6 +10,7 @@ import type { MonitoringScenario } from '../../../types/index.js';
 import { petProfile } from './pet.js';
 import { babyProfile } from './baby.js';
 import { elderlyProfile } from './elderly.js';
+import { securityProfile } from './security.js';
 
 // =============================================================================
 // Types
@@ -36,11 +37,13 @@ export interface MonitoringProfile {
 export { petProfile } from './pet.js';
 export { babyProfile } from './baby.js';
 export { elderlyProfile } from './elderly.js';
+export { securityProfile } from './security.js';
 
 export const profiles: Record<MonitoringScenario, MonitoringProfile> = {
   pet: petProfile,
   baby: babyProfile,
   elderly: elderlyProfile,
+  security: securityProfile,
 };
 
 export function getProfile(scenario: MonitoringScenario): MonitoringProfile {

@@ -10,7 +10,7 @@
 // Monitoring Types
 // =============================================================================
 
-export type MonitoringScenario = 'pet' | 'baby' | 'elderly';
+export type MonitoringScenario = 'pet' | 'baby' | 'elderly' | 'security';
 
 export interface MonitoringProfile {
   id: string;

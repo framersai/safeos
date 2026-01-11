@@ -80,6 +80,12 @@ const SCENARIO_THRESHOLDS: Record<MonitoringScenario, AudioThresholds> = {
     alertLevel: 45,
     criticalLevel: 70,
   },
+  security: {
+    silenceLevel: 2,
+    ambientLevel: 10,
+    alertLevel: 30,
+    criticalLevel: 50,
+  },
 };
 
 // Cry detection patterns based on frequency distribution
