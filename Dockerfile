@@ -25,7 +25,7 @@ COPY package.json package-lock.json* ./
 COPY apps/guardian-ui/package.json ./apps/guardian-ui/
 
 # Install dependencies
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 # =============================================================================
 # Stage 3: Build Backend
@@ -130,7 +130,7 @@ WORKDIR /app
 COPY . .
 
 # Install all dependencies
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 # Environment
 ENV NODE_ENV=development
