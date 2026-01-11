@@ -92,7 +92,7 @@ export default function MonitorPage() {
   } = useMonitoringStore();
 
   const { selectedScenario } = useOnboardingStore();
-  
+
   const {
     activeSubject,
     isWatching: isLostFoundWatching,
@@ -103,7 +103,7 @@ export default function MonitorPage() {
     addRecentMatch,
     recordAlert: recordLostFoundAlert,
   } = useLostFoundStore();
-  
+
   const [showLostFoundPanel, setShowLostFoundPanel] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -111,7 +111,7 @@ export default function MonitorPage() {
   const modeDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Settings store for security modes/presets
-  const { activePresetId, setActivePreset, activeSleepPreset, globalSettings, updateGlobalSettings } = useSettingsStore();
+  const { activePresetId, setActivePreset, activeSleepPreset, globalSettings, updateGlobalSettings, globalMute, toggleGlobalMute } = useSettingsStore();
   const currentPreset = globalSettings; // Use globalSettings to reflect slider overrides
   const [showOverrides, setShowOverrides] = useState(false);
 
@@ -131,7 +131,7 @@ export default function MonitorPage() {
   // ---------------------------------------------------------------------------
   // Lost & Found Integration
   // ---------------------------------------------------------------------------
-  
+
   // Update matcher when settings change
   useEffect(() => {
     if (activeSubject && isLostFoundWatching) {
@@ -147,16 +147,16 @@ export default function MonitorPage() {
   // Process frames for Lost & Found matching
   const processLostFoundFrame = useCallback((video: HTMLVideoElement) => {
     if (!isLostFoundWatching || !activeSubject) return;
-    
+
     const matcher = matcherRef.current;
     const result = matcher.processFrame(video);
-    
+
     if (result) {
       // Update UI
       updateCurrentConfidence(result.confidence);
       updateConsecutiveMatches(matcher.getState().consecutiveMatches);
       addRecentMatch(result);
-      
+
       // Check if should record
       if (matcher.shouldRecord() && result.frameData) {
         // Create match frame and save to IndexedDB (async thumbnail creation)
@@ -189,7 +189,7 @@ export default function MonitorPage() {
         if (lostFoundSettings.alertSound) {
           getSoundManager().play('alert');
         }
-        
+
         // Show notification if enabled
         if (lostFoundSettings.alertNotification && 'Notification' in window && Notification.permission === 'granted') {
           new Notification('Potential Match Detected!', {
@@ -324,17 +324,38 @@ export default function MonitorPage() {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Volume Mute Toggle */}
+              <button
+                onClick={toggleGlobalMute}
+                className={`p-2 rounded-lg transition-colors ${globalMute
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                aria-label={globalMute ? 'Unmute Alerts' : 'Mute Alerts'}
+                title={globalMute ? 'Unmute Alerts (click to enable sounds)' : 'Mute Alerts (click to silence)'}
+              >
+                {globalMute ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+                )}
+              </button>
+
               {/* Security Mode Selector */}
               <div ref={modeDropdownRef} className="relative">
                 <button
                   onClick={() => setShowModeDropdown(!showModeDropdown)}
-                  className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                    isSleepPreset(activePresetId)
-                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                      : currentPreset.emergencyMode
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${isSleepPreset(activePresetId)
+                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                    : currentPreset.emergencyMode
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
                   aria-label="Select Security Mode"
                   aria-expanded={showModeDropdown}
                   aria-haspopup="listbox"
@@ -366,11 +387,10 @@ export default function MonitorPage() {
                                 setActivePreset(presetId);
                                 setShowModeDropdown(false);
                               }}
-                              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                isActive
-                                  ? 'bg-blue-500/20 text-blue-400'
-                                  : 'text-gray-300 hover:bg-gray-700'
-                              }`}
+                              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${isActive
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : 'text-gray-300 hover:bg-gray-700'
+                                }`}
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-medium text-sm">{preset.name}</span>
@@ -397,13 +417,12 @@ export default function MonitorPage() {
                                 setActivePreset(presetId);
                                 setShowModeDropdown(false);
                               }}
-                              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                isActive
-                                  ? preset.emergencyMode
-                                    ? 'bg-red-500/20 text-red-400'
-                                    : 'bg-emerald-500/20 text-emerald-400'
-                                  : 'text-gray-300 hover:bg-gray-700'
-                              }`}
+                              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${isActive
+                                ? preset.emergencyMode
+                                  ? 'bg-red-500/20 text-red-400'
+                                  : 'bg-emerald-500/20 text-emerald-400'
+                                : 'text-gray-300 hover:bg-gray-700'
+                                }`}
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-medium text-sm">{preset.name}</span>
@@ -426,11 +445,10 @@ export default function MonitorPage() {
               {/* Lost & Found toggle */}
               <button
                 onClick={() => setShowLostFoundPanel(!showLostFoundPanel)}
-                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                  isLostFoundWatching
-                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
+                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${isLostFoundWatching
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
                 aria-label="Lost & Found Mode"
                 aria-expanded={showLostFoundPanel}
                 aria-pressed={isLostFoundWatching}
@@ -443,7 +461,7 @@ export default function MonitorPage() {
                   <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
                 )}
               </button>
-              
+
               {!isStreaming && (
                 <button
                   onClick={startStream}
@@ -481,10 +499,10 @@ export default function MonitorPage() {
                   </div>
                 )}
               </div>
-              
+
               {/* Subject preview overlay */}
               {isLostFoundWatching && <SubjectPreviewOverlay />}
-              
+
               <CameraFeed
                 scenario={selectedScenario || scenario || undefined}
                 onFrame={handleFrame}
@@ -528,16 +546,14 @@ export default function MonitorPage() {
             >
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full animate-pulse ${
-                    currentPreset.emergencyMode ? 'bg-red-500' : 'bg-emerald-500'
-                  }`} />
+                  <span className={`w-2 h-2 rounded-full animate-pulse ${currentPreset.emergencyMode ? 'bg-red-500' : 'bg-emerald-500'
+                    }`} />
                   {currentPreset.name}
                 </h3>
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  currentPreset.processingMode === 'local'
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'bg-blue-500/20 text-blue-400'
-                }`}>
+                <span className={`text-xs px-2 py-1 rounded-full ${currentPreset.processingMode === 'local'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-blue-500/20 text-blue-400'
+                  }`}>
                   {currentPreset.processingMode === 'local' ? 'Local Processing' : 'Cloud AI'}
                 </span>
               </div>
@@ -708,7 +724,7 @@ export default function MonitorPage() {
                     Show Alerts
                   </button>
                 </div>
-                
+
                 {activeSubject ? (
                   <SubjectPreview mode="full" showClose={false} />
                 ) : (
@@ -731,7 +747,7 @@ export default function MonitorPage() {
                     </Link>
                   </div>
                 )}
-                
+
                 {activeSubject && (
                   <div className="mt-4 pt-4 border-t border-gray-700">
                     <Link
