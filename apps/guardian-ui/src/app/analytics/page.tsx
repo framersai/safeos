@@ -65,81 +65,10 @@ interface AnalyticsData {
 type TimeRange = '24h' | '7d' | '30d' | '90d' | 'all';
 
 // =============================================================================
-// Mock Data Generator
+// Empty State Helper (no mock data - real data only)
 // =============================================================================
 
-function generateMockData(timeRange: TimeRange): AnalyticsData {
-  const days = timeRange === '24h' ? 24 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-
-  const alertsOverTime = Array.from({ length: days }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (days - i - 1));
-    return {
-      date: timeRange === '24h'
-        ? `${String(i).padStart(2, '0')}:00`
-        : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      critical: Math.floor(Math.random() * 3),
-      high: Math.floor(Math.random() * 8),
-      medium: Math.floor(Math.random() * 15),
-      low: Math.floor(Math.random() * 25),
-      total: 0,
-    };
-  });
-
-  // Calculate totals
-  alertsOverTime.forEach((d) => {
-    d.total = d.critical + d.high + d.medium + d.low;
-  });
-
-  const totalAlerts = alertsOverTime.reduce((sum, d) => sum + d.total, 0);
-
-  return {
-    overview: {
-      totalAlerts,
-      totalStreams: Math.floor(Math.random() * 50) + 10,
-      totalHours: Math.floor(Math.random() * 500) + 50,
-      localAiUsage: 75 + Math.random() * 20,
-      cloudFallbackRate: 5 + Math.random() * 15,
-      avgResponseTime: 150 + Math.random() * 100,
-    },
-    alertsOverTime,
-    alertsBySeverity: [
-      { name: 'Critical', value: alertsOverTime.reduce((s, d) => s + d.critical, 0), color: '#ef4444' },
-      { name: 'High', value: alertsOverTime.reduce((s, d) => s + d.high, 0), color: '#f97316' },
-      { name: 'Medium', value: alertsOverTime.reduce((s, d) => s + d.medium, 0), color: '#eab308' },
-      { name: 'Low', value: alertsOverTime.reduce((s, d) => s + d.low, 0), color: '#3b82f6' },
-    ],
-    alertsByScenario: [
-      { scenario: 'Pet', count: Math.floor(totalAlerts * 0.4) },
-      { scenario: 'Baby', count: Math.floor(totalAlerts * 0.35) },
-      { scenario: 'Elderly', count: Math.floor(totalAlerts * 0.25) },
-    ],
-    hourlyActivity: Array.from({ length: 24 }, (_, i) => ({
-      hour: `${String(i).padStart(2, '0')}:00`,
-      motion: Math.floor(Math.random() * 100),
-      audio: Math.floor(Math.random() * 60),
-      alerts: Math.floor(Math.random() * 10),
-    })),
-    streamDuration: Array.from({ length: Math.min(days, 30) }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (days - i - 1));
-      return {
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        minutes: Math.floor(Math.random() * 480) + 60,
-      };
-    }),
-    aiPerformance: Array.from({ length: Math.min(days, 14) }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (14 - i - 1));
-      return {
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        localMs: 100 + Math.random() * 150,
-        cloudMs: 300 + Math.random() * 400,
-        accuracy: 85 + Math.random() * 12,
-      };
-    }),
-  };
-}
+// No mock data generator - we only show real data from the API
 
 // =============================================================================
 // Component
@@ -152,24 +81,34 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+  const [noDataAvailable, setNoDataAvailable] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   const fetchAnalyticsData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNoDataAvailable(false);
     try {
-      // Try to fetch from API first
       const response = await fetch(`${API_URL}/api/analytics?range=${timeRange}`);
       if (response.ok) {
-        setAnalyticsData(await response.json());
+        const data = await response.json();
+        // Check if there's actually data
+        if (data.overview?.totalAlerts === 0 && data.overview?.totalStreams === 0) {
+          setNoDataAvailable(true);
+          setAnalyticsData(null);
+        } else {
+          setAnalyticsData(data);
+        }
       } else {
-        // Use mock data for demo
-        setAnalyticsData(generateMockData(timeRange));
+        // API returned error - show placeholder instead of mock data
+        setNoDataAvailable(true);
+        setAnalyticsData(null);
       }
     } catch {
-      // Use mock data if API unavailable
-      setAnalyticsData(generateMockData(timeRange));
+      // API unavailable - show placeholder instead of mock data
+      setNoDataAvailable(true);
+      setAnalyticsData(null);
     } finally {
       setLoading(false);
     }
@@ -392,8 +331,28 @@ export default function AnalyticsPage() {
           </section>
         </div>
       ) : (
-        <div className="text-center text-slate-400 py-8">
-          <p>No analytics data available.</p>
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+          <div className="text-6xl mb-4">📊</div>
+          <h3 className="text-xl font-semibold text-white mb-2">No Analytics Data Yet</h3>
+          <p className="text-slate-400 max-w-md mb-6">
+            {noDataAvailable
+              ? 'Start monitoring your pet, baby, or elderly loved one to see analytics here. Your monitoring sessions will generate data that appears in these charts.'
+              : 'Unable to load analytics data. Please try again later.'}
+          </p>
+          <div className="flex gap-4">
+            <button
+              onClick={() => router.push('/monitor')}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors font-medium"
+            >
+              Start Monitoring
+            </button>
+            <button
+              onClick={fetchAnalyticsData}
+              className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -414,9 +373,8 @@ interface StatCardProps {
 function StatCard({ label, value, icon, highlight = false }: StatCardProps) {
   return (
     <div
-      className={`bg-slate-800/50 rounded-xl border p-4 ${
-        highlight ? 'border-emerald-500/50' : 'border-slate-700/50'
-      }`}
+      className={`bg-slate-800/50 rounded-xl border p-4 ${highlight ? 'border-emerald-500/50' : 'border-slate-700/50'
+        }`}
     >
       <div className="flex items-center justify-between mb-2">
         <span className="text-2xl">{icon}</span>

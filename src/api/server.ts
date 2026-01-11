@@ -23,6 +23,7 @@ import { reviewRoutes } from './routes/review';
 import { authRouter } from './routes/auth';
 import { webhookRouter } from './routes/webhooks';
 import { exportRouter } from './routes/export';
+import { analyticsRoutes } from './routes/analytics';
 import {
   standardLimiter,
   authLimiter,
@@ -120,6 +121,7 @@ export class SafeOSServer {
     this.app.use('/api/auth', authLimiter, authRouter);
     this.app.use('/api/webhooks', webhookRouter);
     this.app.use('/api/export', exportLimiter, exportRouter);
+    this.app.use('/api/analytics', analyticsRoutes);
 
     // Ollama status
     this.app.get('/api/ollama/status', async (_req: Request, res: Response) => {

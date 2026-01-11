@@ -14,3 +14,4 @@ export { systemRoutes } from './system';
 export { notificationRoutes } from './notifications';
 export { reviewRoutes } from './review';
 export { authRouter } from './auth';
+export { analyticsRoutes } from './analytics';
