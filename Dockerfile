@@ -49,10 +49,17 @@ FROM base AS builder-frontend
 
 WORKDIR /app/apps/guardian-ui
 
-# Copy dependencies and source
+# Copy package files first for caching
+COPY apps/guardian-ui/package.json ./
+
+# Copy root node_modules and install any missing guardian-ui deps
 COPY --from=deps /app/node_modules /app/node_modules
-COPY --from=deps /app/apps/guardian-ui/node_modules ./node_modules
+
+# Copy source files
 COPY apps/guardian-ui .
+
+# Install guardian-ui specific deps (uses hoisted deps from parent)
+RUN npm install --legacy-peer-deps
 
 # Build Next.js
 ENV NEXT_TELEMETRY_DISABLED=1
