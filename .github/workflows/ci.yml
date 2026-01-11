@@ -1,21 +1,13 @@
 # SafeOS Guardian - CI/CD Pipeline
-# Runs on push to main and pull requests
+# Runs on push to main/master and pull requests
 
 name: CI
 
 on:
   push:
     branches: [main, master]
-    paths:
-      - 'packages/safeos/**'
   pull_request:
     branches: [main, master]
-    paths:
-      - 'packages/safeos/**'
-
-defaults:
-  run:
-    working-directory: packages/safeos
 
 jobs:
   # =============================================================================
@@ -33,7 +25,6 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/safeos/package-lock.json
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -59,19 +50,18 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/safeos/package-lock.json
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: npm test -- --coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: packages/safeos/coverage
+          directory: ./coverage
           flags: safeos
           fail_ci_if_error: false
 
@@ -91,7 +81,6 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/safeos/package-lock.json
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -103,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-dist
-          path: packages/safeos/dist
+          path: dist
           retention-days: 7
 
   # =============================================================================
@@ -115,7 +104,7 @@ jobs:
     needs: [lint]
     defaults:
       run:
-        working-directory: packages/safeos/apps/guardian-ui
+        working-directory: apps/guardian-ui
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,7 +114,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/safeos/apps/guardian-ui/package-lock.json
+          cache-dependency-path: apps/guardian-ui/package-lock.json
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -140,7 +129,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: packages/safeos/apps/guardian-ui/.next
+          path: apps/guardian-ui/.next
           retention-days: 7
 
   # =============================================================================
@@ -150,7 +139,7 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -168,7 +157,7 @@ jobs:
       - name: Build and push API
         uses: docker/build-push-action@v5
         with:
-          context: packages/safeos
+          context: .
           target: backend
           push: true
           tags: |
@@ -180,7 +169,7 @@ jobs:
       - name: Build and push UI
         uses: docker/build-push-action@v5
         with:
-          context: packages/safeos
+          context: .
           target: frontend
           push: true
           tags: |
@@ -196,7 +185,7 @@ jobs:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     needs: [build-frontend]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
       pages: write
       id-token: write
@@ -214,11 +203,11 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci --legacy-peer-deps
-        working-directory: packages/safeos/apps/guardian-ui
+        working-directory: apps/guardian-ui
 
       - name: Build static export
         run: npm run build
-        working-directory: packages/safeos/apps/guardian-ui
+        working-directory: apps/guardian-ui
         env:
           NEXT_PUBLIC_API_URL: https://api.safeos.dev
           NEXT_PUBLIC_WS_URL: wss://api.safeos.dev
@@ -229,37 +218,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: packages/safeos/apps/guardian-ui/out
+          path: apps/guardian-ui/out
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
