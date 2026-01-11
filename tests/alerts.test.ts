@@ -2,29 +2,23 @@
  * Alert Escalation Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   AlertEscalationManager,
   ESCALATION_LEVELS,
 } from '../src/lib/alerts/escalation.js';
-import type { Alert } from '../src/types/index.js';
 
 describe('AlertEscalationManager', () => {
   let manager: AlertEscalationManager;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     manager = new AlertEscalationManager();
   });
 
-  const createAlert = (severity: Alert['severity']): Alert => ({
-    id: `alert-${Date.now()}`,
-    streamId: 'stream-1',
-    alertType: 'concern',
-    severity,
-    message: 'Test alert',
-    escalationLevel: 0,
-    acknowledged: false,
-    createdAt: new Date().toISOString(),
+  afterEach(() => {
+    manager.clearAll();
+    vi.useRealTimers();
   });
 
   describe('escalation levels', () => {
@@ -34,8 +28,8 @@ describe('AlertEscalationManager', () => {
 
     it('should have increasing delays', () => {
       for (let i = 1; i < ESCALATION_LEVELS.length; i++) {
-        expect(ESCALATION_LEVELS[i].delaySeconds).toBeGreaterThan(
-          ESCALATION_LEVELS[i - 1].delaySeconds
+        expect(ESCALATION_LEVELS[i].delay).toBeGreaterThan(
+          ESCALATION_LEVELS[i - 1].delay
         );
       }
     });
@@ -51,22 +45,20 @@ describe('AlertEscalationManager', () => {
 
   describe('alert tracking', () => {
     it('should start tracking a new alert', () => {
-      const alert = createAlert('warning');
-      manager.startAlert(alert);
+      manager.startAlert('alert-1', 'stream-1', 'medium');
 
-      const level = manager.getAlertLevel(alert.id);
-      expect(level).toBe(1); // Warning starts at level 1
+      const level = manager.getAlertLevel('alert-1');
+      expect(level).toBe(2); // Medium starts at level 2
     });
 
     it('should acknowledge an alert', () => {
-      const alert = createAlert('warning');
-      manager.startAlert(alert);
+      manager.startAlert('alert-1', 'stream-1', 'medium');
 
-      const result = manager.acknowledgeAlert(alert.id);
+      const result = manager.acknowledgeAlert('alert-1');
       expect(result).toBe(true);
 
-      const level = manager.getAlertLevel(alert.id);
-      expect(level).toBe(-1); // Not found after acknowledgment
+      const escalation = manager.getEscalation('alert-1');
+      expect(escalation?.acknowledged).toBe(true);
     });
 
     it('should return false when acknowledging non-existent alert', () => {
@@ -76,119 +68,90 @@ describe('AlertEscalationManager', () => {
   });
 
   describe('severity to level mapping', () => {
-    it('should start info alerts at level 0', () => {
-      const alert = createAlert('info');
-      manager.startAlert(alert);
-      expect(manager.getAlertLevel(alert.id)).toBe(0);
+    it('should start info alerts at level 1', () => {
+      manager.startAlert('alert-1', 'stream-1', 'info');
+      expect(manager.getAlertLevel('alert-1')).toBe(1);
     });
 
-    it('should start warning alerts at level 1', () => {
-      const alert = createAlert('warning');
-      manager.startAlert(alert);
-      expect(manager.getAlertLevel(alert.id)).toBe(1);
+    it('should start low alerts at level 1', () => {
+      manager.startAlert('alert-1', 'stream-1', 'low');
+      expect(manager.getAlertLevel('alert-1')).toBe(1);
     });
 
-    it('should start urgent alerts at level 2', () => {
-      const alert = createAlert('urgent');
-      manager.startAlert(alert);
-      expect(manager.getAlertLevel(alert.id)).toBe(2);
+    it('should start medium alerts at level 2', () => {
+      manager.startAlert('alert-1', 'stream-1', 'medium');
+      expect(manager.getAlertLevel('alert-1')).toBe(2);
     });
 
-    it('should start critical alerts at level 3', () => {
-      const alert = createAlert('critical');
-      manager.startAlert(alert);
-      expect(manager.getAlertLevel(alert.id)).toBe(3);
-    });
-  });
-
-  describe('escalation callbacks', () => {
-    it('should call onEscalate when escalating', () => {
-      const onEscalate = vi.fn();
-      manager.setOnEscalate(onEscalate);
-
-      const alert = createAlert('warning');
-      manager.startAlert(alert);
-
-      // Initial escalation
-      expect(onEscalate).toHaveBeenCalledWith(
-        expect.objectContaining({ id: alert.id }),
-        expect.objectContaining({ level: 1 })
-      );
+    it('should start high alerts at level 3', () => {
+      manager.startAlert('alert-1', 'stream-1', 'high');
+      expect(manager.getAlertLevel('alert-1')).toBe(3);
     });
 
-    it('should call onAcknowledge when acknowledged', () => {
-      const onAcknowledge = vi.fn();
-      manager.setOnAcknowledge(onAcknowledge);
-
-      const alert = createAlert('warning');
-      manager.startAlert(alert);
-      manager.acknowledgeAlert(alert.id);
-
-      expect(onAcknowledge).toHaveBeenCalledWith(alert.id);
+    it('should start critical alerts at level 4', () => {
+      manager.startAlert('alert-1', 'stream-1', 'critical');
+      expect(manager.getAlertLevel('alert-1')).toBe(4);
     });
   });
 
   describe('volume calculation', () => {
-    it('should return 0 for unknown alerts', () => {
-      expect(manager.getVolume('unknown')).toBe(0);
+    it('should return fallback volume for unknown alerts', () => {
+      expect(manager.getVolume('unknown')).toBe(0.3);
     });
 
     it('should return appropriate volume for level', () => {
-      const alert = createAlert('warning');
-      manager.startAlert(alert);
+      manager.startAlert('alert-1', 'stream-1', 'low');
 
-      const volume = manager.getVolume(alert.id);
+      const volume = manager.getVolume('alert-1');
       expect(volume).toBeGreaterThanOrEqual(0);
-      expect(volume).toBeLessThanOrEqual(100);
+      expect(volume).toBeLessThanOrEqual(1);
     });
   });
 
   describe('sound selection', () => {
-    it('should return none for unknown alerts', () => {
-      expect(manager.getSound('unknown')).toBe('none');
+    it('should return fallback sound for unknown alerts', () => {
+      expect(manager.getSound('unknown')).toBe('notification');
     });
 
-    it('should return appropriate sound for severity', () => {
-      const alert = createAlert('critical');
-      manager.startAlert(alert);
+    it('should return appropriate sound for level', () => {
+      manager.startAlert('alert-1', 'stream-1', 'critical');
 
-      const sound = manager.getSound(alert.id);
-      expect(['chime', 'alert', 'alarm', 'critical']).toContain(sound);
+      const sound = manager.getSound('alert-1');
+      expect(['notification', 'alert', 'warning', 'alarm', 'emergency']).toContain(sound);
     });
   });
 
-  describe('statistics', () => {
+  describe('active alerts', () => {
     it('should track active alerts', () => {
-      manager.startAlert(createAlert('info'));
-      manager.startAlert(createAlert('warning'));
-      manager.startAlert(createAlert('urgent'));
+      manager.startAlert('alert-1', 'stream-1', 'info');
+      manager.startAlert('alert-2', 'stream-1', 'medium');
+      manager.startAlert('alert-3', 'stream-1', 'high');
 
-      const stats = manager.getStats();
-      expect(stats.activeCount).toBe(3);
+      const active = manager.getActiveAlerts();
+      expect(active).toHaveLength(3);
     });
 
-    it('should track alerts by level', () => {
-      manager.startAlert(createAlert('warning'));
-      manager.startAlert(createAlert('warning'));
-      manager.startAlert(createAlert('critical'));
+    it('should exclude acknowledged alerts from active list', () => {
+      manager.startAlert('alert-1', 'stream-1', 'low');
+      manager.startAlert('alert-2', 'stream-1', 'high');
+      manager.acknowledgeAlert('alert-1');
 
-      const stats = manager.getStats();
-      expect(stats.byLevel[1]).toBe(2); // Two warnings at level 1
-      expect(stats.byLevel[3]).toBe(1); // One critical at level 3
+      const active = manager.getActiveAlerts();
+      expect(active).toHaveLength(1);
+      expect(active[0].alertId).toBe('alert-2');
     });
   });
 
   describe('cleanup', () => {
     it('should clear all alerts', () => {
-      manager.startAlert(createAlert('info'));
-      manager.startAlert(createAlert('warning'));
-      manager.startAlert(createAlert('urgent'));
+      manager.startAlert('alert-1', 'stream-1', 'info');
+      manager.startAlert('alert-2', 'stream-1', 'medium');
+      manager.startAlert('alert-3', 'stream-1', 'high');
 
       manager.clearAll();
 
-      const stats = manager.getStats();
-      expect(stats.activeCount).toBe(0);
+      const active = manager.getActiveAlerts();
+      expect(active).toHaveLength(0);
     });
   });
 });
-

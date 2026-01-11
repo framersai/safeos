@@ -149,7 +149,9 @@ export class FrameAnalyzer {
     prompt: string
   ): Promise<{ response: string; inferenceMs: number }> {
     try {
-      return await this.ollama.triage(frameData, prompt);
+      const startTime = Date.now();
+      const response = await this.ollama.triage(frameData, prompt);
+      return { response, inferenceMs: Date.now() - startTime };
     } catch (error) {
       console.error('[FrameAnalyzer] Triage failed:', error);
       return { response: 'ERROR: Triage failed', inferenceMs: 0 };
@@ -161,7 +163,9 @@ export class FrameAnalyzer {
     prompt: string
   ): Promise<{ response: string; inferenceMs: number }> {
     try {
-      return await this.ollama.analyze(frameData, prompt);
+      const startTime = Date.now();
+      const response = await this.ollama.analyze(frameData, prompt);
+      return { response, inferenceMs: Date.now() - startTime };
     } catch (error) {
       console.error('[FrameAnalyzer] Detailed analysis failed:', error);
       return { response: 'ERROR: Detailed analysis failed', inferenceMs: 0 };
@@ -206,7 +210,10 @@ export class FrameAnalyzer {
   // Result Parsing
   // ===========================================================================
 
-  private parseConcernLevel(response: string): ConcernLevel {
+  private parseConcernLevel(response: string | undefined | null): ConcernLevel {
+    if (!response) {
+      return 'low'; // Default to low if no response
+    }
     const lower = response.toLowerCase();
 
     if (lower.includes('critical') || lower.includes('emergency') || lower.includes('immediate')) {
@@ -235,7 +242,10 @@ export class FrameAnalyzer {
     return 'low';
   }
 
-  private extractDescription(response: string): string {
+  private extractDescription(response: string | undefined | null): string {
+    if (!response) {
+      return 'Analysis complete';
+    }
     // Try to extract a concise description from the response
     const lines = response.split('\n').filter((l) => l.trim());
     

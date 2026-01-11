@@ -179,8 +179,8 @@ export class StreamManager {
       [timestamp, id]
     );
 
-    // Close socket if still open
-    if (stream.socket && stream.socket.readyState === WebSocket.OPEN) {
+    // Close socket if still open (readyState 1 = OPEN)
+    if (stream.socket && stream.socket.readyState === 1) {
       stream.socket.close();
     }
 
