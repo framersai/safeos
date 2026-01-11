@@ -283,13 +283,78 @@ export default function MonitorPage() {
     });
   };
 
-  const handleMotion = (score: number) => {
-    setMotionScore(score);
-  };
+  // Motion/audio alert cooldown tracking
+  const lastMotionAlertRef = useRef<number>(0);
+  const lastAudioAlertRef = useRef<number>(0);
+  const ALERT_COOLDOWN_MS = 5000; // 5 second cooldown between alerts
 
-  const handleAudio = (level: number) => {
+  const handleMotion = useCallback((score: number) => {
+    setMotionScore(score);
+
+    // Check if motion exceeds threshold and trigger alert/sound
+    const motionThreshold = currentPreset.motionSensitivity;
+    const now = Date.now();
+
+    if (score >= motionThreshold && now - lastMotionAlertRef.current > ALERT_COOLDOWN_MS) {
+      lastMotionAlertRef.current = now;
+
+      // Determine severity based on how much threshold is exceeded
+      let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
+      if (score >= motionThreshold + 40) severity = 'critical';
+      else if (score >= motionThreshold + 25) severity = 'high';
+      else if (score >= motionThreshold + 10) severity = 'medium';
+
+      // Add alert to panel
+      addAlert({
+        id: `motion-${now}`,
+        streamId: streamId || 'local',
+        severity,
+        message: `Motion detected: ${score}% (threshold: ${motionThreshold}%)`,
+        timestamp: new Date().toISOString(),
+        acknowledged: false,
+      });
+
+      // Play sound (unless muted)
+      if (!globalMute) {
+        getSoundManager().playForTrigger('motion_detected');
+        getSoundManager().playForSeverity(severity);
+      }
+    }
+  }, [addAlert, streamId, globalMute, currentPreset.motionSensitivity]);
+
+  const handleAudio = useCallback((level: number) => {
     setAudioLevel(level);
-  };
+
+    // Check if audio exceeds threshold and trigger alert/sound
+    const audioThreshold = currentPreset.audioSensitivity;
+    const now = Date.now();
+
+    if (level >= audioThreshold && now - lastAudioAlertRef.current > ALERT_COOLDOWN_MS) {
+      lastAudioAlertRef.current = now;
+
+      // Determine severity
+      let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
+      if (level >= audioThreshold + 40) severity = 'critical';
+      else if (level >= audioThreshold + 25) severity = 'high';
+      else if (level >= audioThreshold + 10) severity = 'medium';
+
+      // Add alert
+      addAlert({
+        id: `audio-${now}`,
+        streamId: streamId || 'local',
+        severity,
+        message: `Audio detected: ${level}% (threshold: ${audioThreshold}%)`,
+        timestamp: new Date().toISOString(),
+        acknowledged: false,
+      });
+
+      // Play sound (unless muted)
+      if (!globalMute) {
+        getSoundManager().playForTrigger('audio_detected');
+        getSoundManager().playForSeverity(severity);
+      }
+    }
+  }, [addAlert, streamId, globalMute, currentPreset.audioSensitivity]);
 
   // ---------------------------------------------------------------------------
   // Effects
@@ -328,8 +393,8 @@ export default function MonitorPage() {
               <button
                 onClick={toggleGlobalMute}
                 className={`p-2 rounded-lg transition-colors ${globalMute
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 aria-label={globalMute ? 'Unmute Alerts' : 'Mute Alerts'}
                 title={globalMute ? 'Unmute Alerts (click to enable sounds)' : 'Mute Alerts (click to silence)'}
