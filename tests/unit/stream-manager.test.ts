@@ -76,7 +76,7 @@ describe('StreamManager', () => {
         userId: 'user-123',
       });
 
-      expect(stream.user_id).toBe('user-123');
+      expect(stream.userId).toBe('user-123');
     });
   });
 

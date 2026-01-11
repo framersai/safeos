@@ -86,12 +86,12 @@ export class StreamManager {
 
     const activeStream: ActiveStream = {
       id,
-      user_id: options.userId || null,
+      userId: options.userId,
       scenario: options.scenario,
       status: 'active',
-      started_at: timestamp,
-      created_at: timestamp,
-      ended_at: null,
+      startedAt: timestamp,
+      createdAt: timestamp,
+      endedAt: undefined,
       frameCount: 0,
       alertCount: 0,
       profile,

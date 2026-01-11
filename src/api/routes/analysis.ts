@@ -78,7 +78,7 @@ analysisRoutes.get('/:id', async (req: Request, res: Response) => {
 
     res.json({
       result: {
-        ...result,
+        ...(result as Record<string, unknown>),
         detectedIssues: (result as any).detected_issues
           ? JSON.parse((result as any).detected_issues)
           : [],

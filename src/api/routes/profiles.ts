@@ -74,7 +74,7 @@ profileRoutes.get('/:id', async (req: Request, res: Response) => {
 
     res.json({
       profile: {
-        ...profile,
+        ...(profile as Record<string, unknown>),
         settings: JSON.parse((profile as any).settings || '{}'),
       },
     });
@@ -105,7 +105,7 @@ profileRoutes.post('/', validate(CreateProfileSchema), async (req: Request, res:
 
     res.status(201).json({
       profile: {
-        ...profile,
+        ...(profile as Record<string, unknown>),
         settings: JSON.parse((profile as any).settings || '{}'),
       },
     });
@@ -166,7 +166,7 @@ profileRoutes.patch('/:id', validate(UpdateProfileSchema), async (req: Request, 
 
     res.json({
       profile: {
-        ...updated,
+        ...(updated as Record<string, unknown>),
         settings: JSON.parse((updated as any).settings || '{}'),
       },
     });
@@ -190,7 +190,8 @@ profileRoutes.delete('/:id', async (req: Request, res: Response) => {
     }
 
     // Don't delete default profiles
-    if (id.startsWith('profile-') && id.endsWith('-default')) {
+    const idString = String(id);
+    if (idString.startsWith('profile-') && idString.endsWith('-default')) {
       return res.status(400).json({ error: 'Cannot delete default profiles' });
     }
 
@@ -232,7 +233,7 @@ profileRoutes.post('/:id/activate', async (req: Request, res: Response) => {
 
     res.json({
       profile: {
-        ...updated,
+        ...(updated as Record<string, unknown>),
         settings: JSON.parse((updated as any).settings || '{}'),
       },
     });

@@ -97,7 +97,7 @@ export class OllamaClient {
     try {
       const response = await fetch(`${this.host}/api/version`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { version: string };
         return data.version;
       }
     } catch (error) {
@@ -114,7 +114,7 @@ export class OllamaClient {
     try {
       const response = await fetch(`${this.host}/api/tags`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { models?: OllamaModel[] };
         return data.models || [];
       }
     } catch (error) {
@@ -217,8 +217,8 @@ export class OllamaClient {
         throw new Error(`Generation failed: ${response.statusText}`);
       }
 
-      const data: OllamaResponse = await response.json();
-      return data.response;
+      const data = await response.json() as OllamaResponse;
+      return data.response || '';
     } catch (error) {
       console.error('Ollama generation failed:', error);
       throw error;

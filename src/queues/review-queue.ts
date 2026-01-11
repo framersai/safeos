@@ -52,6 +52,7 @@ export interface ReviewerStats {
  * Blur levels for anonymization
  */
 export const BLUR_LEVELS: Record<ModerationTier, number> = {
+  0: 0, // Tier 0: No concern
   1: 0, // Tier 1: No blur (automated only)
   2: 10, // Tier 2: Light blur
   3: 30, // Tier 3: Heavy blur for human review
@@ -88,16 +89,17 @@ export class ReviewQueue extends EventEmitter {
     const id = generateId();
     const timestamp = now();
 
+    const tier = flag.tier as ModerationTier;
     const reviewItem: ReviewItem = {
       id,
       flagId: flag.id,
       streamId: flag.streamId,
-      frameId: flag.frameId,
-      tier: flag.tier,
-      categories: flag.categories,
+      frameId: flag.analysisId,
+      tier: tier,
+      categories: [flag.category],
       status: 'pending',
-      anonymized: flag.tier >= 3,
-      blurLevel: getBlurLevel(flag.tier),
+      anonymized: tier >= 3,
+      blurLevel: getBlurLevel(tier),
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -110,9 +112,9 @@ export class ReviewQueue extends EventEmitter {
         id,
         flag.id,
         flag.streamId,
-        flag.frameId || null,
-        flag.tier,
-        JSON.stringify(flag.categories),
+        flag.analysisId || null,
+        tier,
+        JSON.stringify([flag.category]),
         reviewItem.anonymized ? 1 : 0,
         reviewItem.blurLevel,
         timestamp,
@@ -348,13 +350,14 @@ export class ReviewQueue extends EventEmitter {
       reviewed: 0,
       escalated: 0,
       dismissed: 0,
-      byTier: { 1: 0, 2: 0, 3: 0, 4: 0 } as Record<ModerationTier, number>,
+      byTier: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 } as Record<ModerationTier, number>,
       reviewerCount: this.reviewerPool.size,
     };
 
     for (const row of statusCounts) {
-      if (row.status in stats) {
-        (stats as Record<string, number>)[row.status] = row.count;
+      const status = row.status as keyof typeof stats;
+      if (status in stats && status !== 'byTier' && status !== 'reviewerCount') {
+        stats[status] = row.count;
       }
     }
 

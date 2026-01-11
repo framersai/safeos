@@ -56,8 +56,8 @@ reviewRoutes.get('/flags', async (req: Request, res: Response) => {
     // Get total count
     const countResult = await db.get<{ count: number }>(
       'SELECT COUNT(*) as count FROM content_flags WHERE 1=1' +
-        (status ? ' AND status = ?' : '') +
-        (tier !== undefined ? ' AND tier = ?' : ''),
+      (status ? ' AND status = ?' : '') +
+      (tier !== undefined ? ' AND tier = ?' : ''),
       params.slice(0, -2)
     );
 
@@ -89,7 +89,7 @@ reviewRoutes.get('/flags/:id', async (req: Request, res: Response) => {
 
     res.json({
       flag: {
-        ...flag,
+        ...(flag as Record<string, unknown>),
         metadata: (flag as any).metadata ? JSON.parse((flag as any).metadata) : {},
       },
     });
@@ -130,7 +130,7 @@ reviewRoutes.post('/flags/:id/action', validate(ReviewActionSchema), async (req:
 
     res.json({
       flag: {
-        ...updated,
+        ...(updated as Record<string, unknown>),
         metadata: (updated as any).metadata ? JSON.parse((updated as any).metadata) : {},
       },
     });

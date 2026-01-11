@@ -29,7 +29,15 @@ export interface FrameAnalysisRequest {
   audioLevel?: number;
 }
 
-export interface FrameAnalysisResult extends AnalysisResult {
+export interface FrameAnalysisResult {
+  id: string;
+  streamId: string;
+  scenario: MonitoringScenario;
+  concernLevel: ConcernLevel;
+  description: string;
+  modelUsed: string;
+  inferenceMs: number;
+  createdAt: string;
   triageResult?: string;
   detailedResult?: string;
   usedCloudFallback: boolean;
@@ -106,8 +114,8 @@ export class FrameAnalyzer {
       });
     }
 
-    // Step 3: Cloud fallback for uncertain cases
-    if (this.cloudFallbackEnabled && triageConcern !== 'low') {
+    // Step 3: Cloud fallback for uncertain cases (triageConcern is medium/high/critical at this point)
+    if (this.cloudFallbackEnabled) {
       this.cloudFallbackCount++;
       try {
         const cloudResult = await this.cloudAnalysis(request.frameData, detailedPrompt);
@@ -248,7 +256,7 @@ export class FrameAnalyzer {
     }
     // Try to extract a concise description from the response
     const lines = response.split('\n').filter((l) => l.trim());
-    
+
     // Look for lines that describe the situation
     for (const line of lines) {
       if (

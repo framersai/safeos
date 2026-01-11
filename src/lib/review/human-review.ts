@@ -142,7 +142,7 @@ export class HumanReviewService {
 
     query += ' ORDER BY cf.tier DESC, cf.created_at ASC';
 
-    const flags = await db.all<(ContentFlag & { scenario?: string })[]>(query, params);
+    const flags = await db.all(query, params) as (ContentFlag & { scenario?: string })[];
     return flags.map((f) => this.anonymizeFlag(f));
   }
 
@@ -268,7 +268,7 @@ export class HumanReviewService {
     flag: ContentFlag & { scenario?: string }
   ): AnonymizedFlag {
     // Extract time of day without specific date
-    const createdDate = new Date(flag.created_at);
+    const createdDate = new Date(flag.createdAt);
     const hour = createdDate.getHours();
     let timeOfDay: string;
     if (hour < 6) timeOfDay = 'night';
@@ -282,7 +282,7 @@ export class HumanReviewService {
       category: flag.category,
       reason: flag.reason,
       status: flag.status,
-      created_at: flag.created_at,
+      created_at: flag.createdAt,
       scenarioType: flag.scenario || 'unknown',
       timeOfDay,
       // Image would be processed through face blurring before being shown
@@ -297,7 +297,7 @@ export class HumanReviewService {
     // Get the stream to find user/IP info
     const stream = await db.get<{ user_id?: string }>(
       'SELECT user_id FROM streams WHERE id = ?',
-      [flag.stream_id]
+      [flag.streamId]
     );
 
     if (stream?.user_id) {
@@ -311,7 +311,7 @@ export class HumanReviewService {
     // End the stream
     await db.run("UPDATE streams SET status = 'banned', ended_at = ? WHERE id = ?", [
       now(),
-      flag.stream_id,
+      flag.streamId,
     ]);
   }
 

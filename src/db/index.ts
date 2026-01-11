@@ -6,7 +6,10 @@
  * @module db
  */
 
-import { createDatabase, type Database, type StorageHooks } from '@framers/sql-storage-adapter';
+import { createDatabase, type StorageHooks } from '@framers/sql-storage-adapter';
+
+// Type alias for Database (inferred from createDatabase result)
+type Database = Awaited<ReturnType<typeof createDatabase>>;
 
 // =============================================================================
 // Types
@@ -28,22 +31,20 @@ const DB_PATH = process.env['SAFEOS_DB_PATH'] || 'db_data/safeos.sqlite3';
 // =============================================================================
 
 const hooks: StorageHooks = {
-  onAfterWrite: async (context, result) => {
+  onAfterWrite: async (context, _result) => {
     // Cleanup old frames after every write
     if (context.statement?.includes('frame_buffer')) {
       const db = await getSafeOSDatabase();
       await cleanupOldFrames(db);
     }
-    return result;
   },
 
-  onAfterQuery: async (context, result) => {
+  onAfterQuery: async (context, _result) => {
     // Log slow queries
     const duration = Date.now() - (context.startTime || Date.now());
     if (duration > 100) {
       console.warn(`Slow query (${duration}ms):`, context.statement?.slice(0, 100));
     }
-    return result;
   },
 };
 
@@ -59,15 +60,8 @@ let dbInstance: Database | null = null;
 export async function createSafeOSDatabase(): Promise<Database> {
   const db = await createDatabase({
     priority: ['better-sqlite3', 'sqljs'],
-    betterSqlite3: {
-      filename: DB_PATH,
-    },
-    performance: {
-      tier: 'balanced',
-      trackMetrics: true,
-    },
     hooks,
-  });
+  } as any);
 
   return db;
 }

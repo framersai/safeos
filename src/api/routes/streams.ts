@@ -71,7 +71,7 @@ streamRoutes.get('/:id', async (req: Request, res: Response) => {
 
     res.json({
       stream: {
-        ...stream,
+        ...(stream as Record<string, unknown>),
         alertCount: alertResult?.count || 0,
       },
     });
