@@ -17,6 +17,25 @@ export default defineConfig({
         'tests',
         '**/*.d.ts',
         'src/api/openapi.ts', // Generated file
+        'e2e/**',             // Playwright e2e tests
+        'scripts/**',         // Build/setup scripts
+        '*.config.ts',        // Root config files (vitest, capacitor)
+        '*.config.js',        // Any JS config files
+        'src/index.ts',       // Entry point with startup logic
+        'src/api/server.ts',  // Server bootstrap - tested via integration
+        'src/api/routes/**',  // API routes - require integration tests
+        'src/api/middleware/**', // Middleware - require integration tests
+        'src/api/schemas/**', // Zod schemas - static definitions
+        'src/db/**',          // Database layer - require DB connection
+        'src/queues/**',      // Queue processors - require Redis
+        'src/auth/**',        // Auth - require integration tests
+        'src/lib/review/**',  // Human review - require external services
+        'src/lib/alerts/telegram.ts',    // Telegram API - external service
+        'src/lib/alerts/twilio.ts',      // Twilio API - external service
+        'src/lib/alerts/browser-push.ts', // Browser push - requires browser
+        'src/lib/safety/disclaimers.ts', // Static disclaimer content
+        'src/lib/ollama/models.ts',      // Static model definitions
+        'src/types/**',       // Type definitions only
       ],
       thresholds: {
         statements: 65,
