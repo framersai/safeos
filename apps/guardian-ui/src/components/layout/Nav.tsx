@@ -27,6 +27,7 @@ import {
   IconMoon,
 } from '../icons';
 import { useTheme } from '../../lib/theme-manager';
+import { useShortcutsHelp } from '../../lib/keyboard-shortcuts';
 
 // =============================================================================
 // Types
@@ -58,6 +59,7 @@ export function Nav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { isDark, toggleTheme } = useTheme();
+  const { toggle: toggleHelp } = useShortcutsHelp();
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -154,8 +156,8 @@ export function Nav() {
             rel="noopener noreferrer"
             className="hidden lg:flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors group"
           >
-            <svg 
-              viewBox="0 0 24 24" 
+            <svg
+              viewBox="0 0 24 24"
               className="w-5 h-5 text-emerald-500 group-hover:text-emerald-400 transition-colors"
               fill="none"
               stroke="currentColor"
@@ -187,14 +189,16 @@ export function Nav() {
 
           <NotificationDropdown />
           <button
+            onClick={toggleHelp}
             className="flex items-center justify-center w-10 h-10 rounded-lg
                        text-zinc-400 hover:text-zinc-100 hover:bg-white/5
                        border border-transparent hover:border-white/10 transition-all"
             aria-label="Help"
+            title="Keyboard Shortcuts (Press ?)"
           >
             <IconHelp size={20} />
           </button>
-          
+
           {/* Mobile Menu Toggle */}
           <button
             className="nav-mobile-toggle"
@@ -222,8 +226,8 @@ export function Nav() {
                 className={`
                   flex items-center gap-3 px-4 py-3.5 rounded-lg text-base font-medium
                   transition-all duration-150
-                  ${isActive 
-                    ? 'text-emerald-400 bg-emerald-500/10' 
+                  ${isActive
+                    ? 'text-emerald-400 bg-emerald-500/10'
                     : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'
                   }
                 `}

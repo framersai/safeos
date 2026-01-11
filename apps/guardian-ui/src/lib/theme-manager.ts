@@ -104,6 +104,15 @@ export const useThemeStore = create<ThemeState>()(
         themeMode: state.themeMode,
         accessibility: state.accessibility,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Recalculate resolvedTheme from saved themeMode after hydration
+        if (state && typeof window !== 'undefined') {
+          const resolved = state.themeMode === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : state.themeMode;
+          useThemeStore.setState({ resolvedTheme: resolved });
+        }
+      },
     }
   )
 );
