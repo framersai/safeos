@@ -7,25 +7,24 @@
     <img alt="SafeOS Guardian Logo" src="apps/guardian-ui/public/logo.svg" width="200" height="200">
   </picture>
 
-  <h3>🛡️ Free AI-Powered Monitoring for Pets, Babies, and Elderly Care</h3>
+  <h3>Free AI-Powered Monitoring for Pets, Babies, and Elderly Care</h3>
   <p><strong>Part of Frame's Humanitarian Initiative</strong></p>
 
   <p>
-    <a href="https://frame.dev">🌐 frame.dev</a> •
-    <a href="https://safeos.sh">🔗 safeos.sh</a> •
-    <a href="mailto:team@frame.dev">📧 team@frame.dev</a>
+    <a href="https://frame.dev">frame.dev</a> |
+    <a href="https://safeos.sh">safeos.sh</a> |
+    <a href="mailto:team@frame.dev">team@frame.dev</a>
   </p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
   [![codecov](https://codecov.io/gh/framersai/safeos/branch/master/graph/badge.svg)](https://codecov.io/gh/framersai/safeos)
-  [![Ollama](https://img.shields.io/badge/Ollama-Local%20AI-purple.svg)](https://ollama.com/)
   [![Frame](https://img.shields.io/badge/By-Frame-emerald.svg)](https://frame.dev)
 </div>
 
 ---
 
-## ⚠️ CRITICAL DISCLAIMER
+## CRITICAL DISCLAIMER
 
 **SafeOS Guardian is NOT a replacement for:**
 - Parental or caregiver supervision
@@ -39,59 +38,94 @@ This is a **FREE SUPPLEMENTARY TOOL** designed to assist caregivers, not replace
 
 ---
 
-## 🌟 Features
+## Features
 
-### Local-First AI Processing
-- **Ollama Integration**: Runs vision AI locally on your Mac (M3 optimized)
+### Offline-First Deep Learning
+
+All core detection runs **entirely offline** using client-side deep learning:
+
+- **Visual Fingerprinting**: Color histogram analysis, dominant color extraction, and edge detection run directly in the browser using Canvas APIs
+- **Motion Detection**: Pixel-diff analysis with configurable sensitivity
+- **Audio Analysis**: Cry detection and distress sound recognition
+- **Lost & Found Matching**: Real-time visual matching against reference photos
+
+**No internet connection required for core functionality.**
+
+### Optional LLM Enhancement (Ollama)
+
+For enhanced scene understanding, you can optionally enable Ollama integration:
+
 - **Moondream**: Fast triage model (~500ms response)
 - **LLaVA 7B**: Detailed analysis when concerns detected
-- **Cloud Fallback**: OpenRouter → OpenAI → Anthropic for complex cases
+- **Cloud Fallback**: OpenRouter, OpenAI, Anthropic for complex cases
+
+This is **entirely optional** - the app works fully offline without it.
+
+### Lost & Found Detection
+
+SafeOS includes a powerful lost pet/person detection system that runs entirely in your browser:
+
+1. **Upload Reference Photos**: Add 1-5 clear photos from different angles
+2. **Visual Fingerprinting**: The system extracts:
+   - Color histograms (32 buckets)
+   - Dominant colors (top 5)
+   - Edge signatures (8x8 grid)
+   - Size ratio estimates
+3. **Real-Time Matching**: Every camera frame is compared against stored fingerprints
+4. **Configurable Sensitivity**: Adjust color sensitivity and alert thresholds
+5. **Instant Alerts**: Sound and browser notifications when a match is detected
+
+All processing happens client-side - your photos and fingerprints never leave your device.
 
 ### Monitoring Scenarios
+
 | Scenario | What It Watches For |
 |----------|---------------------|
-| 🐕 **Pets** | Eating, bathroom, distress, illness, unusual stillness |
-| 👶 **Baby/Toddler** | Crying, movement, breathing patterns, safety hazards |
-| 👴 **Elderly** | Falls, confusion, distress, prolonged inactivity |
+| **Pets** | Eating, bathroom, distress, illness, unusual stillness |
+| **Baby/Toddler** | Crying, movement, breathing patterns, safety hazards |
+| **Elderly** | Falls, confusion, distress, prolonged inactivity |
 
 ### Privacy-First Design
+
 - **Rolling Buffer**: Only keeps 5-10 minutes of footage
-- **Local Processing**: AI runs on your machine
+- **Local Processing**: All deep learning runs on your machine
 - **No Cloud Storage**: Frames analyzed and discarded
 - **Anonymization**: Blurred content for any human review
 
 ### Smart Alerting
+
 - **Volume-Ramping Escalation**: Starts quiet, gets louder
 - **Multi-Channel Notifications**: Browser Push, SMS, Telegram
 - **Acknowledge to Silence**: One tap to confirm you're aware
 
 ### Client-Side Intelligence
+
 - **Motion Detection**: Pixel-diff analysis in browser
 - **Audio Analysis**: Cry detection, distress sounds
 - **Bandwidth Efficient**: Only sends frames when motion detected
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-1. **Ollama** (for local AI):
+1. **Node.js 20+** and **pnpm**
+
+2. **Optional - Ollama** (for LLM-enhanced analysis):
    ```bash
    # macOS
    brew install ollama
-   
+
    # Start Ollama
    ollama serve
-   ```
 
-2. **Pull Required Models**:
-   ```bash
+   # Pull models
    ollama pull moondream    # Fast triage (~1.7GB)
    ollama pull llava:7b     # Detailed analysis (~4GB)
    ```
 
-3. **Node.js 20+** and **pnpm**
+   Note: Ollama is optional. Core detection features work fully offline without it.
 
 ### Installation
 
@@ -115,7 +149,7 @@ pnpm run api
 # In another terminal, start UI (port 3000)
 pnpm run ui
 
-# Or run both with Ollama check
+# Or run both
 pnpm run dev
 ```
 
@@ -123,70 +157,70 @@ Open [http://localhost:3000](http://localhost:3000) to access the Guardian UI.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Guardian UI (Next.js)                     │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
-│  │ CameraFeed  │ │ AudioMonitor│ │     AlertPanel          ││
-│  │ (WebRTC)    │ │ (Web Audio) │ │ (Escalation Manager)    ││
-│  └──────┬──────┘ └──────┬──────┘ └────────────┬────────────┘│
-│         │               │                      │             │
-│    ┌────▼───────────────▼──────────────────────▼────┐       │
-│    │              WebSocket Client                   │       │
-│    └────────────────────┬───────────────────────────┘       │
-└─────────────────────────┼───────────────────────────────────┘
-                          │ WS (frames + alerts)
-┌─────────────────────────▼───────────────────────────────────┐
-│                    SafeOS API (Express)                      │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │                  WebSocket Server                        ││
-│  │  - Frame ingestion    - Alert broadcast                  ││
-│  │  - WebRTC signaling   - Stream management                ││
-│  └──────────────────────────┬──────────────────────────────┘│
-│                             │                                │
-│  ┌──────────────────────────▼──────────────────────────────┐│
-│  │                   Analysis Queue                         ││
-│  │  - Priority-based processing                             ││
-│  │  - Concurrency limits (3 concurrent)                     ││
-│  │  - Retry with backoff                                    ││
-│  └──────────────────────────┬──────────────────────────────┘│
-│                             │                                │
-│  ┌──────────────────────────▼──────────────────────────────┐│
-│  │                   Frame Analyzer                         ││
-│  │  1. Triage (Moondream) → quick/cheap                     ││
-│  │  2. Analysis (LLaVA) → detailed if concerning            ││
-│  │  3. Cloud Fallback → if local fails/complex              ││
-│  └──────────────────────────┬──────────────────────────────┘│
-│                             │                                │
-│  ┌──────────────────────────▼──────────────────────────────┐│
-│  │              Content Filter (4-Tier)                     ││
-│  │  1. Local AI screening                                   ││
-│  │  2. Pattern matching                                     ││
-│  │  3. Cloud AI verification                                ││
-│  │  4. Human review (anonymized)                            ││
-│  └──────────────────────────┬──────────────────────────────┘│
-│                             │                                │
-│  ┌──────────────────────────▼──────────────────────────────┐│
-│  │              Notification Manager                        ││
-│  │  - Browser Push     - Twilio SMS     - Telegram Bot      ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────────────┐
-│                    Ollama (Local LLM)                        │
-│  ┌─────────────────┐  ┌─────────────────────────────────────┐│
-│  │   Moondream     │  │           LLaVA 7B                  ││
-│  │   (Triage)      │  │     (Detailed Analysis)             ││
-│  │   ~500ms        │  │         ~2-5s                       ││
-│  └─────────────────┘  └─────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                    Guardian UI (Next.js)                     |
+|  +-------------+ +-------------+ +-------------------------+ |
+|  | CameraFeed  | | AudioMonitor| |     AlertPanel          | |
+|  | (WebRTC)    | | (Web Audio) | | (Escalation Manager)    | |
+|  +------+------+ +------+------+ +------------+------------+ |
+|         |               |                      |             |
+|    +----v---------------v----------------------v----+        |
+|    |              WebSocket Client                  |        |
+|    +------------------------+-----------------------+        |
++-----------------------------|---------------------------------+
+                              | WS (frames + alerts)
++-----------------------------v---------------------------------+
+|                    SafeOS API (Express)                       |
+|  +-----------------------------------------------------------+|
+|  |                  WebSocket Server                          ||
+|  |  - Frame ingestion    - Alert broadcast                    ||
+|  |  - WebRTC signaling   - Stream management                  ||
+|  +----------------------------+------------------------------+|
+|                               |                               |
+|  +----------------------------v------------------------------+|
+|  |                   Analysis Queue                           ||
+|  |  - Priority-based processing                               ||
+|  |  - Concurrency limits (3 concurrent)                       ||
+|  |  - Retry with backoff                                      ||
+|  +----------------------------+------------------------------+|
+|                               |                               |
+|  +----------------------------v------------------------------+|
+|  |                   Frame Analyzer                           ||
+|  |  1. Local fingerprint matching (always)                    ||
+|  |  2. Ollama triage (if enabled)                             ||
+|  |  3. Cloud fallback (if configured)                         ||
+|  +----------------------------+------------------------------+|
+|                               |                               |
+|  +----------------------------v------------------------------+|
+|  |              Content Filter (4-Tier)                       ||
+|  |  1. Local AI screening                                     ||
+|  |  2. Pattern matching                                       ||
+|  |  3. Cloud AI verification                                  ||
+|  |  4. Human review (anonymized)                              ||
+|  +----------------------------+------------------------------+|
+|                               |                               |
+|  +----------------------------v------------------------------+|
+|  |              Notification Manager                          ||
+|  |  - Browser Push     - Twilio SMS     - Telegram Bot        ||
+|  +-----------------------------------------------------------+|
++---------------------------------------------------------------+
+                              |
++-----------------------------v---------------------------------+
+|                    Ollama (Optional)                          |
+|  +-----------------+  +-------------------------------------+ |
+|  |   Moondream     |  |           LLaVA 7B                  | |
+|  |   (Triage)      |  |     (Detailed Analysis)             | |
+|  |   ~500ms        |  |         ~2-5s                       | |
+|  +-----------------+  +-------------------------------------+ |
++---------------------------------------------------------------+
 ```
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 packages/safeos/
@@ -209,7 +243,7 @@ packages/safeos/
 │   │   │   └── telegram.ts
 │   │   ├── audio/                # Audio analysis
 │   │   │   └── analyzer.ts       # Cry/distress detection
-│   │   ├── ollama/               # Ollama client
+│   │   ├── ollama/               # Ollama client (optional)
 │   │   │   └── client.ts
 │   │   ├── safety/               # Content moderation
 │   │   │   ├── content-filter.ts
@@ -240,14 +274,17 @@ packages/safeos/
 │   │   │   ├── CameraFeed.tsx
 │   │   │   ├── AlertPanel.tsx
 │   │   │   ├── Dashboard.tsx
+│   │   │   ├── LostFoundSetup.tsx
 │   │   │   └── ...
 │   │   ├── lib/                  # Client utilities
+│   │   │   ├── visual-fingerprint.ts  # Lost & Found matching
 │   │   │   ├── motion-detection.ts
 │   │   │   ├── audio-levels.ts
 │   │   │   ├── websocket.ts
 │   │   │   └── webrtc-client.ts
 │   │   └── stores/               # Zustand stores
 │   │       ├── monitoring-store.ts
+│   │       ├── lost-found-store.ts
 │   │       └── onboarding-store.ts
 │   └── ...config files
 │
@@ -263,17 +300,17 @@ packages/safeos/
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
 Create a `.env` file:
 
 ```env
-# Ollama (required for local AI)
+# Ollama (optional - for LLM-enhanced analysis)
 OLLAMA_HOST=http://localhost:11434
 
-# Cloud Fallback (optional but recommended)
+# Cloud Fallback (optional)
 OPENROUTER_API_KEY=sk-or-...
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
@@ -306,7 +343,7 @@ export const elderlyProfile = {
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all tests
@@ -324,12 +361,12 @@ pnpm test:watch
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 ### Local Development (Mac)
 
 ```bash
-# Ensure Ollama is running
+# Optional: Start Ollama for LLM features
 ollama serve
 
 # Start SafeOS
@@ -364,7 +401,7 @@ docker run -p 3001:3001 safeos
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
@@ -372,18 +409,18 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 1. **Privacy First**: Never store more data than necessary
 2. **Fail Safe**: Default to alerting if uncertain
-3. **Local Processing**: Prefer Ollama over cloud
+3. **Offline First**: Core features must work without internet
 4. **Accessibility**: Design for all users
 
 ---
 
-## 📜 License
+## License
 
 MIT License - Part of Frame's humanitarian mission.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Frame Team**: For dedicating 10% to humanity
 - **Ollama**: For making local AI accessible
@@ -396,6 +433,6 @@ MIT License - Part of Frame's humanitarian mission.
     <strong>Remember:</strong> This tool supplements, never replaces, human care.
   </p>
   <p>
-    Built with ❤️ by Frame for humanity's most vulnerable.
+    Built by Frame for humanity's most vulnerable.
   </p>
 </div>
