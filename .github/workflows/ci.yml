@@ -67,9 +67,10 @@ jobs:
       - name: Run tests
         run: npm test -- --coverage
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           directory: packages/safeos/coverage
           flags: safeos
           fail_ci_if_error: false
