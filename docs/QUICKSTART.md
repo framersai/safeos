@@ -2,9 +2,20 @@
 
 Get up and running with SafeOS Guardian in under 5 minutes.
 
+## Choose Your Mode (Local-First vs Enhanced)
+
+SafeOS Guardian is designed to work **local-first**. You can run it:
+
+- **Local-only (offline-capable):** Uses in-browser detection (motion/audio/pixel, COCO-SSD, etc.). No backend required.
+- **Enhanced local AI (optional):** Connect an Ollama server for richer vision analysis when available.
+
+If you want the fastest start and maximum privacy/offline compatibility, you can start the UI first and add Ollama later.
+
 ## 🚀 One-Minute Setup
 
 ### 1. Install Ollama (Local AI)
+
+*(Optional — only needed for enhanced local AI analysis.)*
 
 ```bash
 # macOS
@@ -99,17 +110,38 @@ In the sidebar, adjust:
 
 ### Alert Escalation
 
-SafeOS uses volume-ramping alerts that get progressively louder:
+SafeOS escalates unacknowledged alerts over time (louder + more urgent sounds).
 
-| Level | Delay | Volume | Sound |
-|-------|-------|--------|-------|
-| 1 | Immediate | 20% | Soft chime |
-| 2 | +30 sec | 40% | Gentle alert |
-| 3 | +1 min | 60% | Standard alarm |
-| 4 | +2 min | 80% | Urgent alarm |
-| 5 | +3 min | 100% | Maximum |
+- Configure it in **Settings → Alert Escalation**
+- Each level has:
+  - **Delay** (seconds after the previous level)
+  - **Volume multiplier** (applied to your effective volume, including quiet-hours)
+  - **Sound type**
+- **Level 5** is designed to be **continuous until acknowledged**
 
-**Acknowledge alerts** at any time to stop escalation.
+**Acknowledge alerts** to stop escalation immediately.
+
+### Detection Zones (Recommended)
+
+If you want “only alert me when movement happens *here*”, use zones:
+
+1. Go to **Settings → Zones**
+2. Create one or more zones and **disable “Full Screen”** if you want zone-only evaluation
+3. Optional: set per-zone overrides (motion/audio/pixel)
+
+Zones are local-first and work offline.
+
+### Offline Timeline & Export
+
+SafeOS keeps a local incident log in your browser:
+
+- Go to **History → Local Timeline** to see:
+  - Monitoring alerts
+  - Lost & Found match frames
+  - Security intrusion frames
+- Add notes, filter/search, and export a local bundle:
+  - **Download Bundle (.json)** (or **.json.gz** in supported browsers)
+  - Optional “incremental export” (only unexported frames)
 
 ### Notification Channels
 
@@ -120,13 +152,13 @@ Set up multiple notification methods:
 2. Click "Enable Push Notifications"
 3. Allow when prompted
 
-#### Telegram
+#### Telegram (Requires backend + internet)
 1. Start a chat with `@SafeOSBot`
 2. Send `/start`
 3. Copy your chat ID
 4. Paste in Settings → Notifications → Telegram
 
-#### SMS (Twilio)
+#### SMS (Twilio) (Requires backend + internet)
 1. Go to Settings → Notifications → SMS
 2. Enter your phone number
 3. Verify with the code sent
@@ -185,6 +217,7 @@ ollama serve
 2. Adjust audio threshold
 3. Ensure stable camera mounting
 4. Check for moving objects in frame (curtains, shadows)
+5. Use **Calibrate Baseline** (Monitor page) to auto-suggest sensible thresholds for your room/camera
 
 ---
 
@@ -235,8 +268,6 @@ Access SafeOS from your phone:
     <strong>Remember:</strong> SafeOS supplements—never replaces—human care.
   </p>
 </div>
-
-
 
 
 
