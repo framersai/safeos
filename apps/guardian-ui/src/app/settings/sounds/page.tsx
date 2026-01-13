@@ -22,8 +22,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Link from 'next/link';
 import { SoundUploader } from '@/components/SoundUploader';
+import { BackButton } from '@/components/BackButton';
+import { IconChevronLeft } from '@/components/icons';
 import {
   getAllCustomSounds,
   deleteCustomSound,
@@ -132,12 +133,14 @@ export default function SoundsSettingsPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/settings"
-            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+          <BackButton
+            fallbackHref="/settings"
+            ariaLabel="Back to settings"
+            className="mb-4 px-3 justify-start bg-slate-800/50 hover:bg-slate-700/60 text-slate-400 hover:text-white"
           >
-            ← Back to Settings
-          </Link>
+            <IconChevronLeft size={18} aria-hidden="true" />
+            <span className="text-sm font-medium">Back to Settings</span>
+          </BackButton>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             🔊 Custom Sounds
           </h1>

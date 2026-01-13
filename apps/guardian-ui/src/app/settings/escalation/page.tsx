@@ -9,9 +9,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useSettingsStore, type AlertEscalationLevel, type AlertSoundType } from '../../../stores/settings-store';
 import { useSoundManager, SoundType } from '../../../lib/sound-manager';
+import { BackButton } from '@/components/BackButton';
 
 // =============================================================================
 // Types
@@ -75,9 +75,11 @@ export default function EscalationSettingsPage() {
             <header className="p-4 sm:p-6 border-b border-slate-700/50">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/settings" className="text-slate-400 hover:text-white transition-colors" aria-label="Go back to settings">
-                            <ChevronLeftIcon aria-hidden="true" />
-                        </Link>
+                        <BackButton
+                          fallbackHref="/settings"
+                          ariaLabel="Back to settings"
+                          className="bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white"
+                        />
                         <div>
                             <h1 className="text-xl font-bold text-white">Alert Escalation</h1>
                             <p className="text-sm text-slate-400">
@@ -442,14 +444,4 @@ const LEVEL_COLORS = {
     5: 'bg-red-500/20 text-red-400',
 };
 
-// =============================================================================
-// Icons
-// =============================================================================
-
-function ChevronLeftIcon() {
-    return (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-    );
-}
+// (No icons below — shared BackButton handles navigation)

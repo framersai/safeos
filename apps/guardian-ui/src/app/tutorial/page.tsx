@@ -117,7 +117,7 @@ const tutorialSteps: TutorialStep[] = [
     tips: [
       'Alerts escalate in volume over time',
       'Tap "Acknowledge" to confirm you\'ve seen it',
-      'Set up push notifications for when you\'re away',
+      'Browser notifications work on this device; remote alerts require an optional monitoring server',
     ],
   },
 ];
@@ -270,5 +270,3 @@ export default function TutorialPage() {
     </div>
   );
 }
-
-

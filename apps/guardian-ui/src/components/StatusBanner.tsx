@@ -26,7 +26,7 @@ interface StatusBannerProps {
 // =============================================================================
 
 export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBannerProps) {
-  const { status, isLocalOnly, isConnected, retry, config } = useBackendStatus();
+  const { status, isLocalOnly, retry, config } = useBackendStatus();
   const [isDismissed, setIsDismissed] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -60,61 +60,14 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
     onConfigureClick?.();
   };
 
-  // Don't show if fully connected or dismissed
-  if (!isVisible || isConnected || (isDismissed && isLocalOnly)) {
+  if (!isVisible) {
     return null;
-  }
-
-  // Show error state
-  if (status.error && !isDismissed) {
-    return (
-      <div className="bg-red-500/10 border-b border-red-500/20 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {/* Error Icon */}
-              <div className="flex-shrink-0">
-                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-
-              {/* Message */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                <span className="text-sm font-medium text-red-300">Connection Error</span>
-                <span className="text-xs text-red-300/70">{status.error}</span>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={retry}
-                className="px-3 py-1.5 text-xs font-medium text-red-300 hover:text-white bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors"
-              >
-                Retry
-              </button>
-              {dismissible && (
-                <button
-                  onClick={handleDismiss}
-                  className="p-1.5 text-red-400 hover:text-red-300 transition-colors"
-                  aria-label="Dismiss"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   // Show local-only mode banner
   if (isLocalOnly && !isDismissed) {
-    const disabledCount = status.disabledFeatures.length;
+    const isMonitoringApiOnline = status.api === 'connected';
+    const isOllamaOnline = status.ollama === 'connected';
 
     return (
       <div className="bg-amber-500/10 border-b border-amber-500/20 backdrop-blur-sm">
@@ -130,12 +83,25 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
 
               {/* Message */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                <span className="text-sm font-medium text-amber-300">Running in Local Mode</span>
+                <span className="text-sm font-medium text-amber-300">
+                  {!isMonitoringApiOnline
+                    ? 'No Monitoring Server (API) Online'
+                    : !isOllamaOnline
+                    ? 'Monitoring Server Online, Ollama Offline'
+                    : 'Running Locally'}
+                </span>
                 <span className="text-xs text-amber-300/70">
-                  {config.configured
-                    ? `Cannot connect to backend. ${disabledCount} feature${disabledCount !== 1 ? 's' : ''} disabled.`
-                    : `${disabledCount} cloud feature${disabledCount !== 1 ? 's' : ''} unavailable. All detection works offline.`
-                  }
+                  {!isMonitoringApiOnline ? (
+                    <>
+                      SafeOS is running fully local/offline AI on this device. Remote channels and integrations work when a monitoring server is available.
+                    </>
+                  ) : !isOllamaOnline ? (
+                    <>
+                      Using browser-based vision AI locally. Connect Ollama to enable advanced server-side analysis.
+                    </>
+                  ) : (
+                    <>SafeOS is running fully local/offline AI on this device.</>
+                  )}
                 </span>
               </div>
             </div>
@@ -147,10 +113,10 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
                   onClick={handleConfigure}
                   className="px-3 py-1.5 text-xs font-medium text-amber-300 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 rounded-lg transition-colors"
                 >
-                  Configure Backend
+                  Monitoring Server Settings
                 </button>
               )}
-              {config.configured && (
+              {!!config.apiUrl && (
                 <button
                   onClick={retry}
                   className="px-3 py-1.5 text-xs font-medium text-amber-300 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 rounded-lg transition-colors"
@@ -191,7 +157,7 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
             </div>
 
             {/* Message */}
-            <span className="text-sm text-blue-300">Connecting to backend...</span>
+            <span className="text-sm text-blue-300">Connecting to monitoring server...</span>
           </div>
         </div>
       </div>
@@ -206,7 +172,7 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
 // =============================================================================
 
 export function StatusIndicator() {
-  const { status, isLocalOnly, isConnected } = useBackendStatus();
+  const { status, isLocalOnly, isConnected, config } = useBackendStatus();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -219,16 +185,19 @@ export function StatusIndicator() {
   const getStatusColor = () => {
     if (isConnected) return 'bg-emerald-400';
     if (status.api === 'connecting') return 'bg-blue-400 animate-pulse';
-    if (status.error) return 'bg-red-400';
     if (isLocalOnly) return 'bg-amber-400';
+    if (status.error) return 'bg-red-400';
     return 'bg-slate-400';
   };
 
   const getStatusText = () => {
     if (isConnected) return 'Connected';
     if (status.api === 'connecting') return 'Connecting...';
+    if (isLocalOnly) {
+      if (config.apiUrl) return 'No Monitoring Server Online';
+      return 'Local Mode';
+    }
     if (status.error) return 'Error';
-    if (isLocalOnly) return 'Local Mode';
     return 'Disconnected';
   };
 
@@ -261,7 +230,7 @@ export function FeatureDisabledBadge({ feature, className = '' }: FeatureDisable
       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m-6.93 3a9 9 0 1113.86 0H3.07z" />
       </svg>
-      Requires Backend
+      Requires Monitoring Server
     </span>
   );
 }

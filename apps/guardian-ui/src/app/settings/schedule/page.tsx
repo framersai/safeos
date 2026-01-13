@@ -9,7 +9,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useSettingsStore, type QuietHoursSettings, DEFAULT_PRESETS } from '../../../stores/settings-store';
 import {
   useScheduleStore,
@@ -19,6 +18,7 @@ import {
   type Schedule,
   type DayOfWeek,
 } from '../../../lib/schedule-manager';
+import { BackButton } from '@/components/BackButton';
 
 // =============================================================================
 // Constants
@@ -91,13 +91,11 @@ export default function ScheduleSettingsPage() {
       <header className="p-4 sm:p-6 border-b border-slate-700/50">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              href="/settings"
-              className="p-2 text-slate-400 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Go back to settings"
-            >
-              <ChevronLeftIcon />
-            </Link>
+            <BackButton
+              fallbackHref="/settings"
+              ariaLabel="Back to settings"
+              className="bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white"
+            />
             <div>
               <h1 className="text-xl font-bold text-white">Quiet Hours</h1>
               <p className="text-sm text-slate-400">
@@ -751,14 +749,6 @@ function ScheduleEditModal({ schedule, onSave, onCancel }: ScheduleEditModalProp
 // =============================================================================
 // Icons
 // =============================================================================
-
-function ChevronLeftIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-  );
-}
 
 function MoonIcon() {
   return (

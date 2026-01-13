@@ -492,7 +492,7 @@ function NotificationsStep({
   const [browserPush, setBrowserPush] = useState(true);
 
   const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
+    if (browserPush && 'Notification' in window) {
       await Notification.requestPermission();
     }
     onContinue();
@@ -515,8 +515,8 @@ function NotificationsStep({
           <div className="flex items-center gap-3">
             <IconBell size={18} className="text-[var(--color-steel-400)]" />
             <div>
-              <div className="text-sm font-medium text-[var(--color-steel-200)]">Browser Push</div>
-              <div className="text-xs text-[var(--color-steel-500)]">Receive alerts in your browser</div>
+              <div className="text-sm font-medium text-[var(--color-steel-200)]">Browser Notifications</div>
+              <div className="text-xs text-[var(--color-steel-500)]">Alerts on this device while your browser/app is running</div>
             </div>
           </div>
           <input
@@ -528,7 +528,7 @@ function NotificationsStep({
         </label>
 
         <p className="text-xs text-[var(--color-steel-500)]">
-          SMS and Telegram notifications can be configured after setup.
+          Remote channels (SMS/Telegram/email) are optional and require a monitoring server (API) + provider credentials. SafeOS runs fully local/offline without it.
         </p>
 
         <div className="flex gap-3 pt-4">

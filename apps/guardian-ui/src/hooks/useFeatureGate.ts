@@ -80,34 +80,34 @@ const FEATURE_CONFIG: Record<GatedFeature, FeatureConfig> = {
   'semantic-analysis': {
     requiresBackend: true,
     fallbackFeature: 'browser-vision',
-    unavailableReason: 'Semantic analysis requires Ollama backend. Using browser-based vision instead.',
+    unavailableReason: 'Semantic analysis requires Ollama (monitoring server). Using browser-based vision instead.',
   },
   'account-sync': {
     requiresBackend: true,
-    unavailableReason: 'Account sync requires backend server connection.',
+    unavailableReason: 'Account sync requires a monitoring server connection.',
   },
   'sms-alerts': {
     requiresBackend: true,
     fallbackFeature: 'web-push',
-    unavailableReason: 'SMS alerts require backend server. Using web push notifications instead.',
+    unavailableReason: 'SMS alerts require a monitoring server (and provider credentials). Using browser notifications instead.',
   },
   'telegram-alerts': {
     requiresBackend: true,
     fallbackFeature: 'web-push',
-    unavailableReason: 'Telegram alerts require backend server. Using web push notifications instead.',
+    unavailableReason: 'Telegram alerts require a monitoring server (and bot credentials). Using browser notifications instead.',
   },
   'email-digest': {
     requiresBackend: true,
-    unavailableReason: 'Email digests require backend server connection.',
+    unavailableReason: 'Email digests require a monitoring server connection.',
   },
   'cloud-history': {
     requiresBackend: true,
     fallbackFeature: 'local-history',
-    unavailableReason: 'Cloud history requires backend server. Using local storage instead.',
+    unavailableReason: 'Cloud history requires a monitoring server. Using local storage instead.',
   },
   'multi-device': {
     requiresBackend: true,
-    unavailableReason: 'Multi-device sync requires backend server connection.',
+    unavailableReason: 'Multi-device sync requires a monitoring server connection.',
   },
 
   // Local-only features (always available)

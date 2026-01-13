@@ -128,7 +128,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         question: 'Can I export my data?',
-        answer: 'Yes. You can export your settings, profiles, and alert history from the Settings page. Data is exported as JSON files that you can back up or transfer to another device. Since all data is stored locally in IndexedDB, you have full control over your information.',
+        answer: 'Yes. In offline/local mode you can download a local bundle from History → Offline Export (settings + alerts + saved frames). If you run the optional SafeOS monitoring server (API), you can also export server-side alerts/analysis/streams from the Export page. Everything remains under your control (local IndexedDB or your own server).',
       },
       {
         question: 'What is the "10% for Humanity" initiative?',

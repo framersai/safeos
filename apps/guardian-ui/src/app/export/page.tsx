@@ -11,6 +11,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../../stores/auth-store';
+import { getApiUrl, isStaticMode } from '@/lib/env';
 
 // =============================================================================
 // Types
@@ -82,7 +83,7 @@ export default function ExportPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const API_URL = getApiUrl();
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -135,6 +136,34 @@ export default function ExportPage() {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isStaticMode() || !API_URL) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6">
+        <div className="max-w-lg text-center">
+          <h1 className="text-2xl font-bold mb-3">No Monitoring Server (API) Online</h1>
+          <p className="text-slate-300 mb-6">
+            SafeOS Guardian is running fully local/offline on this device. This page exports data from an optional monitoring server, which isn&apos;t available right now.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/history"
+              className="inline-flex items-center justify-center px-5 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors"
+            >
+              Use Offline Export (History)
+            </Link>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('safeos:open-backend-settings'))}
+              className="inline-flex items-center justify-center px-5 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
+            >
+              Monitoring server settings
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -303,5 +332,3 @@ export default function ExportPage() {
     </div>
   );
 }
-
-

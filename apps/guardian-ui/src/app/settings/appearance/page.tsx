@@ -9,15 +9,14 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import {
-  IconArrowLeft,
   IconSun,
   IconMoon,
   IconComputer,
   IconEye,
 } from '@/components/icons';
 import { useTheme, useAccessibility } from '@/lib/theme-manager';
+import { BackButton } from '@/components/BackButton';
 
 // =============================================================================
 // Types
@@ -75,12 +74,11 @@ export default function AppearanceSettingsPage() {
     <div className="container py-6 md:py-8 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link
-          href="/settings"
-          className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
-        >
-          <IconArrowLeft size={20} className="text-slate-400" />
-        </Link>
+        <BackButton
+          fallbackHref="/settings"
+          ariaLabel="Back to settings"
+          className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white"
+        />
         <div>
           <h1 className="text-heading-lg">Appearance</h1>
           <p className="text-sm text-slate-400 mt-1">

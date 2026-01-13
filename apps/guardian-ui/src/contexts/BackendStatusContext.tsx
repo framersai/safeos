@@ -262,7 +262,7 @@ export function BackendStatusProvider({ children }: { children: React.ReactNode 
       mode: isFullyConnected ? 'full' : 'local-only',
       disabledFeatures,
       lastConnected: isFullyConnected ? new Date() : prev.lastConnected,
-      error: !apiOk && config.apiUrl ? 'Cannot connect to backend server' : null,
+      error: !apiOk && config.apiUrl ? 'Cannot connect to monitoring server' : null,
     }));
 
     // Connect WebSocket if API is available

@@ -14,11 +14,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { useMonitoringStore } from '../../../stores/monitoring-store';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { useSoundManager, SoundType } from '../../../lib/sound-manager';
 import { useNotifications } from '../../../lib/notification-manager';
+import { BackButton } from '@/components/BackButton';
+import { useBackendStatus } from '@/contexts/BackendStatusContext';
 import {
   getPixelDetectionEngine,
   PixelDetectionResult,
@@ -49,12 +50,15 @@ export default function TestAlertsPage() {
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [pixelTestResult, setPixelTestResult] = useState<PixelDetectionResult | null>(null);
   const [showEmergencyTest, setShowEmergencyTest] = useState(false);
+  const [serverTestMessage, setServerTestMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [serverTestChannel, setServerTestChannel] = useState<null | 'webhook' | 'push' | 'sms' | 'telegram'>(null);
 
   // Stores and hooks
   const addAlert = useMonitoringStore((state) => state.addAlert);
   const clearAlerts = useMonitoringStore((state) => state.clearAlerts);
   const alerts = useMonitoringStore((state) => state.alerts);
   const { globalSettings, emergencyModeActive, activateEmergencyMode, deactivateEmergencyMode } = useSettingsStore();
+  const { status: backendStatus, config: backendConfig } = useBackendStatus();
 
   const soundManager = useSoundManager();
   const notifications = useNotifications();
@@ -269,6 +273,34 @@ export default function TestAlertsPage() {
     soundManager.stopEmergency();
   };
 
+  const sendMonitoringServerTest = async (channel: 'webhook' | 'push' | 'sms' | 'telegram') => {
+    if (!backendConfig.apiUrl) return;
+
+    setServerTestChannel(channel);
+    setServerTestMessage({ type: 'info', text: 'Sending test request…' });
+
+    try {
+      const res = await fetch(`${backendConfig.apiUrl}/api/notifications/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel }),
+      });
+
+      const data = (await res.json().catch(() => null)) as { message?: string; error?: string } | null;
+
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+
+      setServerTestMessage({ type: 'success', text: data?.message || 'Test request sent.' });
+    } catch (err) {
+      setServerTestMessage({ type: 'error', text: err instanceof Error ? err.message : 'Test failed.' });
+    } finally {
+      setServerTestChannel(null);
+      window.setTimeout(() => setServerTestMessage(null), 4000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Emergency Test Overlay */}
@@ -298,9 +330,13 @@ export default function TestAlertsPage() {
       <header className="p-4 sm:p-6 border-b border-slate-700/50">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/settings" className="text-slate-400 hover:text-white transition-colors" aria-label="Go back to settings">
+            <BackButton
+              fallbackHref="/settings"
+              ariaLabel="Back to settings"
+              className="bg-slate-800/50 hover:bg-slate-700/60 text-slate-400 hover:text-white"
+            >
               <IconChevronLeft size={20} aria-hidden="true" />
-            </Link>
+            </BackButton>
             <h1 className="text-xl font-bold text-white">Alert System Testing</h1>
           </div>
           <button
@@ -324,9 +360,9 @@ export default function TestAlertsPage() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+	      <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+	        {/* Quick Actions */}
+	        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <TestButton
             icon={<IconVolume2 size={20} />}
             label="Test Sounds"
@@ -357,11 +393,56 @@ export default function TestAlertsPage() {
             label="Test Emergency"
             onClick={testEmergencyMode}
             variant="danger"
-          />
-        </div>
+	          />
+	        </div>
 
-        {/* Enhanced Sound Tests */}
-        <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
+          {/* Monitoring Server Tests */}
+          <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
+            <h2 className="text-lg font-semibold text-white mb-2">Monitoring Server Tests</h2>
+            <p className="text-sm text-slate-400 mb-4">
+              Local/offline tests run on this device. Remote channels (webhooks/SMS/Telegram) send via the optional monitoring server.
+            </p>
+
+            {backendStatus.api === 'connected' && backendConfig.apiUrl ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {(['webhook', 'push', 'sms', 'telegram'] as const).map((channel) => (
+                    <button
+                      key={channel}
+                      onClick={() => sendMonitoringServerTest(channel)}
+                      disabled={serverTestChannel !== null}
+                      className="px-3 py-2 bg-slate-900/50 hover:bg-slate-900 border border-slate-700 rounded-lg text-sm text-white transition-colors disabled:opacity-60"
+                    >
+                      {serverTestChannel === channel ? 'Sending…' : `Test ${channel.toUpperCase()}`}
+                    </button>
+                  ))}
+                </div>
+
+                {serverTestMessage && (
+                  <div
+                    className={`p-3 rounded-lg border ${
+                      serverTestMessage.type === 'success'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : serverTestMessage.type === 'error'
+                        ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                        : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                    }`}
+                  >
+                    <p className="text-sm">{serverTestMessage.text}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                <p className="text-sm text-slate-300">
+                  No monitoring server (API) is online right now. SafeOS continues running fully local/offline on this device.
+                </p>
+              </div>
+            )}
+          </section>
+	
+	        {/* Enhanced Sound Tests */}
+	        <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Sound Tests</h2>
 
           {/* Volume Preview Control */}
@@ -714,4 +795,3 @@ const SEVERITY_TEXT_CLASSES: Record<Alert['severity'], string> = {
   high: 'text-orange-400',
   critical: 'text-red-400',
 };
-

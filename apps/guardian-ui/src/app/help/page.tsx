@@ -86,7 +86,7 @@ const faqs: FAQItem[] = [
   {
     category: 'alerts',
     question: 'Can I get alerts when away from my computer?',
-    answer: 'Yes! Enable browser push notifications, or connect SMS (via Twilio) or Telegram for remote alerts. Configure these in Settings > Notifications.',
+    answer: 'Browser notifications work on this device while your browser/app is running. For true remote alerts (phone away from home), you’ll need an optional SafeOS monitoring server (API) plus an integration (webhooks today; SMS/Telegram require provider credentials).',
   },
   {
     category: 'alerts',
@@ -411,8 +411,6 @@ export default function HelpPage() {
     </div>
   );
 }
-
-
 
 
 

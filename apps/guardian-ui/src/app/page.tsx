@@ -18,6 +18,8 @@ import {
 import { UseCaseShowcase } from '../components/UseCaseShowcase';
 import { HomeCTA } from '@/components/home/HomeCTA';
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://safeos.sh').replace(/\/+$/, '');
+
 // =============================================================================
 // Animated Shield SVG Component
 // =============================================================================
@@ -112,8 +114,33 @@ function AnimatedShield() {
 // =============================================================================
 
 function LandingPage() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'SafeOS Guardian',
+    url: SITE_URL,
+    applicationCategory: 'SecurityApplication',
+    operatingSystem: 'Web',
+    description:
+      'Offline-first, privacy-preserving monitoring for pets, babies, elderly care, and home safety. Runs locally in your browser with optional monitoring server integrations.',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Frame',
+      url: 'https://frame.dev',
+    },
+  };
+
   return (
     <div className="bg-[var(--color-steel-950)]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Hero Section */}
       <main className="flex flex-col items-center px-6 py-12 md:py-16">
         <div className="max-w-4xl mx-auto text-center">

@@ -1,8 +1,11 @@
 /**
  * Browser Notification Manager
  * 
- * Handles browser push notifications for alerts.
- * Includes permission management, notification actions, and persistent notifications.
+ * Handles browser notifications for alerts.
+ * Includes permission management and notification helpers.
+ *
+ * Note: true background push notifications (when the browser/app is closed) require
+ * Web Push subscriptions + a server-side sender and are not enabled by default.
  */
 
 import type { Alert } from '../components/AlertPanel';
@@ -425,4 +428,3 @@ export async function requestNotificationPermission(): Promise<boolean> {
   const result = await manager.requestPermission();
   return result === 'granted';
 }
-

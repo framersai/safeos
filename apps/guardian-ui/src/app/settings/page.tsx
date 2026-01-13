@@ -11,6 +11,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../../stores/auth-store';
+import { useBackendStatus } from '@/contexts/BackendStatusContext';
+import { FeatureDisabledBadge } from '@/components/StatusBanner';
 
 // =============================================================================
 // Types
@@ -27,13 +29,23 @@ interface SettingsSection {
 // =============================================================================
 
 export default function SettingsPage() {
-  const { user, isLoggedIn, updateProfile } = useAuthStore();
+  const { profile, updateProfile } = useAuthStore();
+  const { status: backendStatus, config: backendConfig } = useBackendStatus();
   const [activeSection, setActiveSection] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [notificationServerStatus, setNotificationServerStatus] = useState<{
+    pushSubscriptions: number;
+    telegramChats: number;
+    smsEnabled: boolean;
+    telegramEnabled: boolean;
+  } | null>(null);
+  const [notificationServerStatusLoading, setNotificationServerStatusLoading] = useState(false);
+  const [notificationServerStatusError, setNotificationServerStatusError] = useState<string | null>(null);
+
   // Form state
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [motionSensitivity, setMotionSensitivity] = useState(50);
   const [audioSensitivity, setAudioSensitivity] = useState(50);
   const [alertVolume, setAlertVolume] = useState(70);
@@ -48,13 +60,155 @@ export default function SettingsPage() {
   const [quietHoursEnd, setQuietHoursEnd] = useState('07:00');
 
   useEffect(() => {
-    if (user?.preferences) {
-      setMotionSensitivity((user.preferences.motionSensitivity || 0.5) * 100);
-      setAudioSensitivity((user.preferences.audioSensitivity || 0.5) * 100);
-      setAlertVolume((user.preferences.alertVolume || 0.7) * 100);
-      setTheme(user.preferences.theme || 'dark');
+    // Hydrate from profile first (if available)
+    if (profile?.preferences) {
+      setDisplayName(profile.displayName || '');
+      setMotionSensitivity((profile.preferences.motionSensitivity || 0.5) * 100);
+      setAudioSensitivity((profile.preferences.audioSensitivity || 0.5) * 100);
+      setAlertVolume((profile.preferences.alertVolume || 0.7) * 100);
+      setTheme(profile.preferences.theme || 'dark');
     }
-  }, [user]);
+
+    if (profile?.notificationSettings) {
+      setBrowserPush(profile.notificationSettings.browserPush ?? true);
+      setSmsEnabled(profile.notificationSettings.sms ?? false);
+      setTelegramEnabled(profile.notificationSettings.telegram ?? false);
+
+      const start = profile.notificationSettings.quietHoursStart;
+      const end = profile.notificationSettings.quietHoursEnd;
+      if (start && end) {
+        setQuietHoursEnabled(true);
+        setQuietHoursStart(start);
+        setQuietHoursEnd(end);
+      }
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    // Fallback: hydrate from localStorage (works fully offline)
+    if (typeof window === 'undefined') return;
+
+    try {
+      const stored = localStorage.getItem('safeos_user_settings');
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored) as {
+        displayName?: string;
+        preferences?: {
+          defaultScenario?: 'pet' | 'baby' | 'elderly' | 'security';
+          motionSensitivity?: number;
+          audioSensitivity?: number;
+          alertVolume?: number;
+          theme?: 'dark' | 'light' | 'system';
+        };
+        notificationSettings?: {
+          browserPush?: boolean;
+          sms?: boolean;
+          telegram?: boolean;
+          emailDigest?: boolean;
+          quietHoursStart?: string | null;
+          quietHoursEnd?: string | null;
+        };
+      };
+
+      if (typeof parsed.displayName === 'string' && parsed.displayName.length > 0) {
+        setDisplayName(parsed.displayName);
+      }
+
+      if (parsed.preferences) {
+        if (typeof parsed.preferences.motionSensitivity === 'number') {
+          setMotionSensitivity(parsed.preferences.motionSensitivity * 100);
+        }
+        if (typeof parsed.preferences.audioSensitivity === 'number') {
+          setAudioSensitivity(parsed.preferences.audioSensitivity * 100);
+        }
+        if (typeof parsed.preferences.alertVolume === 'number') {
+          setAlertVolume(parsed.preferences.alertVolume * 100);
+        }
+        if (parsed.preferences.theme) {
+          setTheme(parsed.preferences.theme);
+        }
+      }
+
+      if (parsed.notificationSettings) {
+        if (typeof parsed.notificationSettings.browserPush === 'boolean') {
+          setBrowserPush(parsed.notificationSettings.browserPush);
+        }
+        if (typeof parsed.notificationSettings.sms === 'boolean') {
+          setSmsEnabled(parsed.notificationSettings.sms);
+        }
+        if (typeof parsed.notificationSettings.telegram === 'boolean') {
+          setTelegramEnabled(parsed.notificationSettings.telegram);
+        }
+
+        const start = parsed.notificationSettings.quietHoursStart;
+        const end = parsed.notificationSettings.quietHoursEnd;
+        if (start && end) {
+          setQuietHoursEnabled(true);
+          setQuietHoursStart(start);
+          setQuietHoursEnd(end);
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (backendStatus.api !== 'connected' || !backendConfig.apiUrl) {
+      setNotificationServerStatus(null);
+      setNotificationServerStatusLoading(false);
+      setNotificationServerStatusError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setNotificationServerStatusLoading(true);
+    setNotificationServerStatusError(null);
+
+    fetch(`${backendConfig.apiUrl}/api/notifications/status`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as {
+          status?: {
+            pushSubscriptions?: number;
+            telegramChats?: number;
+            smsEnabled?: boolean;
+            telegramEnabled?: boolean;
+          };
+        };
+
+        const status = data.status;
+        if (!status) {
+          throw new Error('Unexpected response');
+        }
+
+        setNotificationServerStatus({
+          pushSubscriptions: status.pushSubscriptions ?? 0,
+          telegramChats: status.telegramChats ?? 0,
+          smsEnabled: !!status.smsEnabled,
+          telegramEnabled: !!status.telegramEnabled,
+        });
+      })
+      .catch((err) => {
+        if (err?.name === 'AbortError') return;
+        setNotificationServerStatus(null);
+        setNotificationServerStatusError('Unable to fetch monitoring server notification status.');
+      })
+      .finally(() => setNotificationServerStatusLoading(false));
+
+    return () => controller.abort();
+  }, [backendStatus.api, backendConfig.apiUrl]);
+
+  const openMonitoringServerSettings = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('safeos:open-backend-settings'));
+    }
+  };
 
   const sections: SettingsSection[] = [
     {
@@ -160,19 +314,16 @@ export default function SettingsPage() {
     },
   ];
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
   const handleSave = async () => {
     setIsSaving(true);
     setSaveMessage(null);
 
     try {
-      const token = localStorage.getItem('safeos_session_token');
-
       // Save to localStorage as fallback (works offline)
       const settingsData = {
         displayName,
         preferences: {
+          defaultScenario: profile?.preferences?.defaultScenario || 'pet',
           motionSensitivity: motionSensitivity / 100,
           audioSensitivity: audioSensitivity / 100,
           alertVolume: alertVolume / 100,
@@ -182,34 +333,23 @@ export default function SettingsPage() {
           browserPush,
           sms: smsEnabled,
           telegram: telegramEnabled,
+          emailDigest: profile?.notificationSettings?.emailDigest ?? false,
           quietHoursStart: quietHoursEnabled ? quietHoursStart : null,
           quietHoursEnd: quietHoursEnabled ? quietHoursEnd : null,
         },
       };
 
       // Save locally first (always works)
-      localStorage.setItem('safeos_user_settings', JSON.stringify(settingsData));
-
-      // Try to sync with backend if available
-      try {
-        const response = await fetch(`${API_URL}/api/auth/profile`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Session-Token': token || '',
-          },
-          body: JSON.stringify(settingsData),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            updateProfile(data.data);
-          }
-        }
-      } catch {
-        // Backend unavailable - settings still saved locally
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('safeos_user_settings', JSON.stringify(settingsData));
       }
+
+      // Update auth profile (offline-safe; will sync to server if connected)
+      await updateProfile({
+        displayName: settingsData.displayName,
+        preferences: settingsData.preferences,
+        notificationSettings: settingsData.notificationSettings,
+      });
 
       setSaveMessage({ type: 'success', text: 'Settings saved!' });
     } catch {
@@ -286,7 +426,7 @@ export default function SettingsPage() {
                                   section.id === 'sounds' ? '/settings/sounds' :
                                     '/settings/escalation'
                       }
-                      className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-full md:rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800 whitespace-nowrap text-sm md:text-base bg-slate-800/50 md:bg-transparent border border-slate-700 md:border-transparent"
+                      className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-full md:rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800 whitespace-nowrap text-sm md:text-base bg-slate-800/50 md:bg-transparent border border-slate-700 md:border-transparent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                     >
                       {section.icon}
                       <span>{section.title}</span>
@@ -298,7 +438,8 @@ export default function SettingsPage() {
                     <button
                       onClick={() => setActiveSection(section.id)}
                       className={`
-                        flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-full md:rounded-lg transition-colors whitespace-nowrap text-sm md:text-base
+                        flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-full md:rounded-lg transition-colors whitespace-nowrap text-sm md:text-base cursor-pointer
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
                         ${activeSection === section.id
                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 md:bg-slate-700 md:text-white md:border-transparent'
                           : 'bg-slate-800/50 text-slate-400 border border-slate-700 md:bg-transparent md:border-transparent hover:text-white hover:bg-slate-800'
@@ -393,6 +534,82 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <h2 className="text-lg font-semibold text-white">Notification Settings</h2>
 
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                  <p className="text-sm font-medium text-white mb-1">
+                    {backendStatus.api === 'connected' ? 'Monitoring Server Online' : 'No Monitoring Server (API) Online'}
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    {backendStatus.api === 'connected' ? (
+                      <>
+                        Browser notifications work on <span className="text-slate-200">this device</span>. Remote channels (SMS/Telegram/email) require provider credentials on your monitoring server.
+                      </>
+                    ) : (
+                      <>
+                        {backendConfig.apiUrl
+                          ? 'Your monitoring server is currently unreachable. '
+                          : 'No monitoring server is configured. '}
+                        SafeOS Guardian is running fully local/offline AI on <span className="text-slate-200">this device</span>. Browser notifications work here while the app is running.
+                        Remote channels (SMS/Telegram/email) are optional and require a monitoring server (API) plus provider credentials.
+                      </>
+                    )}
+                  </p>
+                  {backendStatus.api === 'connected' && (
+                    <div className="mt-3 rounded-lg border border-slate-700/40 bg-slate-800/30 p-3">
+                      <p className="text-xs font-medium text-slate-300 mb-2">Server notification channels</p>
+                      {notificationServerStatusLoading ? (
+                        <p className="text-xs text-slate-400">Checking configuration…</p>
+                      ) : notificationServerStatus ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400">
+                          <div className="flex items-center justify-between gap-3">
+                            <span>SMS provider configured</span>
+                            <span className={`px-2 py-0.5 rounded-full ${notificationServerStatus.smsEnabled ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-700/40 text-slate-300'}`}>
+                              {notificationServerStatus.smsEnabled ? 'Yes' : 'No'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Telegram bot configured</span>
+                            <span className={`px-2 py-0.5 rounded-full ${notificationServerStatus.telegramEnabled ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-700/40 text-slate-300'}`}>
+                              {notificationServerStatus.telegramEnabled ? 'Yes' : 'No'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Registered Telegram chats</span>
+                            <span className="px-2 py-0.5 rounded-full bg-slate-700/40 text-slate-300">
+                              {notificationServerStatus.telegramChats}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Saved push subscriptions</span>
+                            <span className="px-2 py-0.5 rounded-full bg-slate-700/40 text-slate-300">
+                              {notificationServerStatus.pushSubscriptions}
+                            </span>
+                          </div>
+                        </div>
+                      ) : notificationServerStatusError ? (
+                        <p className="text-xs text-amber-300">{notificationServerStatusError}</p>
+                      ) : null}
+                    </div>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                    <Link href="/settings/test-alerts" className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline">
+                      Test notifications
+                    </Link>
+                    <Link href="/history" className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline">
+                      Offline export (History)
+                    </Link>
+                    <Link href="/webhooks" className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline">
+                      Webhooks (monitoring server required)
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={openMonitoringServerSettings}
+                      className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline"
+                    >
+                      Monitoring server settings
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
@@ -402,12 +619,12 @@ export default function SettingsPage() {
                       className="w-5 h-5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
                     />
                     <div>
-                      <p className="text-white">Browser Push Notifications</p>
-                      <p className="text-xs text-slate-500">Get alerts even when the tab is in background</p>
+                      <p className="text-white">Browser Notifications (this device)</p>
+                      <p className="text-xs text-slate-500">Shows alerts while your browser/app is running (even in the background)</p>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <label className="flex items-center gap-3 cursor-pointer" title="Requires a monitoring server (API) + SMS provider credentials (e.g. Twilio).">
                     <input
                       type="checkbox"
                       checked={smsEnabled}
@@ -415,12 +632,29 @@ export default function SettingsPage() {
                       className="w-5 h-5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
                     />
                     <div>
-                      <p className="text-white">SMS Notifications</p>
-                      <p className="text-xs text-slate-500">Receive critical alerts via text message</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white">SMS Notifications</p>
+                        <FeatureDisabledBadge feature="sms-alerts" />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {backendStatus.api === 'connected' ? (
+                          notificationServerStatusLoading ? (
+                            'Checking monitoring server configuration…'
+                          ) : notificationServerStatus && !notificationServerStatus.smsEnabled ? (
+                            'Monitoring server online, but SMS provider keys are not configured yet.'
+                          ) : notificationServerStatus && notificationServerStatus.smsEnabled ? (
+                            'Monitoring server is configured for SMS delivery.'
+                          ) : (
+                            'Requires provider credentials on your monitoring server (e.g. Twilio).'
+                          )
+                        ) : (
+                          'Saved locally; activates when a monitoring server + provider credentials are configured.'
+                        )}
+                      </p>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <label className="flex items-center gap-3 cursor-pointer" title="Requires a monitoring server (API) + Telegram bot credentials.">
                     <input
                       type="checkbox"
                       checked={telegramEnabled}
@@ -428,8 +662,25 @@ export default function SettingsPage() {
                       className="w-5 h-5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
                     />
                     <div>
-                      <p className="text-white">Telegram Notifications</p>
-                      <p className="text-xs text-slate-500">Get alerts via Telegram bot</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white">Telegram Notifications</p>
+                        <FeatureDisabledBadge feature="telegram-alerts" />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {backendStatus.api === 'connected' ? (
+                          notificationServerStatusLoading ? (
+                            'Checking monitoring server configuration…'
+                          ) : notificationServerStatus && !notificationServerStatus.telegramEnabled ? (
+                            'Monitoring server online, but Telegram bot credentials are not configured yet.'
+                          ) : notificationServerStatus && notificationServerStatus.telegramEnabled ? (
+                            'Monitoring server is configured for Telegram delivery.'
+                          ) : (
+                            'Requires bot credentials on your monitoring server (bot token + chat ID).'
+                          )
+                        ) : (
+                          'Saved locally; activates when a monitoring server + bot credentials are configured.'
+                        )}
+                      </p>
                     </div>
                   </label>
                 </div>

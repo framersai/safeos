@@ -92,7 +92,7 @@ const USE_CASES: UseCase[] = [
       'Fall detection using AI pose estimation',
       'Audio monitoring for calls for help',
       'Privacy-first local processing',
-      'Emergency escalation with multiple contacts',
+      'Emergency escalation (increasing alert urgency)',
     ],
     icon: <ElderlyIcon />,
     color: 'text-blue-400',
@@ -130,7 +130,7 @@ const USE_CASES: UseCase[] = [
     features: [
       'AI person detection with confidence scoring',
       'High-sensitivity motion detection',
-      'Instant push notifications',
+      'Instant on-device alerts (sound + browser notifications)',
       'Emergency mode with maximum alerts',
       'Detection zone configuration',
     ],

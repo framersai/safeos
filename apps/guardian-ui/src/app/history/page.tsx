@@ -581,7 +581,10 @@ export default function HistoryPage() {
               </div>
 
               <div className="mt-4 flex flex-col sm:flex-row gap-4">
-                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                <label
+                  className="flex items-center gap-2 text-sm text-slate-300 select-none"
+                  title="Only include frames that are not yet marked as exported (useful for incremental backups)."
+                >
                   <input
                     type="checkbox"
                     checked={exportOnlyUnexportedFrames}
@@ -590,7 +593,10 @@ export default function HistoryPage() {
                   />
                   Only unexported frames (incremental)
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                <label
+                  className="flex items-center gap-2 text-sm text-slate-300 select-none"
+                  title="Include full stored images (larger download). Disable for lightweight metadata-only exports."
+                >
                   <input
                     type="checkbox"
                     checked={exportIncludeFullFrames}
@@ -599,7 +605,10 @@ export default function HistoryPage() {
                   />
                   Include full frames (larger file)
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                <label
+                  className="flex items-center gap-2 text-sm text-slate-300 select-none"
+                  title="Compress the export using gzip for smaller downloads (requires a modern browser)."
+                >
                   <input
                     type="checkbox"
                     checked={exportCompressGzip}
@@ -609,7 +618,10 @@ export default function HistoryPage() {
                   />
                   Compress (gzip)
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                <label
+                  className="flex items-center gap-2 text-sm text-slate-300 select-none"
+                  title="After a successful download, mark included frames as exported so future incremental exports don’t repeat them."
+                >
                   <input
                     type="checkbox"
                     checked={exportMarkExported}

@@ -231,7 +231,7 @@ export function SettingsPanel() {
             <h3 className="text-lg font-medium text-white mb-4">Notification Channels</h3>
 
             <div className="space-y-4">
-              {/* Browser Push */}
+              {/* Browser Notifications */}
               <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
@@ -240,8 +240,8 @@ export function SettingsPanel() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-white font-medium">Browser Push</p>
-                    <p className="text-sm text-slate-400">Get alerts in your browser</p>
+                    <p className="text-white font-medium">Browser Notifications</p>
+                    <p className="text-sm text-slate-400">Alerts on this device while your browser/app is running</p>
                   </div>
                 </div>
                 <button
@@ -270,11 +270,12 @@ export function SettingsPanel() {
                   </div>
                   <div>
                     <p className="text-white font-medium">SMS Alerts</p>
-                    <p className="text-sm text-slate-400">Text message notifications</p>
+                    <p className="text-sm text-slate-400">Optional (requires monitoring server + provider credentials)</p>
                   </div>
                 </div>
                 <button
                   onClick={() => updateNotificationSettings({ sms: !notificationSettings.sms })}
+                  title="Requires a monitoring server (API) + SMS provider credentials (e.g. Twilio)."
                   className={`
                     relative w-12 h-6 rounded-full transition-colors
                     ${notificationSettings.sms ? 'bg-emerald-500' : 'bg-slate-600'}
@@ -299,11 +300,12 @@ export function SettingsPanel() {
                   </div>
                   <div>
                     <p className="text-white font-medium">Telegram</p>
-                    <p className="text-sm text-slate-400">Telegram bot notifications</p>
+                    <p className="text-sm text-slate-400">Optional (requires monitoring server + bot credentials)</p>
                   </div>
                 </div>
                 <button
                   onClick={() => updateNotificationSettings({ telegram: !notificationSettings.telegram })}
+                  title="Requires a monitoring server (API) + Telegram bot credentials."
                   className={`
                     relative w-12 h-6 rounded-full transition-colors
                     ${notificationSettings.telegram ? 'bg-emerald-500' : 'bg-slate-600'}
@@ -420,9 +422,6 @@ export function SettingsPanel() {
 }
 
 export default SettingsPanel;
-
-
-
 
 
 

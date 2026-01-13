@@ -8,7 +8,7 @@
  * Includes educational content explaining:
  * - Free GitHub Pages hosting model
  * - How local mode works
- * - What the backend provides
+ * - What the monitoring server provides
  * - How to deploy your own server
  *
  * @module components/BackendSettings
@@ -60,12 +60,16 @@ const BACKEND_FEATURES = [
     name: 'SMS Alerts',
     description: 'Send emergency SMS via Twilio',
     requiresBackend: true,
+    setupHint:
+      'Requires an optional SafeOS monitoring server (API) plus SMS provider credentials (e.g. Twilio).\n\nIn local/offline mode there is no server to send remote SMS.',
   },
   {
     id: 'telegram-alerts',
     name: 'Telegram Alerts',
     description: 'Send alerts to Telegram',
     requiresBackend: true,
+    setupHint:
+      'Requires an optional SafeOS monitoring server (API) plus a Telegram bot token + chat ID.\n\nIn local/offline mode there is no server to deliver Telegram alerts.',
   },
   {
     id: 'multi-device',
@@ -156,18 +160,18 @@ function HostingBanner({ isLocalOnly }: { isLocalOnly: boolean }) {
         </div>
         <div className="flex-1">
           <h3 className={`font-semibold text-sm ${isLocalOnly ? 'text-blue-300' : 'text-emerald-300'}`}>
-            {isLocalOnly ? 'FREE Hosting on GitHub Pages' : 'Connected to Backend Server'}
+            {isLocalOnly ? 'Offline-First (No Server Required)' : 'Connected to Monitoring Server'}
           </h3>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
             {isLocalOnly ? (
               <>
                 This app runs entirely in your browser - <span className="text-white font-medium">no server required!</span>
-                {' '}All core monitoring features work offline. Optionally connect to a backend for cloud sync, SMS alerts, and more.
+                {' '}All core monitoring features work offline. Optionally connect to a monitoring server for cloud history, webhooks, and remote alerts.
               </>
             ) : (
               <>
-                You&apos;re connected to a backend server with full features enabled.
-                {' '}Cloud sync, SMS/Telegram alerts, and server-side AI are available.
+                You&apos;re connected to a monitoring server with full features enabled.
+                {' '}Cloud history, webhooks, and remote alert channels can be enabled (some require provider credentials).
               </>
             )}
           </p>
@@ -417,9 +421,9 @@ export function BackendSettings({ onClose, isModal = false, className = '' }: Ba
       {/* Header */}
       <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Backend Configuration</h2>
+          <h2 className="text-lg font-semibold text-white">Monitoring Server Configuration</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Optional - The app works fully offline without a backend
+            Optional - The app works fully offline without a monitoring server
           </p>
         </div>
         {onClose && (
@@ -455,7 +459,7 @@ export function BackendSettings({ onClose, isModal = false, className = '' }: Ba
           <div className="flex-1">
             <p className="text-sm font-medium text-white">
               {isConnected
-                ? 'Connected to Backend'
+                ? 'Connected to Monitoring Server'
                 : isLocalOnly
                 ? 'Running in Local Mode'
                 : 'Disconnected'}
@@ -515,12 +519,12 @@ export function BackendSettings({ onClose, isModal = false, className = '' }: Ba
         </ExpandableSection>
 
         <ExpandableSection
-          title="What does the backend provide?"
+          title="What does the monitoring server provide?"
           icon={<span className="text-emerald-400">+</span>}
         >
           <div className="text-xs text-slate-400 space-y-2">
             <p className="text-slate-300 font-medium mb-2">
-              When connected to a SafeOS server, you get additional features:
+              When connected to a SafeOS monitoring server, you get additional features:
             </p>
             <ul className="space-y-1.5">
               <li className="flex items-start gap-2">
@@ -742,15 +746,23 @@ Not required - browser AI works without this."
                     }`}
                   />
                   <div>
-                    <p className={`text-sm ${isAvailable ? 'text-white' : 'text-slate-400'}`}>
-                      {feature.name}
-                    </p>
+                    <div className="flex items-center gap-1">
+                      <p className={`text-sm ${isAvailable ? 'text-white' : 'text-slate-400'}`}>
+                        {feature.name}
+                      </p>
+                      {feature.setupHint && (
+                        <TooltipInfo
+                          title={`${feature.name} setup`}
+                          content={feature.setupHint}
+                        />
+                      )}
+                    </div>
                     <p className="text-xs text-slate-500">{feature.description}</p>
                   </div>
                 </div>
                 {!isAvailable && (
                   <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded">
-                    {feature.requiresOllama ? 'Needs Ollama' : 'Needs Backend'}
+                    {feature.requiresOllama ? 'Needs Ollama' : 'Needs Monitoring Server'}
                   </span>
                 )}
               </div>
@@ -761,7 +773,7 @@ Not required - browser AI works without this."
 
       {/* Local-Only Features Info */}
       <div className="px-6 py-4 border-t border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-sm font-medium text-emerald-400 mb-2">Always Available (No Backend Required)</h3>
+        <h3 className="text-sm font-medium text-emerald-400 mb-2">Always Available (No Monitoring Server Required)</h3>
         <ul className="grid grid-cols-2 gap-1.5 text-xs text-slate-400">
           <li className="flex items-center gap-1.5">
             <CheckIcon className="w-3.5 h-3.5 text-emerald-400" />
@@ -785,7 +797,7 @@ Not required - browser AI works without this."
           </li>
           <li className="flex items-center gap-1.5">
             <CheckIcon className="w-3.5 h-3.5 text-emerald-400" />
-            Web push notifications
+            Browser notifications (this device)
           </li>
           <li className="flex items-center gap-1.5">
             <CheckIcon className="w-3.5 h-3.5 text-emerald-400" />

@@ -12,6 +12,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../../stores/auth-store';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { getApiUrl, isStaticMode } from '@/lib/env';
 
 // =============================================================================
 // Types
@@ -57,7 +58,7 @@ export default function WebhooksPage() {
     events: [] as string[],
   });
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const API_URL = getApiUrl();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -168,6 +169,34 @@ export default function WebhooksPage() {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isStaticMode() || !API_URL) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6">
+        <div className="max-w-lg text-center">
+          <h1 className="text-2xl font-bold mb-3">No Monitoring Server (API) Online</h1>
+          <p className="text-slate-300 mb-6">
+            SafeOS Guardian is running fully local/offline on this device. Webhooks are delivered by an optional monitoring server, which isn&apos;t available right now.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/history"
+              className="inline-flex items-center justify-center px-5 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors"
+            >
+              Use local timeline + offline export
+            </Link>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('safeos:open-backend-settings'))}
+              className="inline-flex items-center justify-center px-5 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
+            >
+              Monitoring server settings
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -388,10 +417,6 @@ export default function WebhooksPage() {
     </div>
   );
 }
-
-
-
-
 
 
 
