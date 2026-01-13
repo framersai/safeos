@@ -90,6 +90,8 @@ export class SubjectMatcher {
   private motionMask: boolean[] = [];
   private frameCount: number = 0;
   private lightingOffset: RGB = { r: 0, g: 0, b: 0 };
+  private canvas: HTMLCanvasElement | null = null;
+  private ctx: CanvasRenderingContext2D | null = null;
 
   constructor(settings?: Partial<MatcherSettings>) {
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
@@ -100,6 +102,27 @@ export class SubjectMatcher {
       consecutiveMatches: 0,
       averageConfidence: 0,
     };
+
+    if (typeof document !== 'undefined') {
+      this.canvas = document.createElement('canvas');
+      this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+    }
+  }
+
+  private ensureCanvasSize(width: number, height: number): boolean {
+    if (!this.canvas || !this.ctx) return false;
+
+    const safeWidth = Math.max(1, Math.floor(width));
+    const safeHeight = Math.max(1, Math.floor(height));
+
+    if (this.canvas.width !== safeWidth || this.canvas.height !== safeHeight) {
+      this.canvas.width = safeWidth;
+      this.canvas.height = safeHeight;
+      this.previousFrame = null;
+      this.motionMask = [];
+    }
+
+    return true;
   }
 
   /**
@@ -175,18 +198,15 @@ export class SubjectMatcher {
 
     const startTime = performance.now();
 
-    // Create canvas and get frame
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+
+    if (!this.ensureCanvasSize(width, height) || !this.canvas || !this.ctx) {
       return null;
     }
 
-    ctx.drawImage(video, 0, 0);
-    const frameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+    const frameData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
     // Update motion mask if enabled
     if (this.settings.motionPriority && this.previousFrame) {
@@ -210,7 +230,7 @@ export class SubjectMatcher {
     }
 
     // Detailed region scanning
-    const result = this.scanRegions(frameData, canvas.width, canvas.height, startTime);
+    const result = this.scanRegions(frameData, this.canvas.width, this.canvas.height, startTime);
 
     if (result) {
       // Update state
@@ -225,7 +245,7 @@ export class SubjectMatcher {
 
       // Include frame data if above record threshold
       if (result.confidence >= this.settings.minConfidenceForRecord) {
-        result.frameData = canvas.toDataURL('image/jpeg', 0.8);
+        result.frameData = this.canvas.toDataURL('image/jpeg', 0.8);
       }
 
       return result;
@@ -669,4 +689,3 @@ export function getProcessingInfo(mode: 'local' | 'hybrid'): {
     };
   }
 }
-

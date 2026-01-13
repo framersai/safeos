@@ -24,6 +24,7 @@ import {
 import { generateFingerprint, mergeFingerprints, type VisualFingerprint } from '../lib/visual-fingerprint';
 import { useLostFoundStore, createSubjectProfile, type SubjectType } from '../stores/lost-found-store';
 import { saveSubjectProfile } from '../lib/client-db';
+import { createThumbnailFromSource } from '../lib/image-utils';
 
 // =============================================================================
 // Types
@@ -77,14 +78,31 @@ export function LostFoundSetup({ onComplete, onCancel }: LostFoundSetupProps) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const src = event.target?.result as string;
-        setImages(prev => [
-          ...prev,
-          {
-            id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            src,
-            file,
-          },
-        ].slice(0, 5)); // Max 5 images
+        (async () => {
+          const preview = await createThumbnailFromSource(src, {
+            maxWidth: 768,
+            maxHeight: 768,
+            quality: 0.9,
+            mimeType: 'image/jpeg',
+          });
+          setImages(prev => [
+            ...prev,
+            {
+              id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              src: preview,
+              file,
+            },
+          ].slice(0, 5)); // Max 5 images
+        })().catch(() => {
+          setImages(prev => [
+            ...prev,
+            {
+              id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              src,
+              file,
+            },
+          ].slice(0, 5));
+        });
       };
       reader.readAsDataURL(file);
     });
@@ -561,4 +579,3 @@ function TypeCard({ icon, label, description, selected, onClick }: TypeCardProps
 }
 
 export default LostFoundSetup;
-

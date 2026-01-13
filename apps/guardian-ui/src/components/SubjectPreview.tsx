@@ -9,10 +9,13 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { IconPaw, IconUser, IconSearch, IconX, IconCheck } from './icons';
-import { useLostFoundStore, getSubjectTypeIcon } from '../stores/lost-found-store';
+import { useLostFoundStore } from '../stores/lost-found-store';
 import { getMatchQuality } from '../lib/subject-matcher';
+import { generateFingerprint, mergeFingerprints } from '../lib/visual-fingerprint';
+import { createThumbnailFromSource, readFileAsDataUrl } from '../lib/image-utils';
+import { saveSubjectProfile } from '../lib/client-db';
 
 // =============================================================================
 // Types
@@ -46,7 +49,12 @@ export function SubjectPreview({
     consecutiveMatches,
     recentMatches,
     stopWatching,
+    updateSubject,
   } = useLostFoundStore();
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUpdatingReferences, setIsUpdatingReferences] = useState(false);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
 
   const quality = useMemo(() => {
     return currentConfidence > 0 ? getMatchQuality(currentConfidence) : null;
@@ -62,6 +70,73 @@ export function SubjectPreview({
         return <IconSearch size={mode === 'compact' ? 16 : 24} />;
     }
   };
+
+  const onAddReferenceImages = useCallback(async (files: FileList | null) => {
+    if (!activeSubject || !files) return;
+
+    const maxImages = 5;
+    const remaining = Math.max(0, maxImages - (activeSubject.referenceImages?.length || 0));
+    if (remaining <= 0) {
+      setReferenceError(`Maximum of ${maxImages} reference images reached.`);
+      return;
+    }
+
+    const imageFiles = Array.from(files)
+      .filter((f) => f.type.startsWith('image/'))
+      .slice(0, remaining);
+
+    if (imageFiles.length === 0) {
+      setReferenceError('Please select image files.');
+      return;
+    }
+
+    setReferenceError(null);
+    setIsUpdatingReferences(true);
+
+    try {
+      const newFingerprints = [];
+      const newReferenceImages: string[] = [];
+
+      for (const file of imageFiles) {
+        const raw = await readFileAsDataUrl(file);
+        const thumb = await createThumbnailFromSource(raw, {
+          maxWidth: 512,
+          maxHeight: 512,
+          quality: 0.88,
+          mimeType: 'image/jpeg',
+        });
+        newReferenceImages.push(thumb);
+        newFingerprints.push(await generateFingerprint(thumb, activeSubject.name));
+      }
+
+      const mergedFingerprint = mergeFingerprints([activeSubject.fingerprint, ...newFingerprints]);
+      const updatedReferenceImages = [...activeSubject.referenceImages, ...newReferenceImages].slice(0, maxImages);
+      const lastActiveAt = new Date().toISOString();
+
+      updateSubject(activeSubject.id, {
+        fingerprint: mergedFingerprint,
+        referenceImages: updatedReferenceImages,
+        lastActiveAt,
+      });
+
+      await saveSubjectProfile({
+        id: activeSubject.id,
+        name: activeSubject.name,
+        type: activeSubject.type,
+        description: activeSubject.description,
+        fingerprint: mergedFingerprint,
+        referenceImages: updatedReferenceImages,
+        createdAt: activeSubject.createdAt,
+        lastActiveAt,
+        matchCount: activeSubject.matchCount,
+      });
+    } catch (error) {
+      setReferenceError(error instanceof Error ? error.message : 'Failed to add reference images.');
+    } finally {
+      setIsUpdatingReferences(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [activeSubject, updateSubject]);
 
   if (!activeSubject) {
     return null;
@@ -308,12 +383,48 @@ export function SubjectPreview({
       )}
       
       {/* Reference images */}
-      {activeSubject.referenceImages.length > 1 && (
+      {activeSubject.referenceImages.length > 0 && (
         <div className="mt-6">
-          <h4 className="text-sm font-medium text-[var(--color-steel-300)] mb-3">
-            Reference Images
-          </h4>
-          <div className="flex gap-2">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <h4 className="text-sm font-medium text-[var(--color-steel-300)]">
+                Reference Images
+              </h4>
+              <p className="text-xs text-[var(--color-steel-500)] mt-1">
+                Add up to 5 photos (different angles/lighting improves matching).
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => onAddReferenceImages(e.target.files)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUpdatingReferences || activeSubject.referenceImages.length >= 5}
+                className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
+                  isUpdatingReferences || activeSubject.referenceImages.length >= 5
+                    ? 'bg-[var(--color-steel-800)] text-[var(--color-steel-500)] border-[var(--color-steel-700)] cursor-not-allowed'
+                    : 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30'
+                }`}
+              >
+                {isUpdatingReferences ? 'Adding…' : 'Add Photos'}
+              </button>
+            </div>
+          </div>
+
+          {referenceError && (
+            <div className="mb-3 text-xs text-red-400">
+              {referenceError}
+            </div>
+          )}
+
+          <div className="flex gap-2 flex-wrap">
             {activeSubject.referenceImages.map((img, i) => (
               <div
                 key={i}
@@ -352,4 +463,3 @@ export function SubjectPreviewOverlay() {
 }
 
 export default SubjectPreview;
-
