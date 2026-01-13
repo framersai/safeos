@@ -11,6 +11,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useMonitoringStore } from '../stores/monitoring-store';
+import { useBackendStatus } from '@/contexts/BackendStatusContext';
 
 // =============================================================================
 // Types
@@ -32,14 +33,30 @@ interface Stream {
 export function StreamGrid() {
   const [streams, setStreams] = useState<Stream[]>([]);
   const [loading, setLoading] = useState(true);
-  const { streamId: activeStreamId } = useMonitoringStore();
+  const { streamId: activeStreamId, streams: localStreams, alerts: localAlerts } = useMonitoringStore();
+  const { status: backendStatus, config: backendConfig } = useBackendStatus();
 
   // Fetch streams
   useEffect(() => {
     const fetchStreams = async () => {
+      // Local-only: show locally tracked streams (no monitoring server configured/online)
+      if (backendStatus.api !== 'connected' || !backendConfig.apiUrl) {
+        const derived: Stream[] = localStreams.map((s) => ({
+          id: s.id,
+          scenario: s.scenario,
+          status: s.status,
+          startedAt: s.startedAt,
+          alertCount: localAlerts.filter((a) => a.streamId === s.id).length,
+        }));
+
+        setStreams(derived);
+        setLoading(false);
+        return;
+      }
+
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/streams`
+          `${backendConfig.apiUrl}/api/streams`
         );
         if (response.ok) {
           const data = await response.json();
@@ -53,9 +70,11 @@ export function StreamGrid() {
     };
 
     fetchStreams();
+    if (backendStatus.api !== 'connected' || !backendConfig.apiUrl) return;
+
     const interval = setInterval(fetchStreams, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [backendConfig.apiUrl, backendStatus.api, localAlerts, localStreams]);
 
   return (
     <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
@@ -236,7 +255,6 @@ function getUptime(startedAt: string): string {
 }
 
 export default StreamGrid;
-
 
 
 

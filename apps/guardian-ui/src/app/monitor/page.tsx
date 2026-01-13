@@ -27,12 +27,12 @@ import { useWebSocket, type WSMessage } from '../../lib/websocket';
 import { getSoundManager } from '../../lib/sound-manager';
 import type { PixelDetectionResult } from '../../lib/pixel-detection';
 import { getNotificationManager } from '../../lib/notification-manager';
+import { useBackendStatus } from '@/contexts/BackendStatusContext';
 
 // =============================================================================
 // Constants
 // =============================================================================
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
 const THUMBNAIL_WIDTH = 160;
 const THUMBNAIL_HEIGHT = 120;
 const THUMBNAIL_QUALITY = 0.3;
@@ -92,6 +92,8 @@ export default function MonitorPage() {
     setAudioLevel,
     addAlert,
   } = useMonitoringStore();
+
+  const { config: backendConfig } = useBackendStatus();
 
   const { selectedScenario } = useOnboardingStore();
 
@@ -266,7 +268,7 @@ export default function MonitorPage() {
   );
 
   const { sendMessage, isConnected: wsConnected, connect: reconnect } = useWebSocket(
-    WS_URL,
+    backendConfig.wsUrl,
     {
       onMessage: handleMessage,
       onConnect: () => setConnected(true),
@@ -279,14 +281,27 @@ export default function MonitorPage() {
   // ---------------------------------------------------------------------------
 
   const startStream = () => {
-    sendMessage({
-      type: 'start-stream',
-      payload: { scenario: selectedScenario || scenario },
-    });
+    if (wsConnected) {
+      sendMessage({
+        type: 'start-stream',
+        payload: { scenario: selectedScenario || scenario },
+      });
+      return;
+    }
+
+    // Local/offline mode: run monitoring entirely in-browser.
+    setStreaming(true);
+    setStreamId(streamId || `local-${Date.now()}`);
   };
 
   const stopStream = () => {
-    sendMessage({ type: 'stop-stream' });
+    if (wsConnected) {
+      sendMessage({ type: 'stop-stream' });
+      return;
+    }
+
+    setStreaming(false);
+    setStreamId(null);
   };
 
   const handleFrame = (data: { imageData: string; motionScore: number; audioLevel: number }) => {
@@ -478,6 +493,11 @@ export default function MonitorPage() {
 
   const handleMotionZones = useCallback((zones: Array<{ id: string; name: string; score: number }>) => {
     if (!currentPreset.motionDetectionEnabled) return;
+    if (!isStreaming) {
+      motionAboveSinceRef.current = null;
+      motionLatchedRef.current = false;
+      return;
+    }
 
     const globalThreshold = sensitivityToThreshold(currentPreset.motionSensitivity);
     const now = Date.now();
@@ -537,6 +557,7 @@ export default function MonitorPage() {
     maybeNotify('Motion Detected', `${best.score}% (threshold ${best.threshold}%) · ${best.name}`, severity);
   }, [
     addAlert,
+    isStreaming,
     currentPreset.motionDetectionEnabled,
     currentPreset.motionSensitivity,
     detectionZones,
@@ -547,6 +568,12 @@ export default function MonitorPage() {
 
   const handleAudio = useCallback((level: number) => {
     setAudioLevel(level);
+
+    if (!isStreaming) {
+      audioAboveSinceRef.current = null;
+      audioLatchedRef.current = false;
+      return;
+    }
 
     if (!currentPreset.audioDetectionEnabled) return;
 
@@ -594,12 +621,18 @@ export default function MonitorPage() {
       getSoundManager().playForSeverity(severity === 'critical' ? 'critical' : severity, { loop: false });
       maybeHaptic(severity);
       maybeNotify('Audio Detected', `${level}% (threshold ${audioThreshold}%)`, severity);
-  }, [addAlert, streamId, currentPreset.audioDetectionEnabled, currentPreset.audioSensitivity, getCooldownForSeverity, timingSettings.minimumMotionDuration]);
+  }, [addAlert, isStreaming, streamId, currentPreset.audioDetectionEnabled, currentPreset.audioSensitivity, getCooldownForSeverity, timingSettings.minimumMotionDuration]);
 
   const handlePixel = useCallback((result: PixelDetectionResult) => {
     setPixelChangePercent(result.difference);
     setPixelChangedPixels(result.changedPixelCount);
     pixelChangedPixelsRef.current = result.changedPixelCount;
+
+    if (!isStreaming) {
+      pixelAboveSinceRef.current = null;
+      pixelLatchedRef.current = false;
+      return;
+    }
 
     if (!currentPreset.pixelDetectionEnabled) return;
 
@@ -691,6 +724,7 @@ export default function MonitorPage() {
     maybeNotify('Pixel Movement', `${chosenChangedPx}px (threshold ${chosenThresholdPx}px)`, severity);
   }, [
     addAlert,
+    isStreaming,
     currentPreset.absolutePixelThreshold,
     currentPreset.pixelDetectionEnabled,
     currentPreset.useAbsoluteThreshold,
@@ -715,6 +749,7 @@ export default function MonitorPage() {
 
   // Inactivity monitoring (local-only)
   useEffect(() => {
+    if (!isStreaming) return;
     if (!detectionFeatureSettings.inactivityMonitoringEnabled) return;
     const minutes = detectionFeatureSettings.inactivityAlertMinutes;
     if (!minutes || minutes <= 0) return;
@@ -762,6 +797,7 @@ export default function MonitorPage() {
 
     return () => window.clearInterval(interval);
   }, [
+    isStreaming,
     detectionFeatureSettings.inactivityMonitoringEnabled,
     detectionFeatureSettings.inactivityAlertMinutes,
     detectionFeatureSettings.inactivitySeverity,

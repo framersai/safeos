@@ -9,6 +9,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useBackendStatus } from '@/contexts/BackendStatusContext';
 
 // =============================================================================
 // Types
@@ -50,18 +51,57 @@ export function SystemStatus({ stats }: SystemStatusProps) {
   const [expanded, setExpanded] = useState(false);
   const [models, setModels] = useState<OllamaModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const { status: backendStatus, config: backendConfig } = useBackendStatus();
 
   // Fetch Ollama models when expanded
   useEffect(() => {
-    if (expanded && stats.ollamaStatus === 'online') {
-      setLoadingModels(true);
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/ollama/models`)
-        .then((res) => res.json())
-        .then((data) => setModels(data.models || []))
-        .catch(() => setModels([]))
-        .finally(() => setLoadingModels(false));
+    if (!expanded) return;
+
+    if (!backendConfig.ollamaUrl || backendStatus.ollama !== 'connected') {
+      setModels([]);
+      return;
     }
-  }, [expanded, stats.ollamaStatus]);
+
+    setLoadingModels(true);
+    const controller = new AbortController();
+
+    Promise.allSettled([
+      fetch(`${backendConfig.ollamaUrl}/api/tags`, { signal: controller.signal }).then((res) =>
+        res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))
+      ),
+      fetch(`${backendConfig.ollamaUrl}/api/ps`, { signal: controller.signal }).then((res) =>
+        res.ok ? res.json() : Promise.resolve({ models: [] as Array<{ name?: string }> })
+      ),
+    ])
+      .then(([tagsResult, psResult]) => {
+        const tags = tagsResult.status === 'fulfilled' ? tagsResult.value : null;
+        const ps = psResult.status === 'fulfilled' ? psResult.value : null;
+
+        const loadedNames = new Set(
+          (ps?.models || [])
+            .map((m: { name?: string }) => (typeof m.name === 'string' ? m.name : ''))
+            .filter(Boolean)
+        );
+
+        const nextModels: OllamaModel[] = (tags?.models || []).map(
+          (m: { name?: string; size?: number | string }) => {
+            const name = typeof m.name === 'string' ? m.name : 'unknown';
+            const sizeBytes = typeof m.size === 'number' ? m.size : Number(m.size);
+            return {
+              name,
+              size: Number.isFinite(sizeBytes) ? formatBytes(sizeBytes) : '—',
+              loaded: loadedNames.has(name),
+            };
+          }
+        );
+
+        setModels(nextModels);
+      })
+      .catch(() => setModels([]))
+      .finally(() => setLoadingModels(false));
+
+    return () => controller.abort();
+  }, [backendConfig.ollamaUrl, backendStatus.ollama, expanded]);
 
   return (
     <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
@@ -170,8 +210,8 @@ export function SystemStatus({ stats }: SystemStatusProps) {
               </div>
             ) : (
               <div className="text-sm text-slate-500">
-                {stats.ollamaStatus === 'online'
-                  ? 'No models loaded'
+                {backendConfig.ollamaUrl && backendStatus.ollama === 'connected'
+                  ? 'No models installed'
                   : 'Ollama is offline'}
               </div>
             )}
@@ -235,6 +275,14 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / Math.pow(1024, index);
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
 // =============================================================================
 // Sub-components
 // =============================================================================
@@ -293,10 +341,6 @@ function ResourceBar({ label, value, max, unit }: ResourceBarProps) {
 }
 
 export default SystemStatus;
-
-
-
-
 
 
 

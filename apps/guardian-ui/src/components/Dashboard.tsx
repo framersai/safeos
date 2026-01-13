@@ -7,11 +7,12 @@
  * No emojis. Custom SVG icons. Monospace data displays.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useMonitoringStore } from '../stores/monitoring-store';
 import { useWebSocket } from '../lib/websocket';
 import { OnboardingWizard, useOnboarding } from './OnboardingWizard';
+import { useBackendStatus } from '@/contexts/BackendStatusContext';
 import {
   IconShieldCheck,
   IconCamera,
@@ -40,7 +41,7 @@ interface SystemStats {
   analysisQueueSize: number;
   activeStreams: number;
   cloudFallbackRate: number;
-  systemHealth: 'healthy' | 'degraded' | 'offline';
+  systemHealth: 'healthy' | 'degraded' | 'offline' | 'local-only';
   framesAnalyzedToday: number;
   alertsToday: number;
   avgResponseTime: number;
@@ -56,7 +57,7 @@ export function Dashboard() {
     analysisQueueSize: 0,
     activeStreams: 0,
     cloudFallbackRate: 0,
-    systemHealth: 'offline',
+    systemHealth: 'local-only',
     framesAnalyzedToday: 0,
     alertsToday: 0,
     avgResponseTime: 0,
@@ -64,11 +65,41 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const { isStreaming, alerts, addAlert } = useMonitoringStore();
+  const { isStreaming, alerts, streams, addAlert } = useMonitoringStore();
   const { showOnboarding, isChecking, complete: completeOnboarding } = useOnboarding();
+  const { status: backendStatus, config: backendConfig } = useBackendStatus();
+
+  const canUseMonitoringServer = useMemo(
+    () => backendStatus.api === 'connected' && !!backendConfig.apiUrl,
+    [backendStatus.api, backendConfig.apiUrl]
+  );
+
+  const buildLocalStats = useCallback((): SystemStats => {
+    const activeStreams = streams.filter((s) => s.status === 'active').length || (isStreaming ? 1 : 0);
+
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const alertsToday = alerts.filter((a) => {
+      const createdAt = a.createdAt || a.timestamp;
+      if (!createdAt) return false;
+      const ms = Date.parse(createdAt);
+      return Number.isFinite(ms) && ms >= startOfDay;
+    }).length;
+
+    return {
+      ollamaStatus: backendStatus.ollama === 'connected' ? 'online' : 'offline',
+      analysisQueueSize: 0,
+      activeStreams,
+      cloudFallbackRate: 0,
+      systemHealth: 'local-only',
+      framesAnalyzedToday: 0,
+      alertsToday,
+      avgResponseTime: 0,
+    };
+  }, [alerts, backendStatus.ollama, isStreaming, streams]);
 
   const { sendMessage, isConnected } = useWebSocket(
-    process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001',
+    canUseMonitoringServer ? backendConfig.wsUrl : '',
     {
       onMessage: (message) => {
         if (message.type === 'alert') {
@@ -82,9 +113,16 @@ export function Dashboard() {
   );
 
   const fetchStats = useCallback(async () => {
+    if (!canUseMonitoringServer || !backendConfig.apiUrl) {
+      setStats(buildLocalStats());
+      setLastUpdate(new Date());
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/system/status`
+        `${backendConfig.apiUrl}/api/system/status`
       );
       if (response.ok) {
         const data = await response.json();
@@ -96,19 +134,21 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [backendConfig.apiUrl, buildLocalStats, canUseMonitoringServer]);
 
   useEffect(() => {
     fetchStats();
+    if (!canUseMonitoringServer) return;
+
     const interval = setInterval(fetchStats, 15000);
     return () => clearInterval(interval);
   }, [fetchStats]);
 
   useEffect(() => {
-    if (isConnected) {
+    if (canUseMonitoringServer && isConnected) {
       sendMessage({ type: 'subscribe', channel: 'stats' });
     }
-  }, [isConnected, sendMessage]);
+  }, [canUseMonitoringServer, isConnected, sendMessage]);
 
   // Show loading while checking onboarding status
   if (isChecking) {
@@ -187,13 +227,13 @@ export function Dashboard() {
           <div className="flex items-center gap-4">
             {/* Administrative API Monitoring */}
             <div className="flex items-center gap-2">
-              {isConnected ? (
+              {canUseMonitoringServer && isConnected ? (
                 <IconWifi size={12} className="text-[var(--color-status-online)]" />
               ) : (
                 <IconWifiOff size={12} className="text-[var(--color-steel-600)]" />
               )}
               <span className="font-mono text-xs text-[var(--color-steel-600)]">
-                Admin API: {isConnected ? 'Connected' : 'Offline'}
+                Monitoring Server: {!backendConfig.apiUrl ? 'Not configured' : isConnected ? 'Connected' : 'Offline'}
               </span>
             </div>
             <span className="font-mono text-xs">
@@ -211,7 +251,7 @@ export function Dashboard() {
 // =============================================================================
 
 interface HeaderProps {
-  systemHealth: 'healthy' | 'degraded' | 'offline';
+  systemHealth: 'healthy' | 'degraded' | 'offline' | 'local-only';
 }
 
 function Header({ systemHealth }: HeaderProps) {
@@ -241,11 +281,13 @@ function Header({ systemHealth }: HeaderProps) {
                 ? 'status-dot--online'
                 : systemHealth === 'degraded'
                   ? 'status-dot--warning'
-                  : 'status-dot--offline'
+                  : systemHealth === 'local-only'
+                    ? 'status-dot--warning'
+                    : 'status-dot--offline'
                 } ${systemHealth === 'healthy' ? 'status-dot--pulse' : ''}`}
             />
             <span className="font-mono text-xs text-[var(--color-steel-400)] uppercase">
-              {systemHealth}
+              {systemHealth === 'local-only' ? 'local-only' : systemHealth}
             </span>
           </div>
         </div>
