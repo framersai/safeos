@@ -434,7 +434,8 @@ export function IntrusionGallery({ className = '', limit }: IntrusionGalleryProp
   const handleExport = async (format: 'json' | 'csv') => {
     setIsExporting(true);
     try {
-      const result = await exportIntrusionFrames(format);
+      const ids = selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
+      const result = await exportIntrusionFrames(format, ids);
       const blob = new Blob([result.data], {
         type: format === 'json' ? 'application/json' : 'text/csv',
       });
@@ -583,4 +584,3 @@ export function IntrusionGallery({ className = '', limit }: IntrusionGalleryProp
 }
 
 export default IntrusionGallery;
-

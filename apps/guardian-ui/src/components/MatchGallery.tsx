@@ -156,7 +156,7 @@ export function MatchGallery({ subjectId, onClose }: MatchGalleryProps) {
       ? Array.from(selectedIds) 
       : frames.map(f => f.id);
     
-    const { data, filename } = await exportMatchFrames(subjectId, format);
+    const { data, filename } = await exportMatchFrames(subjectId, format, idsToExport);
     
     // Download file
     const blob = new Blob([data], { type: format === 'csv' ? 'text/csv' : 'application/json' });
@@ -597,4 +597,3 @@ export function MatchGallery({ subjectId, onClose }: MatchGalleryProps) {
 }
 
 export default MatchGallery;
-

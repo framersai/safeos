@@ -991,16 +991,24 @@ export interface MatchFrameExport {
 
 export async function exportMatchFrames(
   subjectId?: string,
-  format: 'json' | 'csv' = 'json'
+  format: 'json' | 'csv' = 'json',
+  ids?: string[]
 ): Promise<{ data: string; filename: string }> {
   const frames = subjectId
     ? await getMatchFramesBySubject(subjectId)
     : await getAllMatchFrames();
+
+  const selectedFrames = ids && ids.length > 0
+    ? (() => {
+        const idSet = new Set(ids);
+        return frames.filter((f) => idSet.has(f.id));
+      })()
+    : frames;
   
   const profiles = await getAllSubjectProfiles();
   const profileMap = new Map(profiles.map(p => [p.id, p.name]));
   
-  const exportData: MatchFrameExport[] = frames.map(f => ({
+  const exportData: MatchFrameExport[] = selectedFrames.map(f => ({
     id: f.id,
     subjectId: f.subjectId,
     subjectName: profileMap.get(f.subjectId),
@@ -1016,9 +1024,32 @@ export async function exportMatchFrames(
   const date = new Date().toISOString().slice(0, 10);
   
   if (format === 'csv') {
-    const headers = Object.keys(exportData[0] || {}).join(',');
+    const headers = [
+      'id',
+      'subjectId',
+      'subjectName',
+      'confidence',
+      'timestamp',
+      'colorMatch',
+      'dominantMatch',
+      'edgeMatch',
+      'sizeMatch',
+      'notes',
+    ].join(',');
+
     const rows = exportData.map(row =>
-      Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+      [
+        row.id,
+        row.subjectId,
+        row.subjectName ?? '',
+        row.confidence,
+        row.timestamp,
+        row.colorMatch,
+        row.dominantMatch,
+        row.edgeMatch,
+        row.sizeMatch,
+        row.notes,
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
     );
     return {
       data: [headers, ...rows].join('\n'),
@@ -1237,11 +1268,19 @@ export interface IntrusionFrameExport {
 }
 
 export async function exportIntrusionFrames(
-  format: 'json' | 'csv' = 'json'
+  format: 'json' | 'csv' = 'json',
+  ids?: string[]
 ): Promise<{ data: string; filename: string }> {
   const frames = await getAllIntrusionFrames();
+
+  const selectedFrames = ids && ids.length > 0
+    ? (() => {
+        const idSet = new Set(ids);
+        return frames.filter((f) => idSet.has(f.id));
+      })()
+    : frames;
   
-  const exportData: IntrusionFrameExport[] = frames.map(f => ({
+  const exportData: IntrusionFrameExport[] = selectedFrames.map(f => ({
     id: f.id,
     timestamp: new Date(f.timestamp).toISOString(),
     personCount: f.personCount,
@@ -1257,9 +1296,28 @@ export async function exportIntrusionFrames(
   const date = new Date().toISOString().slice(0, 10);
   
   if (format === 'csv') {
-    const headers = Object.keys(exportData[0] || {}).join(',');
+    const headers = [
+      'id',
+      'timestamp',
+      'personCount',
+      'allowedCount',
+      'excessCount',
+      'detectionCount',
+      'averageConfidence',
+      'notes',
+    ].join(',');
+
     const rows = exportData.map(row =>
-      Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+      [
+        row.id,
+        row.timestamp,
+        row.personCount,
+        row.allowedCount,
+        row.excessCount,
+        row.detectionCount,
+        row.averageConfidence,
+        row.notes,
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
     );
     return {
       data: [headers, ...rows].join('\n'),
