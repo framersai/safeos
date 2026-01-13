@@ -83,11 +83,15 @@ export function DetectionZoneEditor({
 }: DetectionZoneEditorProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const internalVideoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     const { detectionZones, updateDetectionZone, addDetectionZone, removeDetectionZone } = useSettingsStore();
 
     const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
     const [isDrawMode, setIsDrawMode] = useState(false);
+    const [previewEnabled, setPreviewEnabled] = useState(false);
+    const [previewError, setPreviewError] = useState<string | null>(null);
     const [drawing, setDrawing] = useState<DrawingState>({
         isDrawing: false,
         startPoint: null,
@@ -97,7 +101,7 @@ export function DetectionZoneEditor({
     const [newZoneName, setNewZoneName] = useState('');
 
     // Get canvas coordinates from mouse event
-    const getCanvasCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Point => {
+    const getCanvasCoords = useCallback((e: React.PointerEvent<HTMLCanvasElement>): Point => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
 
@@ -124,8 +128,55 @@ export function DetectionZoneEditor({
         return null;
     }, [detectionZones]);
 
-    // Handle mouse down
-    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const stopPreview = useCallback(() => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+        }
+        const v = internalVideoRef.current;
+        if (v) {
+            v.srcObject = null;
+        }
+        setPreviewEnabled(false);
+    }, []);
+
+    const startPreview = useCallback(async () => {
+        if (videoRef) return; // external preview managed by parent
+        if (previewEnabled) return;
+
+        setPreviewError(null);
+        setPreviewEnabled(true);
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'environment',
+                },
+                audio: false,
+            });
+
+            streamRef.current = stream;
+            if (internalVideoRef.current) {
+                internalVideoRef.current.srcObject = stream;
+                await internalVideoRef.current.play();
+            }
+        } catch (error) {
+            setPreviewError(error instanceof Error ? error.message : 'Failed to start camera preview');
+            stopPreview();
+        }
+    }, [previewEnabled, stopPreview, videoRef]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => stopPreview();
+    }, [stopPreview]);
+
+    // Handle pointer down
+    const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+        e.preventDefault();
+        (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
         const point = getCanvasCoords(e);
 
         if (isDrawMode) {
@@ -141,8 +192,8 @@ export function DetectionZoneEditor({
         }
     }, [isDrawMode, getCanvasCoords, getZoneAtPoint, onZoneSelect]);
 
-    // Handle mouse move
-    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Handle pointer move
+    const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
         if (!drawing.isDrawing) return;
 
         const point = getCanvasCoords(e);
@@ -152,8 +203,8 @@ export function DetectionZoneEditor({
         }));
     }, [drawing.isDrawing, getCanvasCoords]);
 
-    // Handle mouse up
-    const handleMouseUp = useCallback(() => {
+    // Handle pointer up/cancel
+    const handlePointerUp = useCallback(() => {
         if (!drawing.isDrawing || !drawing.startPoint || !drawing.currentPoint) {
             setDrawing({ isDrawing: false, startPoint: null, currentPoint: null });
             return;
@@ -249,34 +300,76 @@ export function DetectionZoneEditor({
     }, [detectionZones, selectedZoneId, drawing]);
 
     const selectedZone = detectionZones.find((z) => z.id === selectedZoneId);
+    const activeVideoRef = videoRef || internalVideoRef;
 
     return (
         <div ref={containerRef} className={`relative ${className}`}>
-            {/* Canvas overlay */}
-            <canvas
-                ref={canvasRef}
-                width={width}
-                height={height}
-                className={`absolute inset-0 w-full h-full ${isDrawMode ? 'cursor-crosshair' : 'cursor-pointer'}`}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-            />
+            {/* Preview surface (video + overlay) */}
+            <div
+                className="relative w-full border border-slate-700 rounded-lg overflow-hidden bg-slate-900/80"
+                style={{ height }}
+            >
+                <video
+                    ref={activeVideoRef}
+                    muted
+                    playsInline
+                    autoPlay
+                    className="absolute inset-0 w-full h-full object-cover"
+                />
 
-            {/* Placeholder background when no video */}
-            {!videoRef?.current && (
-                <div
-                    className="w-full bg-slate-900/80 border border-slate-700 rounded-lg flex items-center justify-center"
-                    style={{ height }}
-                >
-                    <div className="text-center text-slate-500">
-                        <CameraIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Camera preview not available</p>
-                        <p className="text-xs">Draw zones on this area</p>
+                {/* Canvas overlay */}
+                <canvas
+                    ref={canvasRef}
+                    width={width}
+                    height={height}
+                    className={`absolute inset-0 w-full h-full ${isDrawMode ? 'cursor-crosshair' : 'cursor-pointer'}`}
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
+                    onContextMenu={(e) => e.preventDefault()}
+                />
+
+                {/* Placeholder/Preview controls when no external video */}
+                {!videoRef && !previewEnabled && (
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <div className="text-center text-slate-500 max-w-xs">
+                            <CameraIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm font-medium text-slate-300">Camera preview (optional)</p>
+                            <p className="text-xs mt-1">Video-only. No audio is captured.</p>
+                            {previewError && (
+                                <p className="text-xs text-red-400 mt-2">
+                                    {previewError}
+                                </p>
+                            )}
+                            <button
+                                type="button"
+                                onClick={startPreview}
+                                className="mt-3 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+                            >
+                                Enable Camera Preview
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+
+                {!videoRef && previewEnabled && (
+                    <div className="absolute top-3 right-3 flex items-center gap-2">
+                        <span className="px-2 py-1 text-[10px] bg-emerald-500/20 text-emerald-300 rounded border border-emerald-500/30">
+                            LIVE PREVIEW
+                        </span>
+                        <button
+                            type="button"
+                            onClick={stopPreview}
+                            className="px-2 py-1 text-[10px] bg-slate-800/80 text-slate-200 rounded border border-slate-600 hover:bg-slate-700 transition-colors"
+                        >
+                            Stop
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* Controls */}
             {showControls && (
@@ -618,7 +711,8 @@ function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
                     <input
                         type="range"
                         min={1}
-                        max={100}
+                        max={1000}
+                        step={1}
                         value={override.pixel}
                         onChange={(e) => handlePixelChange(Number(e.target.value))}
                         className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer

@@ -15,9 +15,17 @@ export interface PixelDetectionResult {
   changedPixelCount: number; // Absolute count of changed pixels
   totalPixels: number;       // Total pixels analyzed
   hotspots: Hotspot[];       // Areas with significant changes
+  zoneStats?: ZonePixelStats[]; // Optional per-zone stats (when zones are provided)
   timestamp: number;
   processingTimeMs: number;  // Time taken for detection (for benchmarking)
   triggeredBy: 'percentage' | 'absolute' | 'none'; // What triggered the alert
+}
+
+export interface ZonePixelStats {
+  id?: string;
+  changedPixelCount: number;
+  totalPixels: number;
+  difference: number; // 0-100 percentage of changed pixels
 }
 
 export interface Hotspot {
@@ -29,6 +37,7 @@ export interface Hotspot {
 }
 
 export interface DetectionZone {
+  id?: string;
   x: number;      // 0-100 percentage
   y: number;      // 0-100 percentage
   width: number;  // 0-100 percentage
@@ -253,6 +262,31 @@ export class PixelDetectionEngine {
   }
 
   /**
+   * Analyze ImageData directly (avoids an extra getImageData call).
+   */
+  analyzeImageData(currentFrame: ImageData): PixelDetectionResult {
+    if (!this.isEnabled) {
+      return this.createEmptyResult();
+    }
+
+    const previousFrame = this.frameBuffer.getPrevious();
+    this.frameBuffer.push(this.cloneImageData(currentFrame));
+
+    if (!previousFrame) {
+      return this.createEmptyResult();
+    }
+
+    const result = this.detectChanges(
+      currentFrame,
+      previousFrame,
+      currentFrame.width,
+      currentFrame.height
+    );
+    this.lastResult = result;
+    return result;
+  }
+
+  /**
    * Core detection algorithm - enhanced with absolute threshold support
    */
   private detectChanges(
@@ -293,6 +327,43 @@ export class PixelDetectionEngine {
 
     // Step size for downsampling
     const step = Math.max(1, downsampleFactor) * 4; // * 4 for RGBA
+    const pixelWeight = Math.max(1, Math.round(downsampleFactor));
+
+    // Precompute zone bounds in pixel space (faster than % conversion per pixel)
+    const zoneBounds =
+      zones && zones.length > 0
+        ? zones.map((z, index) => ({
+            id: z.id ?? String(index),
+            x1: Math.max(0, Math.floor((z.x / 100) * width)),
+            y1: Math.max(0, Math.floor((z.y / 100) * height)),
+            x2: Math.min(width, Math.ceil(((z.x + z.width) / 100) * width)),
+            y2: Math.min(height, Math.ceil(((z.y + z.height) / 100) * height)),
+          }))
+        : null;
+
+    const ignoreBounds =
+      ignoreZones && ignoreZones.length > 0
+        ? ignoreZones.map((z) => ({
+            x1: Math.max(0, Math.floor((z.x / 100) * width)),
+            y1: Math.max(0, Math.floor((z.y / 100) * height)),
+            x2: Math.min(width, Math.ceil(((z.x + z.width) / 100) * width)),
+            y2: Math.min(height, Math.ceil(((z.y + z.height) / 100) * height)),
+          }))
+        : null;
+
+    const isInBounds = (
+      x: number,
+      y: number,
+      bounds: Array<{ x1: number; y1: number; x2: number; y2: number }>
+    ) => {
+      for (const b of bounds) {
+        if (x >= b.x1 && x < b.x2 && y >= b.y1 && y < b.y2) return true;
+      }
+      return false;
+    };
+
+    const zoneTotals = zoneBounds ? Array(zoneBounds.length).fill(0) : null;
+    const zoneChanges = zoneBounds ? Array(zoneBounds.length).fill(0) : null;
 
     // Iterate through pixels (with optional downsampling)
     for (let i = 0; i < current.data.length; i += step) {
@@ -300,17 +371,29 @@ export class PixelDetectionEngine {
       const x = pixelIndex % width;
       const y = Math.floor(pixelIndex / width);
       
-      // Check if pixel is in a valid zone (skip in instant mode for speed)
-      if (!instantLocalMode && !this.isInZone(x, y, width, height, zones)) {
-        continue;
+      // If zones are defined, compute which zones this pixel belongs to (union behavior).
+      // Note: a pixel may belong to multiple overlapping zones.
+      let matchedZones: number[] | null = null;
+      if (zoneBounds && zoneBounds.length > 0) {
+        matchedZones = [];
+        for (let zi = 0; zi < zoneBounds.length; zi++) {
+          const b = zoneBounds[zi];
+          if (x >= b.x1 && x < b.x2 && y >= b.y1 && y < b.y2) {
+            matchedZones.push(zi);
+          }
+        }
+        if (matchedZones.length === 0) continue;
       }
       
       // Check if pixel is in ignore zone (skip in instant mode for speed)
-      if (!instantLocalMode && this.isInZone(x, y, width, height, ignoreZones)) {
+      if (ignoreBounds && ignoreBounds.length > 0 && isInBounds(x, y, ignoreBounds)) {
         continue;
       }
       
-      totalAnalyzedPixels++;
+      totalAnalyzedPixels += pixelWeight;
+      if (matchedZones && zoneTotals) {
+        for (const zi of matchedZones) zoneTotals[zi] += pixelWeight;
+      }
       
       // Calculate weighted difference
       const rDiff = Math.abs(current.data[i] - previous.data[i]);
@@ -324,10 +407,18 @@ export class PixelDetectionEngine {
       );
       
       if (weightedDiff > pixelThreshold) {
-        changedPixels++;
+        changedPixels += pixelWeight;
+        if (matchedZones && zoneChanges) {
+          for (const zi of matchedZones) zoneChanges[zi] += pixelWeight;
+        }
         
         // Early exit for absolute threshold in instant mode
-        if (useAbsoluteThreshold && instantLocalMode && changedPixels >= absolutePixelThreshold) {
+        if (
+          useAbsoluteThreshold &&
+          instantLocalMode &&
+          changedPixels >= absolutePixelThreshold &&
+          !(zoneBounds && zoneBounds.length > 0)
+        ) {
           const processingTimeMs = performance.now() - startTime;
           return {
             changed: true,
@@ -403,6 +494,20 @@ export class PixelDetectionEngine {
     }
     
     const processingTimeMs = performance.now() - startTime;
+
+    const zoneStats: ZonePixelStats[] | undefined = zoneBounds && zoneTotals && zoneChanges
+      ? zoneBounds.map((b, idx) => {
+          const total = zoneTotals[idx] ?? 0;
+          const changed = zoneChanges[idx] ?? 0;
+          const diff = total > 0 ? (changed / total) * 100 : 0;
+          return {
+            id: b.id,
+            changedPixelCount: changed,
+            totalPixels: total,
+            difference: Math.round(diff * 100) / 100,
+          };
+        })
+      : undefined;
     
     return {
       changed: triggered,
@@ -410,6 +515,7 @@ export class PixelDetectionEngine {
       changedPixelCount: changedPixels,
       totalPixels: totalAnalyzedPixels,
       hotspots: hotspots.slice(0, 10), // Limit to top 10 hotspots
+      zoneStats,
       timestamp: Date.now(),
       processingTimeMs,
       triggeredBy,
@@ -670,4 +776,3 @@ export function createDifferenceVisualization(
   
   return diffImage;
 }
-

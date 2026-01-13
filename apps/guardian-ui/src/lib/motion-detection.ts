@@ -18,6 +18,25 @@ export interface MotionRegion {
   intensity: number;
 }
 
+export interface MotionDetectionZone {
+  id?: string;
+  name?: string;
+  /** 0-100 percentage */
+  x: number;
+  /** 0-100 percentage */
+  y: number;
+  /** 0-100 percentage */
+  width: number;
+  /** 0-100 percentage */
+  height: number;
+}
+
+export interface MotionZoneResult {
+  zone: MotionDetectionZone;
+  /** Motion score between 0 and 1 */
+  score: number;
+}
+
 // =============================================================================
 // Constants
 // =============================================================================
@@ -95,6 +114,55 @@ export function detectMotion(
   }
 
   return totalPixels > 0 ? changedPixels / totalPixels : 0;
+}
+
+/**
+ * Detect motion within multiple zones and return per-zone scores.
+ *
+ * Zones use 0-100 percentage coordinates relative to the frame.
+ */
+export function detectMotionInZones(
+  previousFrame: ImageData,
+  currentFrame: ImageData,
+  zones: MotionDetectionZone[]
+): MotionZoneResult[] {
+  if (!zones || zones.length === 0) {
+    return [];
+  }
+
+  const prev = previousFrame.data;
+  const curr = currentFrame.data;
+  const width = previousFrame.width;
+  const height = previousFrame.height;
+
+  return zones.map((zone) => {
+    const x1 = Math.max(0, Math.floor((zone.x / 100) * width));
+    const y1 = Math.max(0, Math.floor((zone.y / 100) * height));
+    const x2 = Math.min(width, Math.ceil(((zone.x + zone.width) / 100) * width));
+    const y2 = Math.min(height, Math.ceil(((zone.y + zone.height) / 100) * height));
+
+    let changedPixels = 0;
+    let totalPixels = 0;
+
+    for (let y = y1; y < y2; y += DOWNSAMPLE) {
+      for (let x = x1; x < x2; x += DOWNSAMPLE) {
+        const i = (y * width + x) * 4;
+
+        const prevGray = (prev[i] + prev[i + 1] + prev[i + 2]) / 3;
+        const currGray = (curr[i] + curr[i + 1] + curr[i + 2]) / 3;
+
+        if (Math.abs(prevGray - currGray) > PIXEL_THRESHOLD) {
+          changedPixels++;
+        }
+        totalPixels++;
+      }
+    }
+
+    return {
+      zone,
+      score: totalPixels > 0 ? changedPixels / totalPixels : 0,
+    };
+  });
 }
 
 /**
@@ -308,6 +376,7 @@ function intensityToColor(
 
 export default {
   detectMotion,
+  detectMotionInZones,
   calculateMotionScore,
   detectRegionalMotion,
   getThresholdForScenario,

@@ -9,22 +9,50 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { detectMotion, MOTION_THRESHOLDS, getThresholdForScenario } from '../lib/motion-detection';
+import { detectMotion, detectMotionInZones, getThresholdForScenario } from '../lib/motion-detection';
 import { getAudioLevel, detectCryingPattern, resetCryDetection, AUDIO_THRESHOLDS } from '../lib/audio-levels';
+import { PixelDetectionEngine, type PixelDetectionResult } from '../lib/pixel-detection';
+import type { DetectionZone as SettingsDetectionZone } from '../stores/settings-store';
 
 // =============================================================================
 // Types
 // =============================================================================
 
+interface PixelDetectionConfig {
+  enabled: boolean;
+  /** 0-100, higher = more sensitive */
+  sensitivity: number;
+  /** Absolute number of pixels (1-1000) to trigger */
+  absolutePixelThreshold: number;
+  /** If true, use absolute count instead of percentage */
+  useAbsoluteThreshold: boolean;
+  /** Skip expensive operations for minimal latency */
+  instantLocalMode?: boolean;
+  /** Downsample for performance (1 = full, 2 = half, etc.) */
+  downsampleFactor?: number;
+}
+
 interface CameraFeedProps {
   onFrame?: (data: FrameData) => void;
   onMotion?: (score: number) => void;
+  onMotionZones?: (zones: Array<{ id: string; name: string; score: number }>) => void;
   onAudio?: (level: number) => void;
+  onPixel?: (result: PixelDetectionResult) => void;
+  onVideoReady?: (video: HTMLVideoElement | null) => void;
   onError?: (error: Error) => void;
   scenario?: 'pet' | 'baby' | 'elderly' | 'security';
   enabled?: boolean;
+  audioEnabled?: boolean;
   showDebug?: boolean;
   className?: string;
+  showZonesOverlay?: boolean;
+  /** Optional global detection zones (used for motion/pixel). */
+  detectionZones?: SettingsDetectionZone[];
+  /** Override capture gating thresholds (0-100). */
+  frameCaptureThresholds?: { motion?: number; audio?: number };
+  /** Override how often onFrame fires (ms). */
+  frameIntervalMs?: number;
+  pixelDetection?: PixelDetectionConfig;
 }
 
 export interface FrameData {
@@ -33,6 +61,9 @@ export interface FrameData {
   audioLevel: number;
   timestamp: number;
   hasCrying?: boolean;
+  pixelChangePercent?: number;
+  pixelChangedPixelCount?: number;
+  pixelTriggeredBy?: PixelDetectionResult['triggeredBy'];
 }
 
 // =============================================================================
@@ -50,12 +81,21 @@ const AUDIO_INTERVAL = 100; // Audio level every 100ms
 export function CameraFeed({
   onFrame,
   onMotion,
+  onMotionZones,
   onAudio,
+  onPixel,
+  onVideoReady,
   onError,
   scenario = 'baby',
   enabled = true,
+  audioEnabled = true,
   showDebug = false,
   className,
+  showZonesOverlay = false,
+  detectionZones,
+  frameCaptureThresholds,
+  frameIntervalMs,
+  pixelDetection,
 }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,16 +103,28 @@ export function CameraFeed({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const pixelEngineRef = useRef<PixelDetectionEngine | null>(null);
+  const lastPixelResultRef = useRef<PixelDetectionResult | null>(null);
 
   // Refs for callbacks to avoid recreating intervals
   const onMotionRef = useRef(onMotion);
+  const onMotionZonesRef = useRef(onMotionZones);
   const onAudioRef = useRef(onAudio);
   const onFrameRef = useRef(onFrame);
+  const onPixelRef = useRef(onPixel);
+  const onVideoReadyRef = useRef(onVideoReady);
+  const detectionZonesRef = useRef(detectionZones);
+  const frameCaptureThresholdsRef = useRef(frameCaptureThresholds);
 
   // Keep refs up to date
   useEffect(() => { onMotionRef.current = onMotion; }, [onMotion]);
+  useEffect(() => { onMotionZonesRef.current = onMotionZones; }, [onMotionZones]);
   useEffect(() => { onAudioRef.current = onAudio; }, [onAudio]);
   useEffect(() => { onFrameRef.current = onFrame; }, [onFrame]);
+  useEffect(() => { onPixelRef.current = onPixel; }, [onPixel]);
+  useEffect(() => { onVideoReadyRef.current = onVideoReady; }, [onVideoReady]);
+  useEffect(() => { detectionZonesRef.current = detectionZones; }, [detectionZones]);
+  useEffect(() => { frameCaptureThresholdsRef.current = frameCaptureThresholds; }, [frameCaptureThresholds]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,10 +132,63 @@ export function CameraFeed({
   const [audioLevel, setAudioLevel] = useState(0);
   const [hasCrying, setHasCrying] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
+  const [pixelChangePercent, setPixelChangePercent] = useState(0);
+  const [pixelChangedPixels, setPixelChangedPixels] = useState(0);
+  const motionScoreRef = useRef(0);
+  const audioLevelRef = useRef(0);
+  const hasCryingRef = useRef(false);
 
   // Motion threshold for this scenario
   const motionThreshold = getThresholdForScenario(scenario);
   const audioThreshold = AUDIO_THRESHOLDS[scenario]?.ambient || 15;
+
+  // Pixel detection config (stable deps)
+  const pixelEnabled = pixelDetection?.enabled ?? false;
+  const pixelSensitivity = pixelDetection?.sensitivity ?? 50;
+  const pixelAbsoluteThreshold = pixelDetection?.absolutePixelThreshold ?? 100;
+  const pixelUseAbsoluteThreshold = pixelDetection?.useAbsoluteThreshold ?? false;
+  const pixelInstantLocalMode = pixelDetection?.instantLocalMode ?? false;
+  const pixelDownsampleFactor = pixelDetection?.downsampleFactor ?? 1;
+
+  // Initialize/reset pixel engine when config changes
+  useEffect(() => {
+    if (!pixelEnabled) {
+      pixelEngineRef.current = null;
+      lastPixelResultRef.current = null;
+      return;
+    }
+
+    pixelEngineRef.current = new PixelDetectionEngine({
+      threshold: pixelSensitivity,
+      absolutePixelThreshold: pixelAbsoluteThreshold,
+      useAbsoluteThreshold: pixelUseAbsoluteThreshold,
+      instantLocalMode: pixelInstantLocalMode,
+      downsampleFactor: pixelDownsampleFactor,
+    });
+    pixelEngineRef.current.reset();
+    lastPixelResultRef.current = null;
+  }, [
+    pixelEnabled,
+    pixelSensitivity,
+    pixelAbsoluteThreshold,
+    pixelUseAbsoluteThreshold,
+    pixelInstantLocalMode,
+    pixelDownsampleFactor,
+  ]);
+
+  // Keep pixel engine zones in sync with global detection zones (optional)
+  useEffect(() => {
+    if (!pixelEnabled || !pixelEngineRef.current) return;
+
+    const zones = (detectionZones || []).filter((z) => z.enabled);
+    const fullEnabled = zones.some((z) => z.x === 0 && z.y === 0 && z.width === 100 && z.height === 100);
+
+    pixelEngineRef.current.setOptions({
+      zones: fullEnabled
+        ? undefined
+        : zones.map((z) => ({ id: z.id, x: z.x, y: z.y, width: z.width, height: z.height })),
+    });
+  }, [pixelEnabled, detectionZones]);
 
   // Initialize camera
   const initCamera = useCallback(async () => {
@@ -97,7 +202,7 @@ export function CameraFeed({
           height: { ideal: 720 },
           facingMode: 'environment',
         },
-        audio: true,
+        audio: audioEnabled,
       });
 
       streamRef.current = stream;
@@ -106,14 +211,21 @@ export function CameraFeed({
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        onVideoReadyRef.current?.(videoRef.current);
       }
 
       // Set up audio analysis
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
+      if (audioEnabled) {
+        audioContextRef.current = new AudioContext();
+        const source = audioContextRef.current.createMediaStreamSource(stream);
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        analyserRef.current.fftSize = 256;
+        source.connect(analyserRef.current);
+      } else {
+        analyserRef.current = null;
+        setAudioLevel(0);
+        audioLevelRef.current = 0;
+      }
 
       setCameraActive(true);
       setIsLoading(false);
@@ -123,7 +235,7 @@ export function CameraFeed({
       setIsLoading(false);
       onError?.(err instanceof Error ? err : new Error(errorMessage));
     }
-  }, [onError]);
+  }, [onError, audioEnabled]);
 
   // Stop camera
   const stopCamera = useCallback(() => {
@@ -137,6 +249,7 @@ export function CameraFeed({
     }
     // Reset cry detection buffer to prevent memory leak
     resetCryDetection();
+    onVideoReadyRef.current?.(null);
     setCameraActive(false);
   }, []);
 
@@ -169,12 +282,49 @@ export function CameraFeed({
       // Get current frame data
       const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
+      // Pixel detection (optional)
+      if (pixelEnabled && pixelEngineRef.current) {
+        const result = pixelEngineRef.current.analyzeImageData(currentFrame);
+        lastPixelResultRef.current = result;
+        setPixelChangePercent(result.difference);
+        setPixelChangedPixels(result.changedPixelCount);
+        onPixelRef.current?.(result);
+      }
+
       // Compare with previous frame
       if (previousFrameRef.current) {
-        const score = detectMotion(previousFrameRef.current, currentFrame);
-        const motionPercent = Math.round(score * 100);
+        const zones = (detectionZonesRef.current || []).filter((z) => z.enabled);
+        const fullZone = zones.find((z) => z.x === 0 && z.y === 0 && z.width === 100 && z.height === 100);
+
+        let motionPercent = 0;
+        let zoneScores: Array<{ id: string; name: string; score: number }> = [];
+
+        if (!fullZone && zones.length > 0) {
+          const results = detectMotionInZones(
+            previousFrameRef.current,
+            currentFrame,
+            zones.map((z) => ({ id: z.id, name: z.name, x: z.x, y: z.y, width: z.width, height: z.height }))
+          );
+          zoneScores = results.map((r) => ({
+            id: r.zone.id || 'zone',
+            name: r.zone.name || 'Zone',
+            score: Math.round(r.score * 100),
+          }));
+          motionPercent = zoneScores.reduce((max, z) => Math.max(max, z.score), 0);
+        } else {
+          const score = detectMotion(previousFrameRef.current, currentFrame);
+          motionPercent = Math.round(score * 100);
+          if (fullZone) {
+            zoneScores = [{ id: fullZone.id, name: fullZone.name, score: motionPercent }];
+          } else if (zones.length === 0) {
+            zoneScores = [{ id: 'full', name: 'Full Screen', score: motionPercent }];
+          }
+        }
+
         setMotionScore(motionPercent);
+        motionScoreRef.current = motionPercent;
         onMotionRef.current?.(motionPercent);
+        onMotionZonesRef.current?.(zoneScores);
       }
 
       // Store current frame for next comparison
@@ -182,11 +332,11 @@ export function CameraFeed({
     }, MOTION_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [cameraActive]);
+  }, [cameraActive, pixelEnabled]);
 
   // Audio analysis loop
   useEffect(() => {
-    if (!cameraActive || !analyserRef.current) return;
+    if (!cameraActive || !audioEnabled || !analyserRef.current) return;
 
     const interval = setInterval(() => {
       if (!analyserRef.current) return;
@@ -194,25 +344,44 @@ export function CameraFeed({
       const level = getAudioLevel(analyserRef.current);
       const audioPercent = Math.round(level * 100);
       setAudioLevel(audioPercent);
+      audioLevelRef.current = audioPercent;
       onAudioRef.current?.(audioPercent);
 
       // Detect crying for baby monitoring
       if (scenario === 'baby' && analyserRef.current) {
         const crying = detectCryingPattern(analyserRef.current);
         setHasCrying(crying);
+        hasCryingRef.current = crying;
       }
     }, AUDIO_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [cameraActive, scenario]);
+  }, [cameraActive, scenario, audioEnabled]);
+
+  // Reset cry detection when leaving baby scenario
+  useEffect(() => {
+    if (scenario !== 'baby') {
+      setHasCrying(false);
+      hasCryingRef.current = false;
+    }
+  }, [scenario]);
 
   // Frame capture for analysis
   useEffect(() => {
     if (!cameraActive || !canvasRef.current) return;
 
+    const intervalMs = Math.max(250, frameIntervalMs ?? FRAME_INTERVAL);
     const interval = setInterval(() => {
+      const pixelTriggered = lastPixelResultRef.current?.changed ?? false;
+      const motion = motionScoreRef.current;
+      const audio = audioLevelRef.current;
+      const crying = hasCryingRef.current;
+      const gate = frameCaptureThresholdsRef.current;
+      const motionGateThreshold = gate?.motion ?? motionThreshold;
+      const audioGateThreshold = gate?.audio ?? audioThreshold;
+
       // Only send frames when there's significant activity
-      if (motionScore < motionThreshold && audioLevel < audioThreshold) {
+      if (motion < motionGateThreshold && audio < audioGateThreshold && !pixelTriggered) {
         return;
       }
 
@@ -221,19 +390,22 @@ export function CameraFeed({
         const imageData = canvasRef.current.toDataURL('image/jpeg', 0.7);
         onFrameRef.current({
           imageData,
-          motionScore,
-          audioLevel,
+          motionScore: motion,
+          audioLevel: audio,
           timestamp: Date.now(),
-          hasCrying,
+          hasCrying: crying,
+          pixelChangePercent: lastPixelResultRef.current?.difference,
+          pixelChangedPixelCount: lastPixelResultRef.current?.changedPixelCount,
+          pixelTriggeredBy: lastPixelResultRef.current?.triggeredBy,
         });
       }
-    }, FRAME_INTERVAL);
+    }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [cameraActive, motionScore, audioLevel, motionThreshold, audioThreshold, hasCrying]);
+  }, [cameraActive, motionThreshold, audioThreshold, frameIntervalMs]);
 
   return (
-    <div className="relative w-full aspect-video bg-slate-900 rounded-xl overflow-hidden">
+    <div className={`relative w-full aspect-video bg-slate-900 rounded-xl overflow-hidden ${className || ''}`}>
       {/* Video feed */}
       <video
         ref={videoRef}
@@ -245,6 +417,30 @@ export function CameraFeed({
 
       {/* Hidden canvas for processing */}
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Detection zones overlay (read-only) */}
+      {showZonesOverlay && (detectionZones || []).some((z) => z.enabled && !(z.x === 0 && z.y === 0 && z.width === 100 && z.height === 100)) && (
+        <div className="absolute inset-0 pointer-events-none">
+          {(detectionZones || [])
+            .filter((z) => z.enabled && !(z.x === 0 && z.y === 0 && z.width === 100 && z.height === 100))
+            .map((z) => (
+              <div
+                key={z.id}
+                className="absolute border border-emerald-400/60 bg-emerald-400/10"
+                style={{
+                  left: `${z.x}%`,
+                  top: `${z.y}%`,
+                  width: `${z.width}%`,
+                  height: `${z.height}%`,
+                }}
+              >
+                <div className="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-slate-900/70 text-emerald-200 border border-emerald-500/20">
+                  {z.name}
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
 
       {/* Loading overlay */}
       {isLoading && (

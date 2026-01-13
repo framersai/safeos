@@ -25,6 +25,8 @@ import { getSubjectMatcher, type MatchResult } from '../../lib/subject-matcher';
 import { saveMatchFrame, type MatchFrameDB } from '../../lib/client-db';
 import { useWebSocket, type WSMessage } from '../../lib/websocket';
 import { getSoundManager } from '../../lib/sound-manager';
+import type { PixelDetectionResult } from '../../lib/pixel-detection';
+import { getNotificationManager } from '../../lib/notification-manager';
 
 // =============================================================================
 // Constants
@@ -111,7 +113,9 @@ export default function MonitorPage() {
   const modeDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Settings store for security modes/presets
-  const { activePresetId, setActivePreset, activeSleepPreset, globalSettings, updateGlobalSettings, globalMute, toggleGlobalMute } = useSettingsStore();
+  const { activePresetId, setActivePreset, activeSleepPreset, globalSettings, updateGlobalSettings, globalMute, toggleGlobalMute, timingSettings, getCooldownForSeverity } = useSettingsStore();
+  const detectionFeatureSettings = useSettingsStore((state) => state.detectionFeatureSettings);
+  const detectionZones = useSettingsStore((state) => state.detectionZones);
   const currentPreset = globalSettings; // Use globalSettings to reflect slider overrides
   const [showOverrides, setShowOverrides] = useState(false);
 
@@ -213,6 +217,21 @@ export default function MonitorPage() {
     recordLostFoundAlert,
   ]);
 
+  // Drive Lost & Found matching on a lightweight interval (avoids relying on websocket frames)
+  useEffect(() => {
+    if (!isLostFoundWatching || !activeSubject) return;
+
+    const intervalMs = Math.max(250, Math.min(1500, lostFoundSettings.processingMode === 'local' ? 500 : 900));
+    const interval = setInterval(() => {
+      const video = videoRef.current;
+      if (video) {
+        processLostFoundFrame(video);
+      }
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [isLostFoundWatching, activeSubject, lostFoundSettings.processingMode, processLostFoundFrame]);
+
   // ---------------------------------------------------------------------------
   // WebSocket
   // ---------------------------------------------------------------------------
@@ -283,82 +302,474 @@ export default function MonitorPage() {
     });
   };
 
-  // Motion/audio alert cooldown tracking
+  // ---------------------------------------------------------------------------
+  // Local Alerting (Motion/Audio/Pixel) - sustained detection + per-severity cooldown
+  // ---------------------------------------------------------------------------
+
+  const motionAboveSinceRef = useRef<number | null>(null);
+  const audioAboveSinceRef = useRef<number | null>(null);
+  const pixelAboveSinceRef = useRef<number | null>(null);
+  const motionLatchedRef = useRef(false);
+  const audioLatchedRef = useRef(false);
+  const pixelLatchedRef = useRef(false);
+
   const lastMotionAlertRef = useRef<number>(0);
   const lastAudioAlertRef = useRef<number>(0);
-  const ALERT_COOLDOWN_MS = 5000; // 5 second cooldown between alerts
+  const lastPixelAlertRef = useRef<number>(0);
+
+  const [pixelChangePercent, setPixelChangePercent] = useState(0);
+  const [pixelChangedPixels, setPixelChangedPixels] = useState(0);
+  const [pixelZoneStatus, setPixelZoneStatus] = useState<null | {
+    zoneName: string | null;
+    changedPx: number;
+    thresholdPx: number;
+    ratio: number;
+    triggered: boolean;
+  }>(null);
+  const pixelChangedPixelsRef = useRef(0);
+  const lastActivityRef = useRef<number>(Date.now());
+  const inactivityAlertedRef = useRef(false);
+
+  // Calibration (local-only baseline tuning)
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
+  const [calibrationRunning, setCalibrationRunning] = useState(false);
+  const [calibrationProgress, setCalibrationProgress] = useState(0);
+  const [calibrationResult, setCalibrationResult] = useState<null | {
+    motionSensitivity: number;
+    audioSensitivity: number;
+    absolutePixelThreshold: number;
+    baselineMotionP95: number;
+    baselineAudioP95: number;
+    baselinePixelP95: number;
+  }>(null);
+  const calibrationSamplesRef = useRef<{ motion: number[]; audio: number[]; pixel: number[] }>({
+    motion: [],
+    audio: [],
+    pixel: [],
+  });
+  const calibrationTimersRef = useRef<{ intervalId: number | null; timeoutId: number | null }>({
+    intervalId: null,
+    timeoutId: null,
+  });
+
+  const sensitivityToThreshold = (sensitivity: number) => Math.max(0, Math.min(100, 100 - sensitivity));
+
+  const clampNumber = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+  const percentile = (values: number[], p: number) => {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const idx = clampNumber(Math.round((p / 100) * (sorted.length - 1)), 0, sorted.length - 1);
+    return sorted[idx];
+  };
+
+  const stopCalibration = useCallback(() => {
+    if (calibrationTimersRef.current.intervalId !== null) {
+      window.clearInterval(calibrationTimersRef.current.intervalId);
+    }
+    if (calibrationTimersRef.current.timeoutId !== null) {
+      window.clearTimeout(calibrationTimersRef.current.timeoutId);
+    }
+    calibrationTimersRef.current = { intervalId: null, timeoutId: null };
+    setCalibrationRunning(false);
+  }, []);
+
+  const startCalibration = useCallback(() => {
+    if (calibrationRunning) return;
+
+    setCalibrationResult(null);
+    setCalibrationProgress(0);
+    setCalibrationRunning(true);
+
+    calibrationSamplesRef.current = { motion: [], audio: [], pixel: [] };
+
+    const durationMs = 10_000;
+    const sampleIntervalMs = 250;
+    const startedAt = Date.now();
+
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      const { motionScore: latestMotion, audioLevel: latestAudio } = useMonitoringStore.getState();
+
+      calibrationSamplesRef.current.motion.push(latestMotion);
+      calibrationSamplesRef.current.audio.push(latestAudio);
+      calibrationSamplesRef.current.pixel.push(pixelChangedPixelsRef.current);
+
+      const progress = clampNumber(((now - startedAt) / durationMs) * 100, 0, 100);
+      setCalibrationProgress(progress);
+    }, sampleIntervalMs);
+
+    const timeoutId = window.setTimeout(() => {
+      window.clearInterval(intervalId);
+      calibrationTimersRef.current.intervalId = null;
+      calibrationTimersRef.current.timeoutId = null;
+
+      const baselineMotionP95 = percentile(calibrationSamplesRef.current.motion, 95);
+      const baselineAudioP95 = percentile(calibrationSamplesRef.current.audio, 95);
+      const baselinePixelP95 = percentile(calibrationSamplesRef.current.pixel, 95);
+
+      const motionThreshold = clampNumber(Math.round(baselineMotionP95 + 3), 0, 100);
+      const audioThreshold = clampNumber(Math.round(baselineAudioP95 + 3), 0, 100);
+
+      const motionSensitivity = clampNumber(100 - motionThreshold, 0, 100);
+      const audioSensitivity = clampNumber(100 - audioThreshold, 0, 100);
+
+      const absolutePixelThreshold = clampNumber(
+        Math.round(Math.max(5, baselinePixelP95 * 1.25 + 5)),
+        1,
+        1000
+      );
+
+      setCalibrationResult({
+        motionSensitivity,
+        audioSensitivity,
+        absolutePixelThreshold,
+        baselineMotionP95,
+        baselineAudioP95,
+        baselinePixelP95,
+      });
+
+      setCalibrationProgress(100);
+      setCalibrationRunning(false);
+    }, durationMs);
+
+    calibrationTimersRef.current = { intervalId, timeoutId };
+  }, [calibrationRunning]);
+
+  useEffect(() => {
+    return () => stopCalibration();
+  }, [stopCalibration]);
+
+  const classifyDeltaSeverity = (value: number, threshold: number): 'low' | 'medium' | 'high' | 'critical' => {
+    const delta = value - threshold;
+    if (delta >= 40) return 'critical';
+    if (delta >= 25) return 'high';
+    if (delta >= 10) return 'medium';
+    return 'low';
+  };
+
+  const maybeNotify = async (
+    title: string,
+    body: string,
+    severity: 'low' | 'medium' | 'high' | 'critical'
+  ) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    // Avoid spamming notifications for low severity
+    const requireInteraction = severity === 'high' || severity === 'critical';
+    await getNotificationManager().show(title, {
+      body,
+      tag: `safeos-${severity}-${title}`,
+      requireInteraction,
+      data: { title, severity },
+      vibrate: severity === 'critical' ? [250, 100, 250, 100, 250] : severity === 'high' ? [200, 80, 200] : undefined,
+    });
+  };
+
+  const maybeHaptic = (severity: 'low' | 'medium' | 'high' | 'critical') => {
+    if (!('vibrate' in navigator)) return;
+    if (severity === 'critical') navigator.vibrate([250, 100, 250, 100, 250]);
+    else if (severity === 'high') navigator.vibrate([200, 80, 200]);
+  };
 
   const handleMotion = useCallback((score: number) => {
     setMotionScore(score);
+  }, [setMotionScore]);
 
-    // Check if motion exceeds threshold and trigger alert/sound
-    const motionThreshold = currentPreset.motionSensitivity;
+  const handleMotionZones = useCallback((zones: Array<{ id: string; name: string; score: number }>) => {
+    if (!currentPreset.motionDetectionEnabled) return;
+
+    const globalThreshold = sensitivityToThreshold(currentPreset.motionSensitivity);
     const now = Date.now();
 
-    if (score >= motionThreshold && now - lastMotionAlertRef.current > ALERT_COOLDOWN_MS) {
-      lastMotionAlertRef.current = now;
-
-      // Determine severity based on how much threshold is exceeded
-      let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
-      if (score >= motionThreshold + 40) severity = 'critical';
-      else if (score >= motionThreshold + 25) severity = 'high';
-      else if (score >= motionThreshold + 10) severity = 'medium';
-
-      // Add alert to panel
-      addAlert({
-        id: `motion-${now}`,
-        streamId: streamId || 'local',
-        severity,
-        message: `Motion detected: ${score}% (threshold: ${motionThreshold}%)`,
-        timestamp: new Date().toISOString(),
-        acknowledged: false,
-      });
-
-      // Play sound (unless muted)
-      if (!globalMute) {
-        getSoundManager().playForTrigger('motion_detected');
-        getSoundManager().playForSeverity(severity);
+    let best: { id: string; name: string; score: number; threshold: number; delta: number } | null = null;
+    for (const z of zones) {
+      const override = detectionZones.find((dz) => dz.id === z.id)?.sensitivityOverride?.motion;
+      const threshold = override !== undefined ? sensitivityToThreshold(override) : globalThreshold;
+      const delta = z.score - threshold;
+      if (delta >= 0 && (!best || delta > best.delta)) {
+        best = { id: z.id, name: z.name, score: z.score, threshold, delta };
       }
     }
-  }, [addAlert, streamId, globalMute, currentPreset.motionSensitivity]);
+
+    if (!best) {
+      motionAboveSinceRef.current = null;
+      motionLatchedRef.current = false;
+      return;
+    }
+
+    if (motionLatchedRef.current) return;
+
+    if (!motionAboveSinceRef.current) {
+      motionAboveSinceRef.current = now;
+      return;
+    }
+
+    // Require sustained motion to avoid single-frame spikes / lighting flicker
+    if (now - motionAboveSinceRef.current < timingSettings.minimumMotionDuration) {
+      return;
+    }
+
+    // Mark activity for inactivity monitoring (even if we end up throttled by cooldown)
+    lastActivityRef.current = now;
+    inactivityAlertedRef.current = false;
+
+    const severity = classifyDeltaSeverity(best.score, best.threshold);
+    const cooldownMs = (getCooldownForSeverity(severity) ?? 10) * 1000;
+    if (cooldownMs > 0 && now - lastMotionAlertRef.current < cooldownMs) return;
+
+    lastMotionAlertRef.current = now;
+    motionLatchedRef.current = true;
+    motionAboveSinceRef.current = null;
+
+    addAlert({
+      id: `motion-${now}`,
+      streamId: streamId || 'local',
+      severity,
+      message: `Motion detected: ${best.score}% (threshold: ${best.threshold}% · zone: ${best.name})`,
+      timestamp: new Date().toISOString(),
+      acknowledged: false,
+    });
+
+    getSoundManager().playForTrigger('motion_detected');
+    getSoundManager().playForSeverity(severity, { loop: false });
+    maybeHaptic(severity);
+    maybeNotify('Motion Detected', `${best.score}% (threshold ${best.threshold}%) · ${best.name}`, severity);
+  }, [
+    addAlert,
+    currentPreset.motionDetectionEnabled,
+    currentPreset.motionSensitivity,
+    detectionZones,
+    getCooldownForSeverity,
+    streamId,
+    timingSettings.minimumMotionDuration,
+  ]);
 
   const handleAudio = useCallback((level: number) => {
     setAudioLevel(level);
 
-    // Check if audio exceeds threshold and trigger alert/sound
-    const audioThreshold = currentPreset.audioSensitivity;
+    if (!currentPreset.audioDetectionEnabled) return;
+
+    const audioThreshold = sensitivityToThreshold(currentPreset.audioSensitivity);
     const now = Date.now();
 
-    if (level >= audioThreshold && now - lastAudioAlertRef.current > ALERT_COOLDOWN_MS) {
-      lastAudioAlertRef.current = now;
+    if (level < audioThreshold) {
+      audioAboveSinceRef.current = null;
+      audioLatchedRef.current = false;
+      return;
+    }
 
-      // Determine severity
-      let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
-      if (level >= audioThreshold + 40) severity = 'critical';
-      else if (level >= audioThreshold + 25) severity = 'high';
-      else if (level >= audioThreshold + 10) severity = 'medium';
+    if (audioLatchedRef.current) return;
+
+    if (!audioAboveSinceRef.current) {
+      audioAboveSinceRef.current = now;
+      return;
+    }
+
+    // Require sustained audio to avoid one-sample spikes
+    if (now - audioAboveSinceRef.current < Math.max(200, timingSettings.minimumMotionDuration)) {
+      return;
+    }
+
+    const severity = classifyDeltaSeverity(level, audioThreshold);
+    const cooldownMs = (getCooldownForSeverity(severity) ?? 10) * 1000;
+    if (cooldownMs > 0 && now - lastAudioAlertRef.current < cooldownMs) return;
+
+    lastAudioAlertRef.current = now;
+    audioLatchedRef.current = true;
+    audioAboveSinceRef.current = null;
 
       // Add alert
       addAlert({
         id: `audio-${now}`,
         streamId: streamId || 'local',
         severity,
-        message: `Audio detected: ${level}% (threshold: ${audioThreshold}%)`,
+        message: `Audio detected: ${level}% (threshold: ${audioThreshold}% · sensitivity: ${currentPreset.audioSensitivity}%)`,
         timestamp: new Date().toISOString(),
         acknowledged: false,
       });
 
       // Play sound (unless muted)
-      if (!globalMute) {
-        getSoundManager().playForTrigger('audio_detected');
-        getSoundManager().playForSeverity(severity);
+      getSoundManager().playForTrigger('audio_detected');
+      getSoundManager().playForSeverity(severity === 'critical' ? 'critical' : severity, { loop: false });
+      maybeHaptic(severity);
+      maybeNotify('Audio Detected', `${level}% (threshold ${audioThreshold}%)`, severity);
+  }, [addAlert, streamId, currentPreset.audioDetectionEnabled, currentPreset.audioSensitivity, getCooldownForSeverity, timingSettings.minimumMotionDuration]);
+
+  const handlePixel = useCallback((result: PixelDetectionResult) => {
+    setPixelChangePercent(result.difference);
+    setPixelChangedPixels(result.changedPixelCount);
+    pixelChangedPixelsRef.current = result.changedPixelCount;
+
+    if (!currentPreset.pixelDetectionEnabled) return;
+
+    const now = Date.now();
+    const thresholdPx = Math.max(1, currentPreset.absolutePixelThreshold);
+
+    // Per-zone pixel thresholds (absolute mode only)
+    const enabledZones = detectionZones.filter((z) => z.enabled);
+    const fullZone = enabledZones.find((z) => z.x === 0 && z.y === 0 && z.width === 100 && z.height === 100);
+
+    let triggered = result.changed;
+    let chosenThresholdPx = thresholdPx;
+    let chosenChangedPx = result.changedPixelCount;
+    let chosenZoneName: string | null = null;
+
+    if (currentPreset.useAbsoluteThreshold && !fullZone && enabledZones.length > 0 && result.zoneStats && result.zoneStats.length > 0) {
+      const statsById = new Map(result.zoneStats.filter((s) => s.id).map((s) => [s.id as string, s]));
+
+      let bestRatio = -Infinity;
+      for (const zone of enabledZones) {
+        const stat = statsById.get(zone.id);
+        const changedPx = stat?.changedPixelCount ?? 0;
+        const zoneThresholdPx = Math.max(1, zone.sensitivityOverride?.pixel ?? thresholdPx);
+        const ratio = zoneThresholdPx > 0 ? changedPx / zoneThresholdPx : 0;
+
+        if (ratio > bestRatio) {
+          bestRatio = ratio;
+          chosenThresholdPx = zoneThresholdPx;
+          chosenChangedPx = changedPx;
+          chosenZoneName = zone.name;
+          triggered = changedPx >= zoneThresholdPx;
+        }
       }
     }
-  }, [addAlert, streamId, globalMute, currentPreset.audioSensitivity]);
+
+    const ratioNow = chosenThresholdPx > 0 ? chosenChangedPx / chosenThresholdPx : 0;
+    setPixelZoneStatus({
+      zoneName: chosenZoneName ?? fullZone?.name ?? (enabledZones.length === 0 ? 'Full Screen' : null),
+      changedPx: chosenChangedPx,
+      thresholdPx: chosenThresholdPx,
+      ratio: ratioNow,
+      triggered,
+    });
+
+    if (!triggered) {
+      pixelAboveSinceRef.current = null;
+      pixelLatchedRef.current = false;
+      return;
+    }
+
+    if (pixelLatchedRef.current) return;
+
+    if (!pixelAboveSinceRef.current) {
+      pixelAboveSinceRef.current = now;
+      return;
+    }
+
+    // Require sustained pixel change (especially for very low thresholds)
+    if (now - pixelAboveSinceRef.current < Math.max(150, timingSettings.minimumMotionDuration / 2)) {
+      return;
+    }
+
+    // Mark activity for inactivity monitoring (pixel is a proxy for motion)
+    lastActivityRef.current = now;
+    inactivityAlertedRef.current = false;
+
+    const severity: 'low' | 'medium' | 'high' | 'critical' =
+      ratioNow >= 10 ? 'critical' : ratioNow >= 5 ? 'high' : ratioNow >= 2 ? 'medium' : 'low';
+
+    const cooldownMs = (getCooldownForSeverity(severity) ?? 10) * 1000;
+    if (cooldownMs > 0 && now - lastPixelAlertRef.current < cooldownMs) return;
+
+    lastPixelAlertRef.current = now;
+    pixelLatchedRef.current = true;
+    pixelAboveSinceRef.current = null;
+
+    addAlert({
+      id: `pixel-${now}`,
+      streamId: streamId || 'local',
+      severity,
+      message: `Pixel movement detected${chosenZoneName ? ` in ${chosenZoneName}` : ''}: ${chosenChangedPx}px (threshold: ${chosenThresholdPx}px)`,
+      timestamp: new Date().toISOString(),
+      acknowledged: false,
+    });
+
+    getSoundManager().playForTrigger('motion_detected');
+    getSoundManager().playForSeverity(severity === 'critical' ? 'critical' : severity, { loop: false });
+    maybeHaptic(severity);
+    maybeNotify('Pixel Movement', `${chosenChangedPx}px (threshold ${chosenThresholdPx}px)`, severity);
+  }, [
+    addAlert,
+    currentPreset.absolutePixelThreshold,
+    currentPreset.pixelDetectionEnabled,
+    currentPreset.useAbsoluteThreshold,
+    detectionZones,
+    getCooldownForSeverity,
+    streamId,
+    timingSettings.minimumMotionDuration,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Effects
   // ---------------------------------------------------------------------------
+
+  // Reset pixel UI when pixel detection is disabled
+  useEffect(() => {
+    if (currentPreset.pixelDetectionEnabled) return;
+    setPixelChangePercent(0);
+    setPixelChangedPixels(0);
+    pixelChangedPixelsRef.current = 0;
+    setPixelZoneStatus(null);
+  }, [currentPreset.pixelDetectionEnabled]);
+
+  // Inactivity monitoring (local-only)
+  useEffect(() => {
+    if (!detectionFeatureSettings.inactivityMonitoringEnabled) return;
+    const minutes = detectionFeatureSettings.inactivityAlertMinutes;
+    if (!minutes || minutes <= 0) return;
+    if (!currentPreset.motionDetectionEnabled && !currentPreset.pixelDetectionEnabled) return;
+
+    const thresholdMs = minutes * 60_000;
+    const checkIntervalMs = 15_000;
+
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      const elapsed = now - lastActivityRef.current;
+      if (elapsed < thresholdMs) return;
+      if (inactivityAlertedRef.current) return;
+
+      inactivityAlertedRef.current = true;
+      const severity = detectionFeatureSettings.inactivitySeverity;
+      const soundSeverity = severity === 'info' ? 'low' : severity;
+
+      addAlert({
+        id: `inactivity-${now}`,
+        streamId: streamId || 'local',
+        severity,
+        message: `Inactivity: no motion detected for ${minutes} minute${minutes === 1 ? '' : 's'}`,
+        timestamp: new Date().toISOString(),
+        acknowledged: false,
+      });
+
+      getSoundManager().playForTrigger('inactivity_alert');
+      getSoundManager().playForSeverity(soundSeverity, { loop: false });
+
+      if ('vibrate' in navigator && (severity === 'high' || severity === 'critical')) {
+        navigator.vibrate(severity === 'critical' ? [250, 100, 250, 100, 250] : [200, 80, 200]);
+      }
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        getNotificationManager().show('Inactivity Alert', {
+          body: `No motion detected for ${minutes} minute${minutes === 1 ? '' : 's'}`,
+          tag: `safeos-inactivity-${now}`,
+          requireInteraction: severity === 'high' || severity === 'critical',
+          vibrate: severity === 'critical' ? [250, 100, 250, 100, 250] : severity === 'high' ? [200, 80, 200] : undefined,
+          data: { severity, minutes },
+        });
+      }
+    }, checkIntervalMs);
+
+    return () => window.clearInterval(interval);
+  }, [
+    detectionFeatureSettings.inactivityMonitoringEnabled,
+    detectionFeatureSettings.inactivityAlertMinutes,
+    detectionFeatureSettings.inactivitySeverity,
+    currentPreset.motionDetectionEnabled,
+    currentPreset.pixelDetectionEnabled,
+    addAlert,
+    streamId,
+  ]);
 
   // Heartbeat
   useEffect(() => {
@@ -572,14 +983,34 @@ export default function MonitorPage() {
                 scenario={selectedScenario || scenario || undefined}
                 onFrame={handleFrame}
                 onMotion={handleMotion}
+                onMotionZones={handleMotionZones}
                 onAudio={handleAudio}
+                onPixel={handlePixel}
+                onVideoReady={(video) => {
+                  videoRef.current = video;
+                }}
                 showDebug={true}
+                showZonesOverlay={true}
                 className="aspect-video"
+                detectionZones={detectionZones}
+                frameCaptureThresholds={{
+                  motion: sensitivityToThreshold(currentPreset.motionSensitivity),
+                  audio: sensitivityToThreshold(currentPreset.audioSensitivity),
+                }}
+                frameIntervalMs={Math.max(250, currentPreset.analysisInterval * 1000)}
+                pixelDetection={{
+                  enabled: currentPreset.pixelDetectionEnabled,
+                  sensitivity: Math.max(0, Math.min(100, 100 - currentPreset.pixelThreshold)),
+                  absolutePixelThreshold: currentPreset.absolutePixelThreshold,
+                  useAbsoluteThreshold: currentPreset.useAbsoluteThreshold,
+                  instantLocalMode: isSleepPreset(activePresetId),
+                  downsampleFactor: isSleepPreset(activePresetId) ? 2 : 1,
+                }}
               />
             </div>
 
             {/* Stats */}
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-4">
               <StatCard
                 label="Motion"
                 value={motionScore.toFixed(1)}
@@ -591,6 +1022,27 @@ export default function MonitorPage() {
                 value={audioLevel.toFixed(1)}
                 unit="%"
                 color={audioLevel > 30 ? 'yellow' : 'green'}
+              />
+              <StatCard
+                label="Pixel"
+                value={(pixelZoneStatus?.changedPx ?? pixelChangedPixels).toFixed(0)}
+                unit="px"
+                color={
+                  pixelZoneStatus
+                    ? pixelZoneStatus.ratio >= 5
+                      ? 'red'
+                      : pixelZoneStatus.ratio >= 1
+                        ? 'yellow'
+                        : 'green'
+                    : pixelChangedPixels >= currentPreset.absolutePixelThreshold
+                      ? 'yellow'
+                      : 'green'
+                }
+                subtext={
+                  pixelZoneStatus
+                    ? `${pixelZoneStatus.zoneName ?? 'All Zones'} • threshold ${pixelZoneStatus.thresholdPx}px`
+                    : `Threshold ${currentPreset.absolutePixelThreshold}px`
+                }
               />
               <StatCard
                 label="Stream"
@@ -647,7 +1099,7 @@ export default function MonitorPage() {
                 </div>
                 <div className="text-center p-2 bg-gray-900/50 rounded-lg">
                   <div className="text-lg font-bold text-amber-400">
-                    {currentPreset.analysisInterval}ms
+                    {currentPreset.analysisInterval}s
                   </div>
                   <div className="text-xs sm:text-[10px] text-gray-500 uppercase">Interval</div>
                 </div>
@@ -670,6 +1122,15 @@ export default function MonitorPage() {
               )}
 
               {/* Override Sliders Toggle */}
+              <button
+                onClick={() => setCalibrationOpen(true)}
+                className="w-full mt-3 py-2 text-xs text-emerald-400 hover:text-emerald-300
+                           border border-emerald-500/20 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/15 transition-colors"
+                type="button"
+              >
+                Calibrate Baseline (10s)
+              </button>
+
               <button
                 onClick={() => setShowOverrides(!showOverrides)}
                 className="w-full mt-3 py-2 text-xs text-gray-400 hover:text-white
@@ -843,6 +1304,130 @@ export default function MonitorPage() {
       <Suspense fallback={null}>
         <PresetInitializer />
       </Suspense>
+
+      {/* Calibration Modal */}
+      {calibrationOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Calibration"
+          onClick={() => {
+            stopCalibration();
+            setCalibrationOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-lg bg-gray-900 border border-gray-700 rounded-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Calibration</h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Samples your camera/mic baseline for 10 seconds and suggests thresholds (local-only).
+                </p>
+              </div>
+              <button
+                type="button"
+                className="px-3 py-1.5 text-sm text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg"
+                onClick={() => {
+                  stopCalibration();
+                  setCalibrationOpen(false);
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Progress */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                <span>{calibrationRunning ? 'Calibrating…' : calibrationResult ? 'Complete' : 'Ready'}</span>
+                <span>{Math.round(calibrationProgress)}%</span>
+              </div>
+              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 transition-all"
+                  style={{ width: `${Math.round(calibrationProgress)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={startCalibration}
+                disabled={calibrationRunning}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  calibrationRunning
+                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                }`}
+              >
+                {calibrationRunning ? 'Calibrating…' : 'Start Calibration'}
+              </button>
+
+              <button
+                type="button"
+                disabled={!calibrationResult || calibrationRunning}
+                onClick={() => {
+                  if (!calibrationResult) return;
+                  updateGlobalSettings({
+                    motionSensitivity: calibrationResult.motionSensitivity,
+                    audioSensitivity: calibrationResult.audioSensitivity,
+                    absolutePixelThreshold: calibrationResult.absolutePixelThreshold,
+                  });
+                  setCalibrationOpen(false);
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  !calibrationResult || calibrationRunning
+                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white'
+                }`}
+              >
+                Apply Suggestions
+              </button>
+            </div>
+
+            {calibrationResult && (
+              <div className="mt-4 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                <div className="text-xs text-gray-400 mb-3">Suggested values</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <div className="text-xs text-gray-500 mb-1">Motion Sensitivity</div>
+                    <div className="text-lg font-semibold text-blue-400">{calibrationResult.motionSensitivity}%</div>
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      baseline P95: {calibrationResult.baselineMotionP95.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <div className="text-xs text-gray-500 mb-1">Audio Sensitivity</div>
+                    <div className="text-lg font-semibold text-purple-400">{calibrationResult.audioSensitivity}%</div>
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      baseline P95: {calibrationResult.baselineAudioP95.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <div className="text-xs text-gray-500 mb-1">Pixel Threshold</div>
+                    <div className="text-lg font-semibold text-emerald-400">
+                      {calibrationResult.absolutePixelThreshold}px
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      baseline P95: {calibrationResult.baselinePixelP95.toFixed(0)}px
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-[11px] text-gray-500">
+                  Tip: Calibrate with your camera mounted and the room in its normal lighting. Re-run after changing
+                  placement, lighting, or zoom.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -884,11 +1469,13 @@ function StatCard({
   value,
   unit,
   color,
+  subtext,
 }: {
   label: string;
   value: string;
   unit?: string;
   color: 'green' | 'yellow' | 'red' | 'blue' | 'gray';
+  subtext?: string;
 }) {
   const colorClasses = {
     green: 'bg-green-500/20 text-green-400',
@@ -907,6 +1494,11 @@ function StatCard({
         {value}
         {unit && <span className="text-sm ml-1">{unit}</span>}
       </div>
+      {subtext && (
+        <div className="mt-1 text-[11px] leading-tight text-current/80 truncate">
+          {subtext}
+        </div>
+      )}
     </div>
   );
 }

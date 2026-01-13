@@ -270,13 +270,9 @@ export class PersonDetector {
 
       // Only run AI detection if motion detected
       if (!motionTriggered) {
-        return {
-          personCount: 0,
-          detections: [],
-          processingTimeMs: performance.now() - startTime,
-          timestamp: now,
-          motionTriggered: false,
-        };
+        // No motion means we have insufficient evidence to declare "no people";
+        // callers should treat this as "no update" and keep the last known state.
+        return null;
       }
 
       // Ensure model is loaded
@@ -486,4 +482,3 @@ export function calculatePersonChange(
     isNewIntrusion,
   };
 }
-
