@@ -315,24 +315,27 @@ Delete a profile.
 
 ### Notifications
 
-#### POST /api/notifications/push/subscribe
-Subscribe to push notifications.
+These routes manage notification configuration for deployments that run the optional SafeOS API server.
+
+**Important:** remote delivery channels (Web Push / SMS / Telegram / Email) require additional setup and provider credentials.
+Some endpoints may store configuration only and do not send messages by default.
+
+#### POST /api/notifications/subscribe
+Register a Web Push subscription (storage-only in the default implementation).
 
 **Request:**
 ```json
 {
-  "subscription": {
-    "endpoint": "https://...",
-    "keys": {
-      "p256dh": "...",
-      "auth": "..."
-    }
-  }
+  "subscription": { "endpoint": "https://...", "keys": { "p256dh": "...", "auth": "..." } },
+  "userId": "user-123"
 }
 ```
 
+#### DELETE /api/notifications/subscribe
+Unregister a Web Push subscription.
+
 #### POST /api/notifications/telegram/register
-Register Telegram for notifications.
+Register a Telegram chat ID (storage-only in the default implementation).
 
 **Request:**
 ```json
@@ -341,18 +344,22 @@ Register Telegram for notifications.
 }
 ```
 
-#### POST /api/notifications/sms/register
-Register phone for SMS notifications.
+#### DELETE /api/notifications/telegram/register
+Unregister a Telegram chat ID.
+
+#### GET /api/notifications/status
+Check which notification channels are configured/enabled on the server.
+
+#### POST /api/notifications/test
+Send a test notification (simulated in the default implementation).
 
 **Request:**
 ```json
 {
-  "phoneNumber": "+1234567890"
+  "channel": "webhook|push|sms|telegram",
+  "target": "optional target identifier"
 }
 ```
-
-#### POST /api/notifications/test
-Send a test notification.
 
 ---
 
@@ -533,7 +540,6 @@ Full OpenAPI 3.0 specification available at:
 - JSON: `/api/docs/openapi.json`
 - YAML: `/api/docs/openapi.yaml`
 - Interactive: `/api/docs` (Swagger UI)
-
 
 
 

@@ -145,23 +145,20 @@ SafeOS keeps a local incident log in your browser:
 
 ### Notification Channels
 
-Set up multiple notification methods:
+SafeOS Guardian is local-first, so notification capabilities depend on the mode you run:
 
-#### Browser Push (Recommended)
-1. Go to Settings → Notifications
-2. Click "Enable Push Notifications"
-3. Allow when prompted
+#### Browser Notifications (Free / Local)
+- Works on the device running the monitor (even if the tab is in the background)
+- Requires browser permission
+- **Does not** wake a phone that’s not running the app/browser
 
-#### Telegram (Requires backend + internet)
-1. Start a chat with `@SafeOSBot`
-2. Send `/start`
-3. Copy your chat ID
-4. Paste in Settings → Notifications → Telegram
+Enable in **Settings → Notifications**, then test in **Settings → Test Alerts**.
 
-#### SMS (Twilio) (Requires backend + internet)
-1. Go to Settings → Notifications → SMS
-2. Enter your phone number
-3. Verify with the code sent
+#### Remote Notifications (Optional Backend)
+Remote delivery (phone away from home) requires a self-hosted SafeOS API server.
+
+- **Webhooks:** available when the backend is running (no third-party API keys required)
+- **SMS / Telegram / Email:** require backend **plus** provider credentials (API keys / tokens) and may be disabled in the free static/offline deployment
 
 ---
 
@@ -209,7 +206,7 @@ ollama serve
 
 - First analysis takes longer (model loading)
 - Subsequent analyses are faster
-- Cloud fallback activates if local is too slow
+- If you enabled Ollama, verify it’s reachable and models are pulled
 
 ### "Too many false alerts"
 
@@ -237,7 +234,7 @@ Access SafeOS from your phone:
 - **Local Only**: Frames are processed and discarded
 - **5-10 Minute Buffer**: Rolling buffer for context
 - **IndexedDB**: Session data stored in your browser
-- **No Cloud Upload**: Unless you enable cloud fallback
+- **No Cloud Upload by Default**: Optional backend features are opt-in and self-hosted
 
 ### What We Don't Store
 - Raw video footage
@@ -268,7 +265,6 @@ Access SafeOS from your phone:
     <strong>Remember:</strong> SafeOS supplements—never replaces—human care.
   </p>
 </div>
-
 
 
 
