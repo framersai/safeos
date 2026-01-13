@@ -1,2 +1,4 @@
 .next
 out
+playwright-report
+test-results

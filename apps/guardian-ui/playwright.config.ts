@@ -47,13 +47,13 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
+    // Bind to loopback to avoid sandboxed environments rejecting 0.0.0.0.
+    command: 'npm run dev -- -H 127.0.0.1',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
 });
-
 
 
 

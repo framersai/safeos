@@ -4,16 +4,23 @@
  * Enables offline functionality and push notifications.
  */
 
-const CACHE_NAME = 'safeos-v1';
+const CACHE_NAME = 'safeos-v2';
 const STATIC_ASSETS = [
   '/',
-  '/monitor',
-  '/setup',
-  '/settings',
-  '/history',
-  '/profiles',
-  '/tutorial',
+  '/monitor/',
+  '/setup/',
+  '/settings/',
+  '/history/',
+  '/profiles/',
+  '/tutorial/',
+  '/tutorials/',
+  '/faq/',
+  '/help/',
+  '/lost-found/',
+  '/security/',
+  '/wildlife/',
   '/manifest.json',
+  '/offline.html',
 ];
 
 // Install event - cache static assets
@@ -235,7 +242,6 @@ async function checkSystemStatus() {
 }
 
 console.log('[SW] Service worker loaded');
-
 
 
 
