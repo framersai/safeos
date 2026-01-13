@@ -45,6 +45,7 @@ const jetbrainsMono = JetBrains_Mono({
 // =============================================================================
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://safeos.sh'),
   title: {
     default: 'SafeOS Guardian - Humanitarian AI Monitoring',
     template: '%s | SafeOS Guardian',
@@ -160,10 +161,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Preconnect to font origins for performance */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-
         {/* Favicon with dark/light mode support */}
         <link
           rel="icon"
@@ -214,8 +211,11 @@ export default function RootLayout({
           <ErrorBoundary>
             <ThemeProvider>
               <KeyboardShortcutsProvider>
+                <a href="#main-content" className="sr-only sr-only-focusable">
+                  Skip to content
+                </a>
                 <Nav />
-                <div className="app-content">
+                <div id="main-content" className="app-content">
                   {children}
                 </div>
                 <Footer />

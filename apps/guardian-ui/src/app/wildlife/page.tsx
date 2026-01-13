@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { CameraFeed, FrameData } from '../../components/CameraFeed';
+import { CameraFeed } from '../../components/CameraFeed';
 import {
   IconShield,
   IconCamera,
@@ -33,10 +33,26 @@ import {
   type AnimalDetection,
 } from '../../lib/animal-detection';
 import { getTTSManager } from '../../lib/tts-alerts';
+import { getSoundManager } from '../../lib/sound-manager';
 
 // =============================================================================
 // Sub-Components
 // =============================================================================
+
+interface FlashOverlayProps {
+  isActive: boolean;
+  color: string;
+}
+
+function FlashOverlay({ isActive, color }: FlashOverlayProps) {
+  if (!isActive) return null;
+  return (
+    <div
+      className="fixed inset-0 z-40 pointer-events-none animate-pulse"
+      style={{ backgroundColor: color, opacity: 0.2 }}
+    />
+  );
+}
 
 interface DetectionCardProps {
   detection: AnimalDetection;
@@ -108,7 +124,8 @@ interface AlertToggleProps {
 
 function AlertToggle({ label, description, enabled, onChange, icon, color }: AlertToggleProps) {
   return (
-    <div
+    <button
+      type="button"
       className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
         enabled ? 'bg-slate-800/50' : 'bg-slate-900/30 opacity-60'
       }`}
@@ -138,7 +155,7 @@ function AlertToggle({ label, description, enabled, onChange, icon, color }: Ale
           />
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -164,10 +181,31 @@ export default function WildlifePage() {
 
   const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [showSettings, setShowSettings] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(false);
+  const [flashColor, setFlashColor] = useState('#ef4444');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const detectionLoopBusyRef = useRef(false);
   const detectorRef = useRef(getAnimalDetector({
     confidenceThreshold: settings.confidenceThreshold,
     motionThreshold: settings.motionThreshold,
   }));
+
+  // Keep detector config in sync with settings
+  useEffect(() => {
+    detectorRef.current.updateConfig({
+      confidenceThreshold: settings.confidenceThreshold,
+      motionThreshold: settings.motionThreshold,
+      enableLargeAnimalAlerts: settings.largeAnimalAlertEnabled,
+      enableSmallAnimalAlerts: settings.smallAnimalAlertEnabled,
+      captureFrames: settings.captureFrames,
+    });
+  }, [
+    settings.confidenceThreshold,
+    settings.motionThreshold,
+    settings.largeAnimalAlertEnabled,
+    settings.smallAnimalAlertEnabled,
+    settings.captureFrames,
+  ]);
 
   // Initialize detector
   useEffect(() => {
@@ -208,41 +246,80 @@ export default function WildlifePage() {
 
     // Sort by priority for announcements
     const sorted = sortByPriority(alertableDetections);
+    const primary = sorted[0];
 
     // Play alerts
     if (settings.alertMode === 'voice' || settings.alertMode === 'both') {
       const tts = getTTSManager();
-      const announcement = createAnimalAnnouncement(sorted[0]);
+      const announcement = createAnimalAnnouncement(primary);
       tts.speak(announcement);
+    }
+
+    if (settings.alertMode === 'sound' || settings.alertMode === 'both') {
+      const severity =
+        primary.dangerLevel === 'extreme'
+          ? 'critical'
+          : primary.dangerLevel === 'high'
+            ? 'high'
+            : primary.dangerLevel === 'medium'
+              ? 'medium'
+              : 'low';
+      getSoundManager().playForSeverity(severity, { loop: false });
     }
 
     // Browser notification
     if (settings.browserNotifications && 'Notification' in window) {
       if (Notification.permission === 'granted') {
-        const isDangerous = sorted[0].dangerLevel === 'high' || sorted[0].dangerLevel === 'extreme';
+        const isDangerous = primary.dangerLevel === 'high' || primary.dangerLevel === 'extreme';
         new Notification(
           isDangerous ? 'WILDLIFE DANGER ALERT!' : 'Animal Detected',
           {
-            body: `${sorted[0].displayName} detected with ${Math.round(sorted[0].confidence * 100)}% confidence`,
+            body: `${primary.displayName} detected with ${Math.round(primary.confidence * 100)}% confidence`,
             icon: '/icons/icon-192.png',
             tag: 'wildlife-alert',
+            requireInteraction: isDangerous,
           }
         );
       }
     }
+
+    // Optional screen flash for immediate attention
+    if (settings.flashScreen) {
+      const color = getDangerColor(primary.dangerLevel);
+      setFlashColor(color);
+      setIsFlashing(true);
+      window.setTimeout(() => setIsFlashing(false), 900);
+    }
   }, [settings, addDetections]);
 
-  // Process frames
-  const handleFrame = useCallback(async (data: FrameData) => {
+  // Detection loop (processes the camera's <video> directly)
+  useEffect(() => {
     if (!isMonitoring) return;
 
-    const video = document.querySelector('video');
-    if (!video) return;
+    const intervalMs = 1000;
+    let cancelled = false;
 
-    const result = await detectorRef.current.processFrame(video as HTMLVideoElement);
-    if (result && result.animals.length > 0) {
-      handleDetections(result.animals);
-    }
+    const id = window.setInterval(async () => {
+      if (cancelled) return;
+      if (detectionLoopBusyRef.current) return;
+      const video = videoRef.current;
+      if (!video) return;
+
+      detectionLoopBusyRef.current = true;
+      try {
+        const result = await detectorRef.current.processFrame(video);
+        if (result && result.animals.length > 0) {
+          handleDetections(result.animals);
+        }
+      } finally {
+        detectionLoopBusyRef.current = false;
+      }
+    }, intervalMs);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, [isMonitoring, handleDetections]);
 
   const toggleMonitoring = () => {
@@ -258,6 +335,7 @@ export default function WildlifePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <FlashOverlay isActive={isFlashing} color={flashColor} />
       {/* Header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -339,9 +417,12 @@ export default function WildlifePage() {
               </div>
               <CameraFeed
                 scenario="pet"
-                onFrame={handleFrame}
                 enabled={isMonitoring}
                 showDebug={true}
+                audioEnabled={false}
+                onVideoReady={(video) => {
+                  videoRef.current = video;
+                }}
                 className="aspect-video"
               />
             </div>
@@ -601,9 +682,6 @@ export default function WildlifePage() {
     </div>
   );
 }
-
-
-
 
 
 

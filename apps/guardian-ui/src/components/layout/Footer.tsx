@@ -7,11 +7,7 @@
  * @module components/layout/Footer
  */
 
-'use client';
-
-import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { IconExternalLink, IconShield } from '../icons';
 
 // =============================================================================
@@ -64,19 +60,7 @@ const footerSections: FooterSection[] = [
 // =============================================================================
 
 export function Footer() {
-  const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
   const currentYear = new Date().getFullYear();
-
-  // Prevent hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Return null during SSR to prevent hydration mismatch
-  if (!mounted) {
-    return null;
-  }
 
   return (
     <footer className="bg-[rgba(10,12,15,0.95)] border-t border-emerald-500/15 mt-auto">

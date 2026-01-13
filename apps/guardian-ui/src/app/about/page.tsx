@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * About Page
  * 
@@ -8,6 +6,7 @@
  * @module app/about/page
  */
 
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -18,6 +17,11 @@ import {
   IconDatabase,
   IconExternalLink,
 } from '../../components/icons';
+
+export const metadata: Metadata = {
+  title: 'About',
+  description: 'Mission, values, and architecture for SafeOS Guardian.',
+};
 
 // =============================================================================
 // Components
@@ -452,12 +456,12 @@ export default function AboutPage() {
               <p className="text-slate-400">
                 <strong className="text-white">GitHub:</strong>{' '}
                 <a
-                  href="https://github.com/super-cloud-mcps/safeos"
+                  href="https://github.com/framersai/safeos"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-400 hover:text-emerald-300"
                 >
-                  github.com/super-cloud-mcps/safeos
+                  github.com/framersai/safeos
                 </a>
               </p>
               <p className="text-slate-400">
@@ -515,8 +519,6 @@ export default function AboutPage() {
     </div>
   );
 }
-
-
 
 
 

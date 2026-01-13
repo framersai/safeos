@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Blog Index Page
  *
@@ -8,14 +6,19 @@
  * @module app/blog/page
  */
 
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   IconChevronLeft,
   IconChevronRight,
   IconClock,
   IconUser,
 } from '../../components/icons';
+
+export const metadata: Metadata = {
+  title: 'Blog',
+  description: 'Updates, insights, and technical deep dives from the SafeOS Guardian team.',
+};
 
 // =============================================================================
 // Types
@@ -180,7 +183,7 @@ export default function BlogPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
-                href="https://github.com/super-cloud-mcps/safeos"
+                href="https://github.com/framersai/safeos"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-6 py-3 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"

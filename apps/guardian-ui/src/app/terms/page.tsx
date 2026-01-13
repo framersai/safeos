@@ -7,10 +7,14 @@
  * @module app/terms/page
  */
 
-'use client';
-
-import React from 'react';
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { IconFileText, IconAlertTriangle, IconShield, IconHeart, IconCheck } from '@/components/icons';
+
+export const metadata: Metadata = {
+  title: 'Terms',
+  description: 'Terms of service and important usage disclaimers for SafeOS Guardian.',
+};
 
 // =============================================================================
 // Terms Sections
@@ -18,7 +22,7 @@ import { IconFileText, IconAlertTriangle, IconShield, IconHeart, IconCheck } fro
 
 interface TermSection {
   title: string;
-  content: React.ReactNode;
+  content: ReactNode;
 }
 
 const termsSections: TermSection[] = [
@@ -303,7 +307,6 @@ export default function TermsPage() {
     </main>
   );
 }
-
 
 
 

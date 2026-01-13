@@ -337,7 +337,7 @@ export default function DonatePage() {
           </h3>
           <div className="space-y-3">
             <a
-              href="https://github.com/super-cloud-mcps/safeos"
+              href="https://github.com/framersai/safeos"
               target="_blank"
               rel="noopener noreferrer"
               className="block p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
@@ -346,7 +346,7 @@ export default function DonatePage() {
               <span className="text-white">Star us on GitHub</span>
             </a>
             <a
-              href="https://github.com/super-cloud-mcps/safeos/issues"
+              href="https://github.com/framersai/safeos/issues"
               target="_blank"
               rel="noopener noreferrer"
               className="block p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
@@ -389,7 +389,6 @@ export default function DonatePage() {
     </div>
   );
 }
-
 
 
 

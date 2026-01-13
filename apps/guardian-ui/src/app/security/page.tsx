@@ -13,18 +13,17 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { SecurityPanel } from '../../components/SecurityPanel';
 import { IntrusionGallery } from '../../components/IntrusionGallery';
-import { CameraFeed, FrameData } from '../../components/CameraFeed';
+import { CameraFeed } from '../../components/CameraFeed';
 import {
   IconShield,
   IconCamera,
   IconAlertTriangle,
   IconSettings,
   IconChevronLeft,
-  IconVolume2,
 } from '../../components/icons';
-import { useSecurityStore, createIntrusionFrame, type IntrusionFrame } from '../../stores/security-store';
+import { useSecurityStore, createIntrusionFrame } from '../../stores/security-store';
 import { getPersonDetector, PersonDetectionResult, calculatePersonChange } from '../../lib/person-detection';
-import { getTTSManager, startSecurityAlert, stopSecurityAlert } from '../../lib/tts-alerts';
+import { startSecurityAlert, stopSecurityAlert } from '../../lib/tts-alerts';
 import { saveIntrusionFrame, type IntrusionFrameDB } from '../../lib/client-db';
 
 // =============================================================================
@@ -185,6 +184,7 @@ export default function SecurityPage() {
     triggerIntrusion,
     setCurrentPersonCount,
     recordDetection,
+    lastTriggerTime,
     disarm,
   } = useSecurityStore();
 
@@ -196,12 +196,24 @@ export default function SecurityPage() {
   const [lastDetection, setLastDetection] = useState<PersonDetectionResult | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const detectionLoopBusyRef = useRef(false);
+  const lastForceDetectionRef = useRef(0);
   const detectorRef = useRef(getPersonDetector({
     confidenceThreshold: settings.confidenceThreshold,
     motionThreshold: settings.motionThreshold,
   }));
   const previousCountRef = useRef(0);
   const alertActiveRef = useRef(false);
+
+  // Keep detector config in sync with settings
+  useEffect(() => {
+    detectorRef.current.updateConfig({
+      confidenceThreshold: settings.confidenceThreshold,
+      motionThreshold: settings.motionThreshold,
+      minDetectionInterval: settings.detectionInterval,
+      captureFrames: true,
+    });
+  }, [settings.confidenceThreshold, settings.motionThreshold, settings.detectionInterval]);
 
   // Initialize detector
   useEffect(() => {
@@ -237,6 +249,12 @@ export default function SecurityPage() {
         setIsSirenPlaying(false);
         stopSecurityAlert();
       }
+      return;
+    }
+
+    // If we're still exceeded, avoid repeatedly saving frames when within cooldown
+    const now = Date.now();
+    if (!isNewIntrusion && lastTriggerTime && now - lastTriggerTime < settings.triggerCooldown) {
       return;
     }
 
@@ -303,40 +321,7 @@ export default function SecurityPage() {
         }
       }
     }
-  }, [settings, triggerIntrusion]);
-
-  // Process frames from camera
-  const handleFrame = useCallback(async (data: FrameData) => {
-    if (armingState !== 'armed' && armingState !== 'triggered') {
-      return;
-    }
-
-    // Get video element from camera feed
-    const video = document.querySelector('video');
-    if (!video) return;
-
-    const result = await detectorRef.current.processFrame(video as HTMLVideoElement);
-    if (!result) return;
-
-    setLastDetection(result);
-    setCurrentPersonCount(result.personCount);
-    recordDetection(result.personCount);
-
-    // Check for intrusion
-    if (result.personCount > settings.allowedPersons) {
-      await handleIntrusion(result);
-    } else {
-      // Clear alerts if no longer exceeded
-      if (alertActiveRef.current) {
-        alertActiveRef.current = false;
-        setIsFlashing(false);
-        setIsSirenPlaying(false);
-        stopSecurityAlert();
-      }
-    }
-
-    previousCountRef.current = result.personCount;
-  }, [armingState, settings.allowedPersons, setCurrentPersonCount, recordDetection, handleIntrusion]);
+  }, [settings, lastTriggerTime, triggerIntrusion]);
 
   // Stop alerts when disarmed
   useEffect(() => {
@@ -350,6 +335,63 @@ export default function SecurityPage() {
   }, [armingState]);
 
   const isArmed = armingState === 'armed' || armingState === 'triggered';
+
+  // Detection loop (uses video element directly; avoids relying on CameraFeed's gated onFrame)
+  useEffect(() => {
+    if (!isArmed) return;
+
+    const intervalMs = Math.max(250, settings.detectionInterval);
+    let cancelled = false;
+
+    const id = window.setInterval(async () => {
+      if (cancelled) return;
+      if (detectionLoopBusyRef.current) return;
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      detectionLoopBusyRef.current = true;
+      try {
+        const now = Date.now();
+        const shouldForce =
+          (armingState === 'triggered' || alertActiveRef.current) &&
+          now - lastForceDetectionRef.current >= 5000;
+
+        const result = shouldForce
+          ? await detectorRef.current.forceDetection(video)
+          : await detectorRef.current.processFrame(video);
+
+        if (!result) return;
+        if (shouldForce) lastForceDetectionRef.current = now;
+
+        setLastDetection(result);
+        setCurrentPersonCount(result.personCount);
+        recordDetection(result.personCount);
+
+        // Check for intrusion
+        if (result.personCount > settings.allowedPersons) {
+          await handleIntrusion(result);
+        } else {
+          // Clear alerts if no longer exceeded
+          if (alertActiveRef.current) {
+            alertActiveRef.current = false;
+            setIsFlashing(false);
+            setIsSirenPlaying(false);
+            stopSecurityAlert();
+          }
+        }
+
+        previousCountRef.current = result.personCount;
+      } finally {
+        detectionLoopBusyRef.current = false;
+      }
+    }, intervalMs);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [isArmed, armingState, settings.detectionInterval, settings.allowedPersons, handleIntrusion, setCurrentPersonCount, recordDetection]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -451,9 +493,12 @@ export default function SecurityPage() {
                 </div>
                 <CameraFeed
                   scenario="security"
-                  onFrame={handleFrame}
                   showDebug={true}
                   enabled={isArmed}
+                  audioEnabled={false}
+                  onVideoReady={(video) => {
+                    videoRef.current = video;
+                  }}
                   className="aspect-video"
                 />
               </div>
@@ -529,4 +574,3 @@ export default function SecurityPage() {
     </div>
   );
 }
-

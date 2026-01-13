@@ -55,7 +55,7 @@ const navLinks: NavLink[] = [
 // =============================================================================
 
 export function Nav() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { isDark, toggleTheme } = useTheme();
@@ -65,13 +65,6 @@ export function Nav() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Render a placeholder nav during SSR to prevent layout shift
-  if (!mounted) {
-    return (
-      <nav className="fixed top-0 left-0 right-0 z-[100] bg-[rgba(10,12,15,0.95)] backdrop-blur-xl border-b border-emerald-500/15 h-16" />
-    );
-  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-[100] bg-[rgba(10,12,15,0.95)] backdrop-blur-xl border-b border-emerald-500/15">
@@ -84,8 +77,10 @@ export function Nav() {
         {/* Desktop Navigation */}
         <div className="nav-links-desktop">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href ||
-              (link.href !== '/' && pathname?.startsWith(link.href));
+            const isActive = mounted && (
+              pathname === link.href ||
+              (link.href !== '/' && pathname.startsWith(link.href))
+            );
             const Icon = link.icon;
 
             return (
@@ -115,7 +110,7 @@ export function Nav() {
             href="/about"
             className={`
               px-3 py-2 rounded-md text-sm font-medium transition-all duration-150
-              ${pathname === '/about'
+              ${mounted && pathname === '/about'
                 ? 'text-emerald-400 bg-emerald-500/10'
                 : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/5'
               }
@@ -127,7 +122,7 @@ export function Nav() {
             href="/faq"
             className={`
               px-3 py-2 rounded-md text-sm font-medium transition-all duration-150
-              ${pathname === '/faq'
+              ${mounted && pathname === '/faq'
                 ? 'text-emerald-400 bg-emerald-500/10'
                 : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/5'
               }
@@ -139,7 +134,7 @@ export function Nav() {
             href="/blog"
             className={`
               px-3 py-2 rounded-md text-sm font-medium transition-all duration-150
-              ${pathname === '/blog' || pathname?.startsWith('/blog/')
+              ${mounted && (pathname === '/blog' || pathname.startsWith('/blog/'))
                 ? 'text-emerald-400 bg-emerald-500/10'
                 : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/5'
               }
@@ -183,10 +178,18 @@ export function Nav() {
             className="flex items-center justify-center w-10 h-10 rounded-lg
                        text-zinc-400 hover:text-zinc-100 hover:bg-white/5
                        border border-transparent hover:border-white/10 transition-all"
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={
+              mounted
+                ? (isDark ? 'Switch to light mode' : 'Switch to dark mode')
+                : 'Toggle theme'
+            }
+            title={
+              mounted
+                ? (isDark ? 'Switch to light mode' : 'Switch to dark mode')
+                : 'Toggle theme'
+            }
           >
-            {isDark ? <IconSun size={20} /> : <IconMoon size={20} />}
+            {(mounted ? isDark : true) ? <IconSun size={20} /> : <IconMoon size={20} />}
           </button>
 
           <NotificationDropdown />
@@ -217,8 +220,10 @@ export function Nav() {
       {mobileMenuOpen && (
         <div className="nav-mobile-menu">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href ||
-              (link.href !== '/' && pathname?.startsWith(link.href));
+            const isActive = mounted && (
+              pathname === link.href ||
+              (link.href !== '/' && pathname.startsWith(link.href))
+            );
             const Icon = link.icon;
 
             return (

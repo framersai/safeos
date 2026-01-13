@@ -8,6 +8,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Metadata } from 'next';
 import {
   IconChevronLeft,
   IconClock,
@@ -22,6 +23,7 @@ import {
 interface BlogContent {
   slug: string;
   title: string;
+  description: string;
   date: string;
   author: string;
   readTime: string;
@@ -48,6 +50,8 @@ const blogContent: Record<string, BlogContent> = {
   'why-we-built-safeos-guardian': {
     slug: 'why-we-built-safeos-guardian',
     title: 'Why We Built SafeOS Guardian',
+    description:
+      'The story behind SafeOS Guardian—why we created a free, privacy-first monitoring tool and our commitment to making AI accessible to everyone.',
     date: 'January 8, 2026',
     author: 'Frame.dev Team',
     readTime: '5 min read',
@@ -168,7 +172,7 @@ const blogContent: Record<string, BlogContent> = {
           </a>{' '}
           to see what else we&apos;re building, or star us on{' '}
           <a
-            href="https://github.com/super-cloud-mcps/safeos"
+            href="https://github.com/framersai/safeos"
             target="_blank"
             rel="noopener noreferrer"
             className="text-emerald-400 hover:text-emerald-300"
@@ -187,6 +191,8 @@ const blogContent: Record<string, BlogContent> = {
   'how-safeos-guardian-works': {
     slug: 'how-safeos-guardian-works',
     title: 'How SafeOS Guardian Works: A Technical Deep Dive',
+    description:
+      'A behind-the-scenes look at the technology powering SafeOS Guardian—from TensorFlow.js to local-first architecture.',
     date: 'January 10, 2026',
     author: 'Frame.dev Team',
     readTime: '8 min read',
@@ -387,7 +393,7 @@ const blogContent: Record<string, BlogContent> = {
         <p>
           Want to contribute? Check out our{' '}
           <a
-            href="https://github.com/super-cloud-mcps/safeos"
+            href="https://github.com/framersai/safeos"
             target="_blank"
             rel="noopener noreferrer"
             className="text-emerald-400 hover:text-emerald-300"
@@ -407,6 +413,43 @@ const blogContent: Record<string, BlogContent> = {
     ),
   },
 };
+
+export function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Metadata {
+  const post = blogContent[params.slug];
+
+  if (!post) {
+    return {
+      title: 'Post Not Found',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  return {
+    title: post.title,
+    description: post.description,
+    keywords: post.tags,
+    alternates: {
+      canonical: `/blog/${post.slug}/`,
+    },
+    openGraph: {
+      type: 'article',
+      title: post.title,
+      description: post.description,
+      url: `/blog/${post.slug}/`,
+      publishedTime: new Date(post.date).toISOString(),
+      authors: [post.author],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.title,
+      description: post.description,
+    },
+  };
+}
 
 // =============================================================================
 // Main Page
@@ -438,8 +481,42 @@ export default function BlogArticlePage({
     );
   }
 
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://safeos.sh').replace(/\/+$/, '');
+  const articleUrl = `${siteUrl}/blog/${post.slug}/`;
+  const publishedTime = new Date(post.date).toISOString();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'BlogPosting',
+            headline: post.title,
+            description: post.description,
+            datePublished: publishedTime,
+            dateModified: publishedTime,
+            author: {
+              '@type': 'Organization',
+              name: post.author,
+            },
+            publisher: {
+              '@type': 'Organization',
+              name: 'Frame',
+              url: 'https://frame.dev',
+              logo: {
+                '@type': 'ImageObject',
+                url: `${siteUrl}/logos/frame.svg`,
+              },
+            },
+            mainEntityOfPage: {
+              '@type': 'WebPage',
+              '@id': articleUrl,
+            },
+          }),
+        }}
+      />
       {/* Header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

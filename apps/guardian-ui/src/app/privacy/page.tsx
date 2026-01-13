@@ -7,17 +7,21 @@
  * @module app/privacy/page
  */
 
-'use client';
-
-import React from 'react';
+import type { Metadata } from 'next';
+import type { ComponentType } from 'react';
 import { IconShield, IconLock, IconEye, IconDatabase, IconCheck } from '@/components/icons';
+
+export const metadata: Metadata = {
+  title: 'Privacy',
+  description: 'SafeOS Guardian privacy policy: no tracking, no cookies, local-first by design.',
+};
 
 // =============================================================================
 // Privacy Features
 // =============================================================================
 
 interface PrivacyFeature {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: ComponentType<{ size?: number; className?: string }>;
   title: string;
   description: string;
 }
@@ -215,7 +219,6 @@ export default function PrivacyPage() {
     </main>
   );
 }
-
 
 
 

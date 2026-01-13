@@ -136,7 +136,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         question: 'How do I report bugs or request features?',
-        answer: 'We welcome feedback! Report bugs and request features on our GitHub repository at github.com/super-cloud-mcps/safeos. You can also reach the Frame.dev team directly at team@frame.dev. We actively review all submissions and prioritize based on community impact.',
+        answer: 'We welcome feedback! Report bugs and request features on our GitHub repository at github.com/framersai/safeos. You can also reach the Frame.dev team directly at team@frame.dev. We actively review all submissions and prioritize based on community impact.',
       },
     ],
   },
@@ -324,7 +324,7 @@ export default function FAQPage() {
                 Email team@frame.dev
               </a>
               <a
-                href="https://github.com/super-cloud-mcps/safeos/issues"
+                href="https://github.com/framersai/safeos/issues"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-6 py-3 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
