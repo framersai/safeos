@@ -8,9 +8,25 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { isStaticMode } from '@/lib/env';
+import { useMonitoringStore } from '@/stores/monitoring-store';
+import { useSettingsStore } from '@/stores/settings-store';
+import {
+  acknowledgeIntrusionFrame,
+  acknowledgeMatchFrame,
+  getAllIntrusionFrames,
+  getAllMatchFrames,
+  getAllSubjectProfiles,
+  markIntrusionFramesExported,
+  markMatchFramesExported,
+  updateIntrusionFrameNotes,
+  updateMatchFrameNotes,
+  type IntrusionFrameDB,
+  type MatchFrameDB,
+  type SubjectProfileDB,
+} from '@/lib/client-db';
 
 // =============================================================================
 // Types
@@ -37,8 +53,23 @@ interface AnalysisResult {
   created_at: string;
 }
 
-type ViewMode = 'alerts' | 'analysis';
+type ViewMode = 'local' | 'alerts' | 'analysis';
 type FilterSeverity = 'all' | 'info' | 'low' | 'medium' | 'high' | 'critical';
+
+type LocalFilterType = 'all' | 'alerts' | 'lost_found' | 'intrusions';
+type LocalTimelineSeverity = FilterSeverity;
+
+interface LocalTimelineEvent {
+  id: string;
+  type: 'alert' | 'lost_found' | 'intrusion';
+  timestamp: number;
+  acknowledged: boolean;
+  severity: LocalTimelineSeverity;
+  title: string;
+  description: string;
+  thumbnailData?: string;
+  meta?: Record<string, any>;
+}
 
 // =============================================================================
 // Helpers
@@ -94,9 +125,71 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const localAlerts = useMonitoringStore((s) => s.alerts);
+  const acknowledgeLocalAlert = useMonitoringStore((s) => s.acknowledgeAlert);
+  const exportSettingsJson = useSettingsStore((s) => s.exportSettings);
+
+  const [isStaticDeployment, setIsStaticDeployment] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [localFilter, setLocalFilter] = useState<LocalFilterType>('all');
+  const [localUnackOnly, setLocalUnackOnly] = useState(false);
+  const [localQuery, setLocalQuery] = useState('');
+  const [expandedEventKey, setExpandedEventKey] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [matchFrames, setMatchFrames] = useState<MatchFrameDB[]>([]);
+  const [intrusionFrames, setIntrusionFrames] = useState<IntrusionFrameDB[]>([]);
+  const [subjects, setSubjects] = useState<SubjectProfileDB[]>([]);
+
+  const [exportIncludeFullFrames, setExportIncludeFullFrames] = useState(false);
+  const [exportOnlyUnexportedFrames, setExportOnlyUnexportedFrames] = useState(true);
+  const [exportCompressGzip, setExportCompressGzip] = useState(false);
+  const [exportMarkExported, setExportMarkExported] = useState(true);
+  const [isExportingLocal, setIsExportingLocal] = useState(false);
+
+  const loadLocalData = useCallback(async () => {
+    setLocalLoading(true);
+    setLocalError(null);
+
+    try {
+      const [matches, intrusions, profiles] = await Promise.all([
+        getAllMatchFrames(250),
+        getAllIntrusionFrames(250),
+        getAllSubjectProfiles(),
+      ]);
+      setMatchFrames(matches);
+      setIntrusionFrames(intrusions);
+      setSubjects(profiles);
+    } catch (err) {
+      setLocalError('Failed to load local timeline data');
+    } finally {
+      setLocalLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
+    // Detect static deployments (GitHub Pages, Pages.dev, etc) and default to local timeline.
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isStatic = isStaticMode() ||
+      hostname === 'safeos.sh' ||
+      hostname.endsWith('.github.io') ||
+      hostname.endsWith('.pages.dev');
+
+    setIsStaticDeployment(isStatic);
+    if (isStatic) {
+      setViewMode('local');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'local') {
+      loadLocalData();
+      return;
+    }
+
     fetchData();
-  }, [viewMode]);
+  }, [viewMode, loadLocalData]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -147,6 +240,199 @@ export default function HistoryPage() {
     ? analysisResults
     : analysisResults.filter((a) => a.concern_level === filter);
 
+  const subjectNameById = useMemo(() => new Map(subjects.map((s) => [s.id, s.name])), [subjects]);
+
+  const localTimelineEvents = useMemo<LocalTimelineEvent[]>(() => {
+    const events: LocalTimelineEvent[] = [];
+
+    for (const alert of localAlerts) {
+      const time = alert.createdAt || alert.timestamp;
+      const ts = time ? new Date(time).getTime() : Date.now();
+
+      events.push({
+        id: alert.id,
+        type: 'alert',
+        timestamp: ts,
+        acknowledged: alert.acknowledged,
+        severity: (alert.severity as LocalTimelineSeverity) || 'info',
+        title: 'Monitoring Alert',
+        description: alert.message,
+        thumbnailData: alert.thumbnailUrl?.startsWith('data:') ? alert.thumbnailUrl : undefined,
+        meta: {
+          streamId: alert.streamId,
+          alertType: alert.alertType,
+        },
+      });
+    }
+
+    for (const frame of matchFrames) {
+      const confidence = frame.confidence ?? 0;
+      const severity: LocalTimelineSeverity = confidence >= 90 ? 'high' : confidence >= 75 ? 'medium' : 'low';
+      const subjectName = subjectNameById.get(frame.subjectId);
+
+      events.push({
+        id: frame.id,
+        type: 'lost_found',
+        timestamp: frame.timestamp,
+        acknowledged: frame.acknowledged,
+        severity,
+        title: `Lost & Found Match${subjectName ? `: ${subjectName}` : ''}`,
+        description: `${confidence}% confidence`,
+        thumbnailData: frame.thumbnailData,
+        meta: {
+          subjectId: frame.subjectId,
+          confidence,
+          exported: frame.exported,
+          notes: frame.notes,
+        },
+      });
+    }
+
+    for (const frame of intrusionFrames) {
+      const excess = Math.max(0, (frame.personCount ?? 0) - (frame.allowedCount ?? 0));
+      const severity: LocalTimelineSeverity = excess >= 2 ? 'critical' : excess >= 1 ? 'high' : 'medium';
+
+      events.push({
+        id: frame.id,
+        type: 'intrusion',
+        timestamp: frame.timestamp,
+        acknowledged: frame.acknowledged,
+        severity,
+        title: 'Security Intrusion',
+        description: `${frame.personCount} detected • ${excess} unauthorized`,
+        thumbnailData: frame.thumbnailData,
+        meta: {
+          personCount: frame.personCount,
+          allowedCount: frame.allowedCount,
+          exported: frame.exported,
+          notes: frame.notes,
+        },
+      });
+    }
+
+    events.sort((a, b) => b.timestamp - a.timestamp);
+
+    const filteredByType = localFilter === 'all'
+      ? events
+      : events.filter((e) => (localFilter === 'alerts'
+        ? e.type === 'alert'
+        : localFilter === 'lost_found'
+          ? e.type === 'lost_found'
+          : e.type === 'intrusion'));
+
+    const filteredByAck = localUnackOnly
+      ? filteredByType.filter((e) => !e.acknowledged)
+      : filteredByType;
+
+    const query = localQuery.trim().toLowerCase();
+    if (!query) return filteredByAck;
+
+    return filteredByAck.filter((e) => {
+      const haystack = [
+        e.title,
+        e.description,
+        e.type,
+        String(e.meta?.notes ?? ''),
+        String(e.meta?.subjectId ?? ''),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [intrusionFrames, localAlerts, localFilter, localQuery, localUnackOnly, matchFrames, subjectNameById]);
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
+  const exportLocalBundle = async () => {
+    setIsExportingLocal(true);
+    setLocalError(null);
+
+    try {
+      const settings = JSON.parse(exportSettingsJson());
+      const date = new Date().toISOString().slice(0, 10);
+
+      const selectedMatchFrames = exportOnlyUnexportedFrames
+        ? matchFrames.filter((f) => !f.exported)
+        : matchFrames;
+
+      const selectedIntrusionFrames = exportOnlyUnexportedFrames
+        ? intrusionFrames.filter((f) => !f.exported)
+        : intrusionFrames;
+
+      const matchExport = exportIncludeFullFrames
+        ? selectedMatchFrames
+        : selectedMatchFrames.map(({ frameData, ...rest }) => rest);
+
+      const intrusionExport = exportIncludeFullFrames
+        ? selectedIntrusionFrames
+        : selectedIntrusionFrames.map(({ frameData, ...rest }) => rest);
+
+      const payload = {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        settings,
+        alerts: localAlerts,
+        lostFound: {
+          subjects,
+          matchFrames: matchExport,
+        },
+        security: {
+          intrusionFrames: intrusionExport,
+        },
+      };
+
+      const json = JSON.stringify(payload, null, 2);
+
+      const gzipSupported = typeof window !== 'undefined' && 'CompressionStream' in window;
+      if (exportCompressGzip && gzipSupported) {
+        const stream = new (window as any).CompressionStream('gzip');
+        const writer = stream.writable.getWriter();
+        writer.write(new TextEncoder().encode(json));
+        await writer.close();
+        const gzBlob = await new Response(stream.readable).blob();
+        downloadBlob(gzBlob, `safeos-local-bundle-${date}.json.gz`);
+      } else {
+        downloadBlob(new Blob([json], { type: 'application/json' }), `safeos-local-bundle-${date}.json`);
+      }
+
+      if (exportMarkExported) {
+        const matchIds = selectedMatchFrames.map((f) => f.id);
+        const intrusionIds = selectedIntrusionFrames.map((f) => f.id);
+
+        await Promise.all([
+          matchIds.length > 0 ? markMatchFramesExported(matchIds) : Promise.resolve(),
+          intrusionIds.length > 0 ? markIntrusionFramesExported(intrusionIds) : Promise.resolve(),
+        ]);
+
+        if (matchIds.length > 0) {
+          const matchIdSet = new Set(matchIds);
+          setMatchFrames((prev) => prev.map((f) => (matchIdSet.has(f.id) ? { ...f, exported: true } : f)));
+        }
+
+        if (intrusionIds.length > 0) {
+          const intrusionIdSet = new Set(intrusionIds);
+          setIntrusionFrames((prev) => prev.map((f) => (intrusionIdSet.has(f.id) ? { ...f, exported: true } : f)));
+        }
+      }
+    } catch (err) {
+      setLocalError('Export failed. Please try again.');
+    } finally {
+      setIsExportingLocal(false);
+    }
+  };
+
+  const loading = viewMode === 'local' ? localLoading : isLoading;
+  const activeError = viewMode === 'local' ? localError : error;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
@@ -162,7 +448,7 @@ export default function HistoryPage() {
           </div>
 
           <button
-            onClick={fetchData}
+            onClick={() => (viewMode === 'local' ? loadLocalData() : fetchData())}
             className="flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-white transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,11 +466,21 @@ export default function HistoryPage() {
           {/* View Mode Tabs */}
           <div className="flex bg-slate-800 rounded-lg p-1">
             <button
+              onClick={() => setViewMode('local')}
+              className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'local'
+                  ? 'bg-slate-700 text-white'
+                  : 'text-slate-400 hover:text-white'
+                }`}
+            >
+              Local Timeline
+            </button>
+            <button
               onClick={() => setViewMode('alerts')}
               className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'alerts'
                   ? 'bg-slate-700 text-white'
                   : 'text-slate-400 hover:text-white'
                 }`}
+              disabled={isStaticDeployment}
             >
               Alerts
             </button>
@@ -194,43 +490,398 @@ export default function HistoryPage() {
                   ? 'bg-slate-700 text-white'
                   : 'text-slate-400 hover:text-white'
                 }`}
+              disabled={isStaticDeployment}
             >
               Analysis Results
             </button>
           </div>
 
-          {/* Severity Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">Filter:</span>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as FilterSeverity)}
-              className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="all">All</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-              <option value="info">Info</option>
-            </select>
-          </div>
+          {/* Filters */}
+          {viewMode === 'local' ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-400">Type:</span>
+                <select
+                  value={localFilter}
+                  onChange={(e) => setLocalFilter(e.target.value as LocalFilterType)}
+                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="all">All</option>
+                  <option value="alerts">Alerts</option>
+                  <option value="lost_found">Lost &amp; Found</option>
+                  <option value="intrusions">Intrusions</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                <input
+                  type="checkbox"
+                  checked={localUnackOnly}
+                  onChange={(e) => setLocalUnackOnly(e.target.checked)}
+                  className="w-4 h-4 accent-emerald-500"
+                />
+                Unacknowledged only
+              </label>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-400">Filter:</span>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as FilterSeverity)}
+                className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="all">All</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="info">Info</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Content */}
-        {isLoading ? (
+        {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
           </div>
-        ) : error ? (
+        ) : activeError ? (
           <div className="text-center py-20">
-            <p className="text-red-400">{error}</p>
+            <p className="text-red-400">{activeError}</p>
             <button
-              onClick={fetchData}
+              onClick={() => (viewMode === 'local' ? loadLocalData() : fetchData())}
               className="mt-4 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
             >
               Try Again
             </button>
+          </div>
+        ) : viewMode === 'local' ? (
+          <div className="space-y-6">
+            {/* Export */}
+            <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Offline Export</h2>
+                  <p className="text-sm text-slate-400">
+                    Download a local-first bundle (settings + alerts + saved frames) for backups or sharing.
+                  </p>
+                </div>
+                <button
+                  onClick={exportLocalBundle}
+                  disabled={isExportingLocal}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isExportingLocal
+                    ? 'Exporting…'
+                    : exportCompressGzip
+                      ? 'Download Bundle (.json.gz)'
+                      : 'Download Bundle (.json)'}
+                </button>
+              </div>
+
+              <div className="mt-4 flex flex-col sm:flex-row gap-4">
+                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={exportOnlyUnexportedFrames}
+                    onChange={(e) => setExportOnlyUnexportedFrames(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500"
+                  />
+                  Only unexported frames (incremental)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={exportIncludeFullFrames}
+                    onChange={(e) => setExportIncludeFullFrames(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500"
+                  />
+                  Include full frames (larger file)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={exportCompressGzip}
+                    onChange={(e) => setExportCompressGzip(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500"
+                    disabled={typeof window !== 'undefined' && !('CompressionStream' in window)}
+                  />
+                  Compress (gzip)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={exportMarkExported}
+                    onChange={(e) => setExportMarkExported(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500"
+                  />
+                  Mark frames as exported
+                </label>
+              </div>
+
+              {typeof window !== 'undefined' && !('CompressionStream' in window) && (
+                <div className="mt-2 text-xs text-slate-500">
+                  Tip: gzip export requires a modern browser (CompressionStream API).
+                </div>
+              )}
+
+              <div className="mt-3 text-xs text-slate-500">
+                {isStaticDeployment
+                  ? 'Static deployment detected: remote history is disabled. Local timeline is fully offline.'
+                  : 'Local timeline works offline; remote history requires the API.'}
+              </div>
+            </section>
+
+            {/* Timeline */}
+            <section className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  value={localQuery}
+                  onChange={(e) => setLocalQuery(e.target.value)}
+                  placeholder="Search events, notes, subjects…"
+                  className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  aria-label="Search local timeline"
+                />
+                {localQuery.trim().length > 0 && (
+                  <button
+                    onClick={() => setLocalQuery('')}
+                    className="px-4 py-2 bg-slate-700/50 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {localTimelineEvents.length === 0 ? (
+                <div className="text-center py-20">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-slate-400">No local events yet</p>
+                  <p className="text-sm text-slate-500 mt-1">Start monitoring or enable Lost &amp; Found/Security to record events offline</p>
+                </div>
+              ) : (
+                localTimelineEvents.map((event) => {
+                  const colors = severityColors[event.severity];
+                  const eventKey = `${event.type}:${event.id}`;
+                  const isExpanded = expandedEventKey === eventKey;
+                  const exported = Boolean(event.meta?.exported);
+
+                  const acknowledgeEvent = async () => {
+                    try {
+                      if (event.type === 'alert') {
+                        acknowledgeLocalAlert(event.id);
+                        return;
+                      }
+
+                      if (event.type === 'lost_found') {
+                        await acknowledgeMatchFrame(event.id);
+                        setMatchFrames((prev) => prev.map((f) => f.id === event.id ? { ...f, acknowledged: true } : f));
+                        return;
+                      }
+
+                      await acknowledgeIntrusionFrame(event.id);
+                      setIntrusionFrames((prev) => prev.map((f) => f.id === event.id ? { ...f, acknowledged: true } : f));
+                    } catch {
+                      setLocalError('Failed to acknowledge item');
+                    }
+                  };
+
+                  const toggleDetails = () => {
+                    if (isExpanded) {
+                      setExpandedEventKey(null);
+                      return;
+                    }
+                    setExpandedEventKey(eventKey);
+                    setNotesDraft(String(event.meta?.notes ?? ''));
+                  };
+
+                  const saveNotes = async () => {
+                    if (!(event.type === 'lost_found' || event.type === 'intrusion')) return;
+                    setIsSavingNotes(true);
+                    setLocalError(null);
+
+                    try {
+                      if (event.type === 'lost_found') {
+                        await updateMatchFrameNotes(event.id, notesDraft);
+                        setMatchFrames((prev) => prev.map((f) => f.id === event.id ? { ...f, notes: notesDraft } : f));
+                      } else {
+                        await updateIntrusionFrameNotes(event.id, notesDraft);
+                        setIntrusionFrames((prev) => prev.map((f) => f.id === event.id ? { ...f, notes: notesDraft } : f));
+                      }
+                    } catch {
+                      setLocalError('Failed to save notes');
+                    } finally {
+                      setIsSavingNotes(false);
+                    }
+                  };
+
+                  const markThisExported = async () => {
+                    if (!(event.type === 'lost_found' || event.type === 'intrusion')) return;
+                    setLocalError(null);
+
+                    try {
+                      if (event.type === 'lost_found') {
+                        await markMatchFramesExported([event.id]);
+                        setMatchFrames((prev) => prev.map((f) => f.id === event.id ? { ...f, exported: true } : f));
+                      } else {
+                        await markIntrusionFramesExported([event.id]);
+                        setIntrusionFrames((prev) => prev.map((f) => f.id === event.id ? { ...f, exported: true } : f));
+                      }
+                    } catch {
+                      setLocalError('Failed to mark exported');
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={`${event.type}-${event.id}`}
+                      className={`p-4 rounded-xl border ${colors.border} ${colors.bg}`}
+                    >
+                      <div className="flex items-start gap-4">
+                        {event.thumbnailData && (
+                          <div className="w-20 h-20 rounded-lg bg-slate-900/50 border border-slate-700 overflow-hidden flex-shrink-0">
+                            <img
+                              src={event.thumbnailData}
+                              alt={`${event.title} thumbnail`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded ${colors.text} ${colors.bg}`}>
+                                {event.severity.toUpperCase()}
+                              </span>
+                              <span className="text-sm font-medium text-white truncate">
+                                {event.title}
+                              </span>
+                            </div>
+                            <span className="text-xs text-slate-500 whitespace-nowrap">
+                              {formatDate(new Date(event.timestamp).toISOString())}
+                            </span>
+                          </div>
+
+                          <p className="text-sm text-slate-200 mt-1">
+                            {event.description}
+                          </p>
+
+                          <div className="mt-2 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-xs text-slate-500 truncate">
+                              {event.acknowledged ? (
+                                <span className="text-emerald-400">✓ Acknowledged</span>
+                              ) : (
+                                <span>Unacknowledged</span>
+                              )}
+                              {(event.type === 'lost_found' || event.type === 'intrusion') && (
+                                <span className={`px-2 py-0.5 rounded ${exported ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-700/30 text-slate-300'}`}>
+                                  {exported ? 'Exported' : 'Not exported'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={toggleDetails}
+                                className="px-3 py-1.5 text-xs font-medium bg-slate-700/40 text-slate-200 rounded hover:bg-slate-700 transition-colors"
+                              >
+                                {isExpanded ? 'Hide' : 'Details'}
+                              </button>
+                              {!event.acknowledged && (
+                                <button
+                                  onClick={acknowledgeEvent}
+                                  className="px-3 py-1.5 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors"
+                                >
+                                  Acknowledge
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="mt-3 pt-3 border-t border-slate-700/40 space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400">
+                                <div>
+                                  <span className="text-slate-500">Type:</span> {event.type}
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">ID:</span> {event.id}
+                                </div>
+                                {event.type === 'alert' && (
+                                  <>
+                                    <div>
+                                      <span className="text-slate-500">Stream:</span> {String(event.meta?.streamId ?? 'local')}
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-500">Alert Type:</span> {String(event.meta?.alertType ?? 'n/a')}
+                                    </div>
+                                  </>
+                                )}
+                                {event.type === 'lost_found' && (
+                                  <>
+                                    <div>
+                                      <span className="text-slate-500">Subject:</span> {String(event.meta?.subjectId ?? 'n/a')}
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-500">Confidence:</span> {String(event.meta?.confidence ?? 'n/a')}%
+                                    </div>
+                                  </>
+                                )}
+                                {event.type === 'intrusion' && (
+                                  <>
+                                    <div>
+                                      <span className="text-slate-500">Detected:</span> {String(event.meta?.personCount ?? 'n/a')}
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-500">Allowed:</span> {String(event.meta?.allowedCount ?? 'n/a')}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+
+                              {(event.type === 'lost_found' || event.type === 'intrusion') && (
+                                <div className="space-y-2">
+                                  <label className="block text-xs text-slate-400">Notes</label>
+                                  <textarea
+                                    value={notesDraft}
+                                    onChange={(e) => setNotesDraft(e.target.value)}
+                                    rows={3}
+                                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="Add context, what you did, outcomes…"
+                                  />
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                      onClick={saveNotes}
+                                      disabled={isSavingNotes}
+                                      className="px-3 py-1.5 text-xs font-medium bg-emerald-500/20 text-emerald-300 rounded hover:bg-emerald-500/30 transition-colors disabled:opacity-60"
+                                    >
+                                      {isSavingNotes ? 'Saving…' : 'Save Notes'}
+                                    </button>
+                                    {!exported && (
+                                      <button
+                                        onClick={markThisExported}
+                                        className="px-3 py-1.5 text-xs font-medium bg-slate-700/40 text-slate-200 rounded hover:bg-slate-700 transition-colors"
+                                      >
+                                        Mark Exported
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </section>
           </div>
         ) : viewMode === 'alerts' ? (
           <div className="space-y-3">
@@ -360,38 +1011,52 @@ export default function HistoryPage() {
         )}
 
         {/* Stats */}
-        {!isLoading && !error && (
+        {!loading && !activeError && (
           <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 text-center">
               <p className="text-2xl font-bold text-white">
-                {viewMode === 'alerts' ? alerts.length : analysisResults.length}
+                {viewMode === 'local'
+                  ? localTimelineEvents.length
+                  : viewMode === 'alerts'
+                    ? alerts.length
+                    : analysisResults.length}
               </p>
               <p className="text-sm text-slate-400">Total</p>
             </div>
             <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/30 text-center">
               <p className="text-2xl font-bold text-red-400">
-                {viewMode === 'alerts'
-                  ? alerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length
-                  : analysisResults.filter((a) => a.concern_level === 'critical' || a.concern_level === 'high').length}
+                {viewMode === 'local'
+                  ? localTimelineEvents.filter((e) => e.severity === 'critical' || e.severity === 'high').length
+                  : viewMode === 'alerts'
+                    ? alerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length
+                    : analysisResults.filter((a) => a.concern_level === 'critical' || a.concern_level === 'high').length}
               </p>
               <p className="text-sm text-red-400/70">Critical/High</p>
             </div>
             <div className="p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/30 text-center">
               <p className="text-2xl font-bold text-yellow-400">
-                {viewMode === 'alerts'
-                  ? alerts.filter((a) => a.severity === 'medium').length
-                  : analysisResults.filter((a) => a.concern_level === 'medium').length}
+                {viewMode === 'local'
+                  ? localTimelineEvents.filter((e) => e.severity === 'medium').length
+                  : viewMode === 'alerts'
+                    ? alerts.filter((a) => a.severity === 'medium').length
+                    : analysisResults.filter((a) => a.concern_level === 'medium').length}
               </p>
               <p className="text-sm text-yellow-400/70">Medium</p>
             </div>
             <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/30 text-center">
               <p className="text-2xl font-bold text-green-400">
-                {viewMode === 'alerts'
-                  ? alerts.filter((a) => !a.acknowledged).length
-                  : analysisResults.filter((a) => a.concern_level === 'none' || a.concern_level === 'low').length}
+                {viewMode === 'local'
+                  ? localTimelineEvents.filter((e) => !e.acknowledged).length
+                  : viewMode === 'alerts'
+                    ? alerts.filter((a) => !a.acknowledged).length
+                    : analysisResults.filter((a) => a.concern_level === 'none' || a.concern_level === 'low').length}
               </p>
               <p className="text-sm text-green-400/70">
-                {viewMode === 'alerts' ? 'Pending' : 'Low/None'}
+                {viewMode === 'local'
+                  ? 'Unacknowledged'
+                  : viewMode === 'alerts'
+                    ? 'Pending'
+                    : 'Low/None'}
               </p>
             </div>
           </div>
