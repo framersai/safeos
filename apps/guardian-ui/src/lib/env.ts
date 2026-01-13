@@ -13,6 +13,41 @@
 // Static Mode Detection
 // =============================================================================
 
+// =============================================================================
+// Local Configuration (browser)
+// =============================================================================
+
+const BACKEND_CONFIG_STORAGE_KEY = 'safeos_backend_config';
+
+function normalizeBaseUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
+function getStoredBackendConfig(): {
+  apiUrl?: string;
+  wsUrl?: string;
+  ollamaUrl?: string;
+} {
+  if (typeof window === 'undefined') return {};
+
+  try {
+    const stored = localStorage.getItem(BACKEND_CONFIG_STORAGE_KEY);
+    if (!stored) return {};
+
+    const parsed = JSON.parse(stored) as Record<string, unknown>;
+
+    const apiUrl = typeof parsed.apiUrl === 'string' ? normalizeBaseUrl(parsed.apiUrl) : undefined;
+    const wsUrl = typeof parsed.wsUrl === 'string' ? normalizeBaseUrl(parsed.wsUrl) : undefined;
+    const ollamaUrl = typeof parsed.ollamaUrl === 'string' ? normalizeBaseUrl(parsed.ollamaUrl) : undefined;
+
+    return { apiUrl, wsUrl, ollamaUrl };
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Check if the app is running in static mode (GitHub Pages deployment)
  * Static mode disables backend connections and API calls.
@@ -71,7 +106,12 @@ export function getApiUrl(): string {
   if (isStaticMode()) {
     return '';
   }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  const stored = getStoredBackendConfig();
+  if (stored.apiUrl) return stored.apiUrl;
+
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  return normalizeBaseUrl(envUrl);
 }
 
 /**
@@ -82,7 +122,12 @@ export function getWsUrl(): string {
   if (isStaticMode()) {
     return '';
   }
-  return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+
+  const stored = getStoredBackendConfig();
+  if (stored.wsUrl) return stored.wsUrl;
+
+  const envUrl = process.env.NEXT_PUBLIC_WS_URL || '';
+  return normalizeBaseUrl(envUrl);
 }
 
 /**
@@ -93,7 +138,12 @@ export function getWsUrl2(): string {
   if (isStaticMode()) {
     return '';
   }
-  return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
+
+  const stored = getStoredBackendConfig();
+  if (stored.wsUrl) return stored.wsUrl;
+
+  const envUrl = process.env.NEXT_PUBLIC_WS_URL || '';
+  return normalizeBaseUrl(envUrl);
 }
 
 // =============================================================================

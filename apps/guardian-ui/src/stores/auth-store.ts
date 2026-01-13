@@ -16,6 +16,7 @@ import {
   getCachedProfile,
   type LocalSession,
 } from '../lib/client-db';
+import { getApiUrl } from '../lib/env';
 
 // =============================================================================
 // Types
@@ -88,8 +89,6 @@ interface AuthState {
 // API Configuration
 // =============================================================================
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
 // =============================================================================
 // Device ID Generation
 // =============================================================================
@@ -148,8 +147,13 @@ export const useAuthStore = create<AuthState>()(
 
           if (localSession && new Date(localSession.expiresAt) > new Date()) {
             // Validate with server if online
+            const apiUrl = getApiUrl();
             try {
-              const response = await fetch(`${API_URL}/api/auth/session`, {
+              if (!apiUrl) {
+                throw new Error('No monitoring server configured');
+              }
+
+              const response = await fetch(`${apiUrl}/api/auth/session`, {
                 headers: {
                   'X-Session-Token': localSession.token,
                 },
@@ -204,8 +208,13 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const deviceId = get().deviceId || generateDeviceId();
+          const apiUrl = getApiUrl();
 
-          const response = await fetch(`${API_URL}/api/auth/session`, {
+          if (!apiUrl) {
+            throw new Error('No monitoring server configured');
+          }
+
+          const response = await fetch(`${apiUrl}/api/auth/session`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -316,7 +325,10 @@ export const useAuthStore = create<AuthState>()(
         if (!token) return;
 
         try {
-          const response = await fetch(`${API_URL}/api/auth/session`, {
+          const apiUrl = getApiUrl();
+          if (!apiUrl) return;
+
+          const response = await fetch(`${apiUrl}/api/auth/session`, {
             headers: {
               'X-Session-Token': token,
             },
@@ -347,15 +359,18 @@ export const useAuthStore = create<AuthState>()(
         set({ profile: updatedProfile });
 
         try {
+          const apiUrl = getApiUrl();
           if (token && !token.startsWith('local-') && !token.startsWith('offline-')) {
-            await fetch(`${API_URL}/api/auth/profile`, {
+            if (apiUrl) {
+              await fetch(`${apiUrl}/api/auth/profile`, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
                 'X-Session-Token': token,
               },
               body: JSON.stringify(updates),
-            });
+              });
+            }
           }
 
           // Cache locally
@@ -391,13 +406,16 @@ export const useAuthStore = create<AuthState>()(
         const token = get().sessionToken;
 
         try {
+          const apiUrl = getApiUrl();
           if (token && !token.startsWith('local-') && !token.startsWith('offline-')) {
-            await fetch(`${API_URL}/api/auth/session`, {
-              method: 'DELETE',
-              headers: {
-                'X-Session-Token': token,
-              },
-            });
+            if (apiUrl) {
+              await fetch(`${apiUrl}/api/auth/session`, {
+                method: 'DELETE',
+                headers: {
+                  'X-Session-Token': token,
+                },
+              });
+            }
           }
         } catch (error) {
           console.error('[Auth] Logout error:', error);
@@ -488,4 +506,3 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
-

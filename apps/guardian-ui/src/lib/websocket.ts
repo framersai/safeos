@@ -74,9 +74,11 @@ export function useWebSocket(url: string, options: UseWebSocketOptions = {}) {
 
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    // Don't attempt connection with empty or invalid URL
-    if (!url || url.startsWith('ws://localhost') || url.startsWith('wss://localhost')) {
-      // Only connect to localhost when actually running locally
+    // Don't attempt connection with empty URL
+    if (!url) return;
+
+    // Only connect to localhost when actually running locally
+    if (url.startsWith('ws://localhost') || url.startsWith('wss://localhost')) {
       if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
         if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
@@ -265,8 +267,11 @@ export class WebSocketClient {
 
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
-    // Don't attempt connection with empty or invalid URL
-    if (!this.url || this.url.startsWith('ws://localhost') || this.url.startsWith('wss://localhost')) {
+    // Don't attempt connection with empty URL
+    if (!this.url) return;
+
+    // Only connect to localhost when actually running locally
+    if (this.url.startsWith('ws://localhost') || this.url.startsWith('wss://localhost')) {
       if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
         if (hostname !== 'localhost' && hostname !== '127.0.0.1') {

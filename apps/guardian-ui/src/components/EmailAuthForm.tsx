@@ -10,6 +10,7 @@
 
 import React, { useState } from 'react';
 import { showToast } from './Toast';
+import { getApiUrl } from '@/lib/env';
 
 // =============================================================================
 // Types
@@ -38,8 +39,6 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
   const resetForm = () => {
     setError(null);
     setPassword('');
@@ -52,6 +51,13 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
     setError(null);
 
     try {
+      const apiUrl = getApiUrl();
+      if (!apiUrl) {
+        setError('Email login/signup requires a monitoring server (API). SafeOS can still run fully local/offline without an account.');
+        setLoading(false);
+        return;
+      }
+
       if (mode === 'signup') {
         // Validate password match
         if (password !== confirmPassword) {
@@ -60,7 +66,7 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
           return;
         }
 
-        const response = await fetch(`${API_URL}/api/auth/email/register`, {
+        const response = await fetch(`${apiUrl}/api/auth/email/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, displayName }),
@@ -82,7 +88,7 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
         resetForm();
 
       } else if (mode === 'login') {
-        const response = await fetch(`${API_URL}/api/auth/email/login`, {
+        const response = await fetch(`${apiUrl}/api/auth/email/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -101,7 +107,7 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
         });
 
       } else if (mode === 'forgot-password') {
-        const response = await fetch(`${API_URL}/api/auth/email/forgot-password`, {
+        const response = await fetch(`${apiUrl}/api/auth/email/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
@@ -344,5 +350,4 @@ export function EmailAuthForm({ onSuccess, onCancel, initialMode = 'login' }: Em
 }
 
 export default EmailAuthForm;
-
 

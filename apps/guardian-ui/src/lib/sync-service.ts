@@ -21,7 +21,6 @@ import { isStaticMode, getApiUrl } from './env';
 // Configuration
 // =============================================================================
 
-const API_URL = getApiUrl();
 const MAX_RETRIES = 5;
 const SYNC_INTERVAL_MS = 30000; // 30 seconds
 const RETRY_DELAYS = [1000, 5000, 15000, 30000, 60000]; // Progressive backoff
@@ -93,8 +92,10 @@ export async function syncPendingActions(): Promise<{
   failed: number;
   pending: number;
 }> {
+  const apiUrl = getApiUrl();
+
   // Skip sync in static mode (GitHub Pages deployment)
-  if (isStaticMode() || !API_URL) {
+  if (isStaticMode() || !apiUrl) {
     return { synced: 0, failed: 0, pending: 0 };
   }
 
@@ -119,7 +120,7 @@ export async function syncPendingActions(): Promise<{
       }
 
       try {
-        const response = await fetch(`${API_URL}${action.endpoint}`, {
+        const response = await fetch(`${apiUrl}${action.endpoint}`, {
           method: action.method,
           headers: {
             'Content-Type': 'application/json',
@@ -300,8 +301,6 @@ export async function forceSyncNow(): Promise<{
 }> {
   return syncPendingActions();
 }
-
-
 
 
 
