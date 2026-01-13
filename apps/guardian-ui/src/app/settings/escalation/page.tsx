@@ -10,64 +10,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useSettingsStore } from '../../../stores/settings-store';
+import { useSettingsStore, type AlertEscalationLevel, type AlertSoundType } from '../../../stores/settings-store';
 import { useSoundManager, SoundType } from '../../../lib/sound-manager';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-interface EscalationLevel {
-    level: number;
-    name: string;
-    description: string;
-    volumeMultiplier: number;
-    delaySeconds: number;
-    soundType: SoundType;
-}
-
-const DEFAULT_ESCALATION_LEVELS: EscalationLevel[] = [
-    {
-        level: 1,
-        name: 'Gentle Reminder',
-        description: 'Soft notification sound at set volume',
-        volumeMultiplier: 1.0,
-        delaySeconds: 0,
-        soundType: 'notification',
-    },
-    {
-        level: 2,
-        name: 'Attention',
-        description: 'Louder alert, repeated twice',
-        volumeMultiplier: 1.3,
-        delaySeconds: 30,
-        soundType: 'alert',
-    },
-    {
-        level: 3,
-        name: 'Urgent',
-        description: 'Warning sound at increased volume',
-        volumeMultiplier: 1.5,
-        delaySeconds: 60,
-        soundType: 'warning',
-    },
-    {
-        level: 4,
-        name: 'Critical',
-        description: 'Alarm sound at near-max volume',
-        volumeMultiplier: 1.8,
-        delaySeconds: 120,
-        soundType: 'alarm',
-    },
-    {
-        level: 5,
-        name: 'Emergency',
-        description: 'Maximum volume, continuous until acknowledged',
-        volumeMultiplier: 2.0,
-        delaySeconds: 180,
-        soundType: 'emergency',
-    },
-];
+const SOUND_TYPES: SoundType[] = ['notification', 'alert', 'warning', 'alarm', 'emergency'];
 
 // =============================================================================
 // Escalation Settings Page
@@ -75,10 +25,19 @@ const DEFAULT_ESCALATION_LEVELS: EscalationLevel[] = [
 
 export default function EscalationSettingsPage() {
     const [mounted, setMounted] = useState(false);
-    const [escalationLevels, setEscalationLevels] = useState(DEFAULT_ESCALATION_LEVELS);
     const [testingLevel, setTestingLevel] = useState<number | null>(null);
 
-    const { globalSettings, timingSettings, updateTimingSettings, updateGlobalSettings, severityCooldowns, updateSeverityCooldowns } = useSettingsStore();
+    const {
+        globalSettings,
+        timingSettings,
+        updateTimingSettings,
+        updateGlobalSettings,
+        severityCooldowns,
+        updateSeverityCooldowns,
+        alertEscalationLevels,
+        updateAlertEscalationLevel,
+        resetAlertEscalationLevels,
+    } = useSettingsStore();
     const soundManager = useSoundManager();
 
     useEffect(() => {
@@ -93,23 +52,21 @@ export default function EscalationSettingsPage() {
         );
     }
 
-    const testEscalationLevel = (level: EscalationLevel) => {
+    const testEscalationLevel = (level: AlertEscalationLevel) => {
         setTestingLevel(level.level);
-        const volume = Math.min(1, (globalSettings.alertVolume / 100) * level.volumeMultiplier);
+        const volume = Math.min(100, globalSettings.alertVolume * level.volumeMultiplier);
         soundManager.updateVolume(volume);
-        soundManager.test(level.soundType);
+        soundManager.test(level.soundType as SoundType);
         setTimeout(() => {
             setTestingLevel(null);
-            soundManager.updateVolume(globalSettings.alertVolume / 100);
+            soundManager.updateVolume(globalSettings.alertVolume);
         }, 1500);
     };
 
     const updateLevelDelay = (levelIndex: number, newDelay: number) => {
-        setEscalationLevels(prev => {
-            const updated = [...prev];
-            updated[levelIndex] = { ...updated[levelIndex], delaySeconds: newDelay };
-            return updated;
-        });
+        const level = alertEscalationLevels[levelIndex];
+        if (!level) return;
+        updateAlertEscalationLevel(level.level, { delaySeconds: newDelay });
     };
 
     return (
@@ -148,7 +105,7 @@ export default function EscalationSettingsPage() {
                     <h2 className="text-lg font-semibold text-white mb-6">Escalation Timeline</h2>
 
                     <div className="space-y-4">
-                        {escalationLevels.map((level, index) => (
+                        {alertEscalationLevels.map((level, index) => (
                             <div
                                 key={level.level}
                                 className={`relative flex items-start gap-4 p-4 rounded-lg border transition-all ${testingLevel === level.level
@@ -166,9 +123,18 @@ export default function EscalationSettingsPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
                                         <h3 className="font-medium text-white">{level.name}</h3>
-                                        <span className="px-2 py-0.5 text-xs font-mono bg-slate-700/50 text-slate-400 rounded">
-                                            {level.soundType}
-                                        </span>
+                                        <select
+                                            value={level.soundType}
+                                            onChange={(e) => updateAlertEscalationLevel(level.level, { soundType: e.target.value as AlertSoundType })}
+                                            className="px-2 py-0.5 text-xs font-mono bg-slate-800 border border-slate-700 text-slate-300 rounded"
+                                            aria-label={`Sound type for level ${level.level}`}
+                                        >
+                                            {SOUND_TYPES.map((t) => (
+                                                <option key={t} value={t}>
+                                                    {t}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <p className="text-sm text-slate-400 mb-3">{level.description}</p>
 
@@ -198,9 +164,19 @@ export default function EscalationSettingsPage() {
                                 <div className="flex-shrink-0 text-right">
                                     <div className="mb-2">
                                         <span className="text-xs text-slate-500">Volume</span>
-                                        <p className="text-sm font-mono text-white">
-                                            {Math.round(level.volumeMultiplier * 100)}%
-                                        </p>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <input
+                                                type="number"
+                                                min="0.5"
+                                                max="2.5"
+                                                step="0.1"
+                                                value={Number(level.volumeMultiplier.toFixed(1))}
+                                                onChange={(e) => updateAlertEscalationLevel(level.level, { volumeMultiplier: Number(e.target.value) })}
+                                                className="w-16 px-2 py-1 text-sm bg-slate-800 border border-slate-600 rounded text-white text-center font-mono"
+                                                aria-label={`Volume multiplier for level ${level.level}`}
+                                            />
+                                            <span className="text-xs text-slate-500 font-mono">x</span>
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => testEscalationLevel(level)}
@@ -215,11 +191,23 @@ export default function EscalationSettingsPage() {
                                 </div>
 
                                 {/* Connection line */}
-                                {index < escalationLevels.length - 1 && (
+                                {index < alertEscalationLevels.length - 1 && (
                                     <div className="absolute left-9 top-14 w-0.5 h-8 bg-gradient-to-b from-slate-600 to-transparent" />
                                 )}
                             </div>
                         ))}
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                        <p className="text-xs text-slate-500">
+                            Changes are saved locally and affect live alert escalation immediately.
+                        </p>
+                        <button
+                            onClick={resetAlertEscalationLevels}
+                            className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors"
+                        >
+                            Reset escalation defaults
+                        </button>
                     </div>
                 </section>
 

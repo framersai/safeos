@@ -42,7 +42,7 @@ export interface ScenarioOverrides {
 export interface ZoneSensitivityOverride {
   motion?: number;  // 0-100, undefined = use global
   audio?: number;   // 0-100, undefined = use global
-  pixel?: number;   // 1-100 pixel threshold, undefined = use global
+  pixel?: number;   // 1-1000 pixels, absolute count threshold, undefined = use global
 }
 
 export interface DetectionZone {
@@ -115,6 +115,21 @@ export interface DetectionFeatureSettings {
   inactivityMonitoringEnabled: boolean;
   inactivityAlertMinutes: number;     // 1-60
   inactivitySeverity: AlertSeverity;
+}
+
+/**
+ * Alert escalation levels determine how unacknowledged alerts become more
+ * noticeable over time.
+ */
+export type AlertSoundType = 'notification' | 'alert' | 'warning' | 'alarm' | 'emergency';
+
+export interface AlertEscalationLevel {
+  level: number;             // 1-5
+  name: string;
+  description: string;
+  volumeMultiplier: number;  // Multiplier applied to effective volume (1.0 = 100%)
+  delaySeconds: number;      // Seconds after previous level (level 1 is always 0)
+  soundType: AlertSoundType;
 }
 
 export type PresetId = 'silent' | 'night' | 'maximum' | 'ultimate' | 'infant_sleep' | 'pet_sleep' | 'deep_sleep_minimal' | 'custom';
@@ -379,6 +394,53 @@ export const DEFAULT_DETECTION_ZONES: DetectionZone[] = [
 ];
 
 // =============================================================================
+// Default Alert Escalation Levels
+// =============================================================================
+
+export const DEFAULT_ALERT_ESCALATION_LEVELS: AlertEscalationLevel[] = [
+  {
+    level: 1,
+    name: 'Gentle Reminder',
+    description: 'Soft notification sound at set volume',
+    volumeMultiplier: 1.0,
+    delaySeconds: 0,
+    soundType: 'notification',
+  },
+  {
+    level: 2,
+    name: 'Attention',
+    description: 'Louder alert, repeated attention grab',
+    volumeMultiplier: 1.3,
+    delaySeconds: 30,
+    soundType: 'alert',
+  },
+  {
+    level: 3,
+    name: 'Urgent',
+    description: 'Warning sound at increased volume',
+    volumeMultiplier: 1.5,
+    delaySeconds: 60,
+    soundType: 'warning',
+  },
+  {
+    level: 4,
+    name: 'Critical',
+    description: 'Alarm sound at near-max volume',
+    volumeMultiplier: 1.8,
+    delaySeconds: 120,
+    soundType: 'alarm',
+  },
+  {
+    level: 5,
+    name: 'Emergency',
+    description: 'Maximum volume, continuous until acknowledged',
+    volumeMultiplier: 2.0,
+    delaySeconds: 180,
+    soundType: 'emergency',
+  },
+];
+
+// =============================================================================
 // Store State
 // =============================================================================
 
@@ -412,6 +474,9 @@ interface SettingsState {
 
   // Detection feature settings (AI detection, inactivity monitoring)
   detectionFeatureSettings: DetectionFeatureSettings;
+
+  // Alert escalation levels
+  alertEscalationLevels: AlertEscalationLevel[];
 
   // Emergency mode state
   emergencyModeActive: boolean;
@@ -453,6 +518,10 @@ interface SettingsState {
 
   // Detection feature settings actions
   updateDetectionFeatureSettings: (settings: Partial<DetectionFeatureSettings>) => void;
+
+  // Alert escalation actions
+  updateAlertEscalationLevel: (level: number, updates: Partial<AlertEscalationLevel>) => void;
+  resetAlertEscalationLevels: () => void;
 
   // Emergency mode actions
   activateEmergencyMode: (alertId: string) => void;
@@ -526,6 +595,7 @@ export const useSettingsStore = create<SettingsState>()(
         inactivityAlertMinutes: 10,
         inactivitySeverity: 'medium',
       },
+      alertEscalationLevels: [...DEFAULT_ALERT_ESCALATION_LEVELS],
       emergencyModeActive: false,
       emergencyAlertId: null,
       globalMute: false,
@@ -717,6 +787,21 @@ export const useSettingsStore = create<SettingsState>()(
         }));
       },
 
+      // Alert escalation actions
+      updateAlertEscalationLevel: (level, updates) => {
+        set((state) => {
+          const next = state.alertEscalationLevels.map((l) =>
+            l.level === level ? { ...l, ...updates, level: l.level } : l
+          );
+          next.sort((a, b) => a.level - b.level);
+          return { alertEscalationLevels: next };
+        });
+      },
+
+      resetAlertEscalationLevels: () => {
+        set({ alertEscalationLevels: [...DEFAULT_ALERT_ESCALATION_LEVELS] });
+      },
+
       // Emergency mode actions
       activateEmergencyMode: (alertId) => {
         set({
@@ -787,6 +872,7 @@ export const useSettingsStore = create<SettingsState>()(
           severityCooldowns: state.severityCooldowns,
           quietHoursSettings: state.quietHoursSettings,
           detectionFeatureSettings: state.detectionFeatureSettings,
+          alertEscalationLevels: state.alertEscalationLevels,
           customPresets: state.customPresets,
         }, null, 2);
       },
@@ -804,6 +890,7 @@ export const useSettingsStore = create<SettingsState>()(
             severityCooldowns: data.severityCooldowns || get().severityCooldowns,
             quietHoursSettings: data.quietHoursSettings || get().quietHoursSettings,
             detectionFeatureSettings: data.detectionFeatureSettings || get().detectionFeatureSettings,
+            alertEscalationLevels: data.alertEscalationLevels || get().alertEscalationLevels,
             customPresets: data.customPresets || [],
           });
           return true;
@@ -858,6 +945,7 @@ export const useSettingsStore = create<SettingsState>()(
             inactivityAlertMinutes: 10,
             inactivitySeverity: 'medium',
           },
+          alertEscalationLevels: [...DEFAULT_ALERT_ESCALATION_LEVELS],
           emergencyModeActive: false,
           emergencyAlertId: null,
           globalMute: false,
@@ -879,6 +967,7 @@ export const useSettingsStore = create<SettingsState>()(
         severityCooldowns: state.severityCooldowns,
         quietHoursSettings: state.quietHoursSettings,
         detectionFeatureSettings: state.detectionFeatureSettings,
+        alertEscalationLevels: state.alertEscalationLevels,
         globalMute: state.globalMute,
         customPresets: state.customPresets,
       }),
@@ -947,4 +1036,3 @@ export function useProcessingModeInfo(): {
   const { globalSettings } = useSettingsStore();
   return getProcessingModeInfo(globalSettings.processingMode);
 }
-

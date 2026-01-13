@@ -591,6 +591,16 @@ class SoundManager {
 
     const config = SOUND_CONFIGS[type];
     const baseVolume = override !== undefined ? override : this.userVolume;
+
+    // Emergency sound type always plays at max volume.
+    if (config.priority === 5) {
+      return 1.0;
+    }
+
+    // Respect explicit silence (quiet hours, user volume = 0, etc.)
+    if (baseVolume <= 0) {
+      return 0;
+    }
     
     // Apply priority-based minimum volumes
     const minVolumes: Record<number, number> = {
@@ -598,8 +608,13 @@ class SoundManager {
       2: 0,     // alert - can be silent
       3: 30,    // warning - minimum 30%
       4: 50,    // alarm - minimum 50%
-      5: 100,   // emergency - always 100%
+      5: 100,   // emergency - always 100% (handled above)
     };
+
+    // If an explicit override is provided, treat it as authoritative (no min floor).
+    if (override !== undefined) {
+      return Math.max(0, Math.min(100, baseVolume)) / 100;
+    }
 
     const minVolume = minVolumes[config.priority] || 0;
     const effectiveVolume = Math.max(baseVolume, minVolume);
@@ -783,4 +798,3 @@ export function useSoundManager() {
     getActiveSounds: () => manager.getActiveSounds(),
   };
 }
-

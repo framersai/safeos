@@ -9,9 +9,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Howl } from 'howler';
 import { useMonitoringStore, type Alert } from '../stores/monitoring-store';
 import { isStaticMode, getApiUrl } from '../lib/env';
+import { useSettingsStore } from '../stores/settings-store';
+import { getSoundManager, type SoundType } from '../lib/sound-manager';
 
 // =============================================================================
 // Types
@@ -29,15 +30,10 @@ interface AlertPanelProps {
 // Constants
 // =============================================================================
 
-const ESCALATION_LEVELS = [
-  { level: 1, delay: 0, volume: 0.3, sound: 'notification' },
-  { level: 2, delay: 30000, volume: 0.5, sound: 'alert' },
-  { level: 3, delay: 60000, volume: 0.7, sound: 'warning' },
-  { level: 4, delay: 120000, volume: 0.9, sound: 'alarm' },
-  { level: 5, delay: 180000, volume: 1.0, sound: 'emergency' },
-];
-
-const SEVERITY_COLORS = {
+const SEVERITY_COLORS: Record<
+  Alert['severity'],
+  { bg: string; border: string; text: string }
+> = {
   info: { bg: 'bg-blue-500/20', border: 'border-blue-500/50', text: 'text-blue-400' },
   low: { bg: 'bg-emerald-500/20', border: 'border-emerald-500/50', text: 'text-emerald-400' },
   medium: { bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', text: 'text-yellow-400' },
@@ -60,108 +56,143 @@ const SEVERITY_ICONS = {
 export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProps) {
   const storeAlerts = useMonitoringStore((state) => state.alerts);
   const removeAlert = useMonitoringStore((state) => state.removeAlert);
+  const effectiveVolume = useSettingsStore((state) => state.getEffectiveVolume());
+  const globalMute = useSettingsStore((state) => state.globalMute);
+  const emergencyModeActive = useSettingsStore((state) => state.emergencyModeActive);
+  const escalationConfig = useSettingsStore((state) => state.alertEscalationLevels);
   
   const alerts = propAlerts || storeAlerts || [];
   const [escalationLevels, setEscalationLevels] = useState<Map<string, number>>(new Map());
+  const escalationLevelsRef = useRef<Map<string, number>>(new Map());
   const [muted, setMuted] = useState(false);
-  const soundsRef = useRef<Map<string, Howl>>(new Map());
-  const timersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const emergencyLoopSoundIdRef = useRef<string | null>(null);
+  const effectiveMuted = (muted || globalMute) && !emergencyModeActive;
 
-  // Initialize sounds
+  // Escalation engine (tick-based) so sounds reliably fire at level boundaries.
   useEffect(() => {
-    // Pre-load sounds (using placeholder URLs - replace with actual sound files)
-    const soundUrls = {
-      notification: '/sounds/notification.mp3',
-      alert: '/sounds/alert.mp3',
-      warning: '/sounds/warning.mp3',
-      alarm: '/sounds/alarm.mp3',
-      emergency: '/sounds/emergency.mp3',
-    };
+    const sortedLevels = [...(escalationConfig || [])].sort((a, b) => a.level - b.level);
+    const maxLevel = sortedLevels.reduce((max, l) => Math.max(max, l.level), 1);
 
-    Object.entries(soundUrls).forEach(([name, url]) => {
-      soundsRef.current.set(
-        name,
-        new Howl({
-          src: [url],
-          volume: 0.5,
-          preload: true,
-          html5: true,
-        })
-      );
-    });
+    const getLevelForAgeMs = (ageMs: number): number => {
+      if (sortedLevels.length === 0) return 1;
 
-    return () => {
-      // Cleanup sounds
-      soundsRef.current.forEach((sound) => sound.unload());
-      soundsRef.current.clear();
-      // Cleanup timers
-      timersRef.current.forEach((timer) => clearTimeout(timer));
-      timersRef.current.clear();
-    };
-  }, []);
+      let cumulativeMs = 0;
+      let level = sortedLevels[0]?.level ?? 1;
 
-  // Handle escalation for unacknowledged alerts
-  useEffect(() => {
-    const unacknowledged = alerts.filter((a) => !a.acknowledged);
+      for (const cfg of sortedLevels) {
+        if (cfg.level === sortedLevels[0]?.level) {
+          level = cfg.level;
+          continue;
+        }
 
-    unacknowledged.forEach((alert) => {
-      const currentLevel = escalationLevels.get(alert.id) || 1;
-      const alertTime = alert.createdAt || alert.timestamp || new Date().toISOString();
-      const alertAge = Date.now() - new Date(alertTime).getTime();
-
-      // Find current escalation level based on age
-      let newLevel = 1;
-      for (const esc of ESCALATION_LEVELS) {
-        if (alertAge >= esc.delay) {
-          newLevel = esc.level;
+        cumulativeMs += Math.max(0, cfg.delaySeconds) * 1000;
+        if (ageMs >= cumulativeMs) {
+          level = cfg.level;
         }
       }
 
-      // Update level if changed
-      if (newLevel !== currentLevel) {
-        setEscalationLevels((prev) => new Map(prev).set(alert.id, newLevel));
+      return level;
+    };
 
-        // Play sound if not muted
-        if (!muted) {
-          const escConfig = ESCALATION_LEVELS.find((e) => e.level === newLevel);
-          if (escConfig) {
-            const sound = soundsRef.current.get(escConfig.sound);
-            if (sound) {
-              sound.volume(escConfig.volume);
-              sound.play();
-            }
+    const cfgByLevel = new Map(sortedLevels.map((l) => [l.level, l]));
+
+    const playLevel = (level: number) => {
+      const cfg = cfgByLevel.get(level);
+      if (!cfg) return;
+
+      const soundType = cfg.soundType as SoundType;
+      const isEmergencyLevel = level >= maxLevel;
+      const allowSound = isEmergencyLevel || (!muted && effectiveVolume > 0);
+      if (!allowSound) return;
+
+      const volume = isEmergencyLevel
+        ? 100
+        : Math.max(0, Math.min(100, effectiveVolume * cfg.volumeMultiplier));
+
+      const id = getSoundManager().play(soundType, {
+        loop: isEmergencyLevel,
+        forceMaxVolume: isEmergencyLevel && soundType === 'emergency',
+        volume,
+      });
+
+      if (isEmergencyLevel && !emergencyLoopSoundIdRef.current) {
+        emergencyLoopSoundIdRef.current = id;
+      }
+    };
+
+    const tick = () => {
+      const now = Date.now();
+      const unacknowledged = alerts.filter((a) => !a.acknowledged);
+
+      const nextLevels = new Map<string, number>();
+
+      for (const alert of unacknowledged) {
+        const alertTime = alert.createdAt || alert.timestamp || new Date().toISOString();
+        const ageMs = Math.max(0, now - new Date(alertTime).getTime());
+        const targetLevel = getLevelForAgeMs(ageMs);
+        const prevLevel = escalationLevelsRef.current.get(alert.id) ?? 0;
+        const nextLevel = Math.max(prevLevel, targetLevel);
+
+        nextLevels.set(alert.id, nextLevel);
+
+        if (nextLevel > prevLevel) {
+          playLevel(nextLevel);
+        }
+      }
+
+      const prevLevels = escalationLevelsRef.current;
+      let changed = prevLevels.size !== nextLevels.size;
+
+      if (!changed) {
+        for (const [id, level] of nextLevels) {
+          if ((prevLevels.get(id) ?? 0) !== level) {
+            changed = true;
+            break;
           }
         }
       }
 
-      // Set timer for next escalation
-      const nextLevel = ESCALATION_LEVELS.find((e) => e.level === newLevel + 1);
-      if (nextLevel) {
-        const timeToNext = nextLevel.delay - alertAge;
-        if (timeToNext > 0) {
-          const existingTimer = timersRef.current.get(alert.id);
-          if (existingTimer) clearTimeout(existingTimer);
-
-          const timer = setTimeout(() => {
-            setEscalationLevels((prev) =>
-              new Map(prev).set(alert.id, nextLevel.level)
-            );
-          }, timeToNext);
-
-          timersRef.current.set(alert.id, timer);
-        }
+      if (changed) {
+        escalationLevelsRef.current = nextLevels;
+        setEscalationLevels(nextLevels);
       }
-    });
-  }, [alerts, escalationLevels, muted]);
+
+      const hasEmergency = Array.from(nextLevels.values()).some((level) => level >= maxLevel);
+      if (hasEmergency) {
+        if (!emergencyLoopSoundIdRef.current) {
+          const cfg = cfgByLevel.get(maxLevel);
+          const soundType = (cfg?.soundType as SoundType) || 'emergency';
+          const volume = 100;
+          emergencyLoopSoundIdRef.current = getSoundManager().play(soundType, {
+            loop: true,
+            forceMaxVolume: soundType === 'emergency',
+            volume,
+          });
+        }
+      } else if (emergencyLoopSoundIdRef.current) {
+        getSoundManager().stop(emergencyLoopSoundIdRef.current);
+        emergencyLoopSoundIdRef.current = null;
+      }
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 500);
+    return () => {
+      window.clearInterval(interval);
+      if (emergencyLoopSoundIdRef.current) {
+        getSoundManager().stop(emergencyLoopSoundIdRef.current);
+        emergencyLoopSoundIdRef.current = null;
+      }
+    };
+  }, [alerts, escalationConfig, effectiveVolume, muted]);
 
   // Handle acknowledge
   const handleAcknowledge = useCallback(
     async (alertId: string) => {
       try {
-        // Clear escalation timer
-        const timer = timersRef.current.get(alertId);
-        if (timer) clearTimeout(timer);
-        timersRef.current.delete(alertId);
+        // Remove from escalation tracking; the escalation tick will stop any looping
+        // emergency audio once no emergency-level alerts remain.
+        escalationLevelsRef.current.delete(alertId);
         setEscalationLevels((prev) => {
           const next = new Map(prev);
           next.delete(alertId);
@@ -192,11 +223,9 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
 
   // Toggle mute
   const toggleMute = () => {
+    if (globalMute) return;
     setMuted(!muted);
-    // Stop all playing sounds when muting
-    if (!muted) {
-      soundsRef.current.forEach((sound) => sound.stop());
-    }
+    // Non-emergency sounds are one-shot; emergency is stopped via acknowledge.
   };
 
   const unacknowledgedAlerts = alerts.filter((a) => !a.acknowledged);
@@ -237,15 +266,16 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
         </h3>
         <button
           onClick={toggleMute}
-          aria-label={muted ? 'Unmute alerts' : 'Mute alerts'}
-          aria-pressed={muted}
+          disabled={globalMute}
+          aria-label={effectiveMuted ? 'Unmute alerts' : 'Mute alerts'}
+          aria-pressed={effectiveMuted}
           className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${
-            muted
+            effectiveMuted
               ? 'bg-red-500/20 text-red-400'
               : 'bg-slate-700/50 text-slate-400 hover:text-white'
-          }`}
+          } ${globalMute ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
-          <span aria-hidden="true" className="text-lg">{muted ? '🔇' : '🔊'}</span>
+          <span aria-hidden="true" className="text-lg">{effectiveMuted ? '🔇' : '🔊'}</span>
         </button>
       </div>
 

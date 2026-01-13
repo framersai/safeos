@@ -9,10 +9,12 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BackendStatusProvider } from '@/contexts/BackendStatusContext';
 import { StatusBanner } from '@/components/StatusBanner';
 import { ToastProvider } from '@/components/Toast';
+import { useSettingsStore } from '@/stores/settings-store';
+import { getSoundManager } from '@/lib/sound-manager';
 
 // =============================================================================
 // Types
@@ -28,6 +30,30 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   const [showBackendSettings, setShowBackendSettings] = useState(false);
+
+  // Keep SoundManager synced with user settings globally (quiet hours + emergency/mute).
+  useEffect(() => {
+    const manager = getSoundManager();
+
+    const apply = () => {
+      const state = useSettingsStore.getState();
+      manager.setUserVolume(state.getEffectiveVolume());
+      manager.setGlobalMute(state.globalMute);
+      manager.setEmergencyMode(state.emergencyModeActive);
+    };
+
+    apply();
+
+    // React to settings changes immediately, and also re-apply periodically so
+    // quiet-hours transitions take effect without requiring a settings change.
+    const unsubscribe = useSettingsStore.subscribe(apply);
+    const interval = window.setInterval(apply, 30_000);
+
+    return () => {
+      unsubscribe();
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const handleConfigureClick = () => {
     setShowBackendSettings(true);
