@@ -40,26 +40,49 @@ This is a **FREE SUPPLEMENTARY TOOL** designed to assist caregivers, not replace
 
 ## Features
 
-### Offline-First Deep Learning
+### 100% Offline PWA
 
-All core detection runs **entirely offline** using client-side deep learning:
+The Guardian UI is a **standalone Progressive Web App** that works entirely offline:
 
-- **Visual Fingerprinting**: Color histogram analysis, dominant color extraction, and edge detection run directly in the browser using Canvas APIs
-- **Motion Detection**: Pixel-diff analysis with configurable sensitivity
-- **Audio Analysis**: Cry detection and distress sound recognition
-- **Lost & Found Matching**: Real-time visual matching against reference photos
+- **No server required** — install it, open it, done
+- **Deployable to GitHub Pages** — static files only
+- **Works offline** — all AI runs in your browser
+- **PWA installable** — add to home screen on any device
 
-**No internet connection required for core functionality.**
+The backend server is **completely optional** and only needed for advanced features (SMS/Telegram alerts, multi-device sync, cloud LLM fallback).
 
-### Optional LLM Enhancement (Ollama)
+### Client-Side AI Models
 
-For enhanced scene understanding, you can optionally enable Ollama integration:
+All core detection runs **in-browser** using these models:
 
-- **Moondream**: Fast triage model (~500ms response)
-- **LLaVA 7B**: Detailed analysis when concerns detected
-- **Cloud Fallback**: OpenRouter, OpenAI, Anthropic for complex cases
+| Model | Framework | Size | Purpose |
+|-------|-----------|------|---------|
+| **COCO-SSD + MobileNetV2** | TensorFlow.js | ~5MB | Real-time person/animal detection |
+| **Xenova/vit-base-patch16-224** | Transformers.js | ~89MB | Scene classification fallback |
 
-This is **entirely optional** - the app works fully offline without it.
+**No internet. No server. No data leaves your device.**
+
+### Optional: Local LLM Enhancement (Ollama)
+
+For smarter scene understanding, optionally run Ollama locally:
+
+| Model | Size | Speed | Purpose |
+|-------|------|-------|---------|
+| **moondream** | ~1.7GB | ~500ms | Fast triage |
+| **llava:7b** | ~4GB | ~2-5s | Detailed analysis |
+| **llama3.2-vision:11b** | ~7GB | ~5-10s | Complex reasoning |
+
+### Optional: Cloud LLM Fallback
+
+If local models are uncertain, fallback to cloud (requires API keys):
+
+- **gemini-flash-1.5** (OpenRouter) — fast, cheap
+- **gpt-4o-mini** (OpenAI) — reliable
+- **claude-3-haiku** (Anthropic) — last resort
+
+### Tech Stack (One Line)
+
+**TensorFlow.js (COCO-SSD/MobileNetV2), Transformers.js (ViT), Ollama (moondream/llava), WebRTC, cloud fallback (Gemini/GPT-4o/Claude)**
 
 ### Lost & Found Detection
 
@@ -95,127 +118,113 @@ All processing happens client-side - your photos and fingerprints never leave yo
 ### Smart Alerting
 
 - **Volume-Ramping Escalation**: Starts quiet, gets louder
-- **Multi-Channel Notifications**: Browser Push, SMS, Telegram
+- **Multi-Channel**: Browser Push (PWA), SMS/Telegram (requires server)
 - **Acknowledge to Silence**: One tap to confirm you're aware
-
-### Client-Side Intelligence
-
-- **Motion Detection**: Pixel-diff analysis in browser
-- **Audio Analysis**: Cry detection, distress sounds
-- **Bandwidth Efficient**: Only sends frames when motion detected
 
 ---
 
 ## Quick Start
 
-### Prerequisites
+### Option A: PWA Only (Recommended)
 
-1. **Node.js 20+** and **pnpm**
-
-2. **Optional - Ollama** (for LLM-enhanced analysis):
-   ```bash
-   # macOS
-   brew install ollama
-
-   # Start Ollama
-   ollama serve
-
-   # Pull models
-   ollama pull moondream    # Fast triage (~1.7GB)
-   ollama pull llava:7b     # Detailed analysis (~4GB)
-   ```
-
-   Note: Ollama is optional. Core detection features work fully offline without it.
-
-### Installation
+No server needed. Just the UI.
 
 ```bash
-# From monorepo root
+cd packages/safeos/apps/guardian-ui
 pnpm install
+pnpm dev
+```
 
-# Navigate to SafeOS
+Open [http://localhost:3000](http://localhost:3000). That's it.
+
+**To deploy as static site:**
+```bash
+pnpm build
+# Deploy 'out' folder to GitHub Pages, Vercel, Netlify, etc.
+```
+
+### Option B: Full Stack (Advanced)
+
+Only if you need SMS/Telegram alerts or Ollama LLM:
+
+```bash
 cd packages/safeos
 
-# Install dependencies
+# Install everything
 pnpm install
+
+# Start API + UI together
+pnpm dev
+
+# Or separately:
+pnpm run api  # Port 3001
+pnpm run ui   # Port 3000
 ```
 
-### Running
+### Optional: Ollama (Local LLM)
+
+For smarter scene analysis (not required):
 
 ```bash
-# Start API server (port 3001)
-pnpm run api
+# macOS
+brew install ollama
+ollama serve
 
-# In another terminal, start UI (port 3000)
-pnpm run ui
-
-# Or run both
-pnpm run dev
+# Pull models
+ollama pull moondream    # Fast triage (~1.7GB)
+ollama pull llava:7b     # Detailed analysis (~4GB)
 ```
-
-Open [http://localhost:3000](http://localhost:3000) to access the Guardian UI.
 
 ---
 
 ## Architecture
 
+### Mode 1: Standalone PWA (No Server)
+
 ```
-+-------------------------------------------------------------+
-|                    Guardian UI (Next.js)                     |
-|  +-------------+ +-------------+ +-------------------------+ |
-|  | CameraFeed  | | AudioMonitor| |     AlertPanel          | |
-|  | (WebRTC)    | | (Web Audio) | | (Escalation Manager)    | |
-|  +------+------+ +------+------+ +------------+------------+ |
-|         |               |                      |             |
-|    +----v---------------v----------------------v----+        |
-|    |              WebSocket Client                  |        |
-|    +------------------------+-----------------------+        |
-+-----------------------------|---------------------------------+
-                              | WS (frames + alerts)
-+-----------------------------v---------------------------------+
-|                    SafeOS API (Express)                       |
-|  +-----------------------------------------------------------+|
-|  |                  WebSocket Server                          ||
-|  |  - Frame ingestion    - Alert broadcast                    ||
-|  |  - WebRTC signaling   - Stream management                  ||
-|  +----------------------------+------------------------------+|
-|                               |                               |
-|  +----------------------------v------------------------------+|
-|  |                   Analysis Queue                           ||
-|  |  - Priority-based processing                               ||
-|  |  - Concurrency limits (3 concurrent)                       ||
-|  |  - Retry with backoff                                      ||
-|  +----------------------------+------------------------------+|
-|                               |                               |
-|  +----------------------------v------------------------------+|
-|  |                   Frame Analyzer                           ||
-|  |  1. Local fingerprint matching (always)                    ||
-|  |  2. Ollama triage (if enabled)                             ||
-|  |  3. Cloud fallback (if configured)                         ||
-|  +----------------------------+------------------------------+|
-|                               |                               |
-|  +----------------------------v------------------------------+|
-|  |              Content Filter (4-Tier)                       ||
-|  |  1. Local AI screening                                     ||
-|  |  2. Pattern matching                                       ||
-|  |  3. Cloud AI verification                                  ||
-|  |  4. Human review (anonymized)                              ||
-|  +----------------------------+------------------------------+|
-|                               |                               |
-|  +----------------------------v------------------------------+|
-|  |              Notification Manager                          ||
-|  |  - Browser Push     - Twilio SMS     - Telegram Bot        ||
-|  +-----------------------------------------------------------+|
-+---------------------------------------------------------------+
-                              |
-+-----------------------------v---------------------------------+
-|                    Ollama (Optional)                          |
-|  +-----------------+  +-------------------------------------+ |
-|  |   Moondream     |  |           LLaVA 7B                  | |
-|  |   (Triage)      |  |     (Detailed Analysis)             | |
-|  |   ~500ms        |  |         ~2-5s                       | |
-|  +-----------------+  +-------------------------------------+ |
-+---------------------------------------------------------------+
++------------------------------------------------------------------+
+|                    Guardian UI (Static PWA)                       |
+|                                                                   |
+|  +------------------+  +------------------+  +------------------+ |
+|  |   Camera Feed    |  |  Audio Monitor   |  |   Alert Panel    | |
+|  |  (MediaStream)   |  |   (Web Audio)    |  |  (Local Notif)   | |
+|  +--------+---------+  +--------+---------+  +------------------+ |
+|           |                     |                                 |
+|  +--------v---------------------v--------------------------------+|
+|  |                    Browser AI Engine                          ||
+|  |  +------------------+  +------------------------------------+ ||
+|  |  | TensorFlow.js    |  | Transformers.js                    | ||
+|  |  | COCO-SSD         |  | ViT (fallback)                     | ||
+|  |  | (detection)      |  | (classification)                   | ||
+|  |  +------------------+  +------------------------------------+ ||
+|  +---------------------------------------------------------------+|
+|                                                                   |
+|  +---------------------------------------------------------------+|
+|  |                    IndexedDB Storage                          ||
+|  |  - Settings        - Alert history       - Fingerprints       ||
+|  +---------------------------------------------------------------+|
++------------------------------------------------------------------+
+
+Deploy to: GitHub Pages, Vercel, Netlify, any static host
+Works: 100% offline after first load
+```
+
+### Mode 2: Full Stack (Optional Server)
+
+Add the server only if you need SMS/Telegram alerts, multi-device sync, or Ollama LLM:
+
+```
++------------------+          +------------------+          +------------------+
+|   Guardian UI    |  <--->   |   SafeOS API     |  <--->   |     Ollama       |
+|   (PWA)          |    WS    |   (Express)      |          |   (Optional)     |
++------------------+          +------------------+          +------------------+
+                                      |
+                    +-----------------+-----------------+
+                    |                 |                 |
+              +-----v-----+     +-----v-----+     +-----v-----+
+              |  Twilio   |     | Telegram  |     |  Cloud    |
+              |   SMS     |     |    Bot    |     | Fallback  |
+              +-----------+     +-----------+     +-----------+
 ```
 
 ---
@@ -363,40 +372,34 @@ pnpm test:watch
 
 ## Deployment
 
-### Local Development (Mac)
+### Static PWA (Recommended)
 
-```bash
-# Optional: Start Ollama for LLM features
-ollama serve
-
-# Start SafeOS
-pnpm run dev
-```
-
-### GitHub Pages (Frontend Only)
-
-The Guardian UI can be deployed statically:
+Deploy to any static host — no server needed:
 
 ```bash
 cd apps/guardian-ui
 pnpm build
-# Deploy 'out' folder to GitHub Pages
 ```
 
-Configure `NEXT_PUBLIC_API_URL` to point to your backend.
+Deploy the `out` folder to:
+- **GitHub Pages** — free, automatic HTTPS
+- **Vercel** — zero config
+- **Netlify** — drag and drop
+- **Any CDN** — it's just static files
 
-### Linode/Cloud (Full Stack)
+### Full Stack (Docker)
+
+Only if you need the server for SMS/Telegram/Ollama:
 
 ```bash
-# Build
-pnpm build
-
-# Start with PM2
-pm2 start dist/index.js --name safeos-api
-
-# Or use Docker
 docker build -t safeos .
 docker run -p 3001:3001 safeos
+```
+
+Or with PM2:
+```bash
+pnpm build
+pm2 start dist/index.js --name safeos-api
 ```
 
 ---
