@@ -1807,3 +1807,5 @@ export function IconSkipForward({ size = 24, className = '', strokeWidth = 1.5 }
   );
 }
 
+// Aliases for backward compatibility
+export const IconVolumeOff = IconVolumeX;
