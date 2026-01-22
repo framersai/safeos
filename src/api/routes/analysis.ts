@@ -36,30 +36,29 @@ analysisRoutes.use(requireAuth);
 analysisRoutes.get('/', validate(ListAnalysisQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
-    const { streamId, concernLevel, limit, offset } = req.query as {
-      streamId?: string;
-      concernLevel?: string;
-      limit: number;
-      offset: number;
-    };
+    const queryParams = req.query as Record<string, string | undefined>;
+    const streamId = queryParams.streamId;
+    const concernLevel = queryParams.concernLevel;
+    const limit = parseInt(queryParams.limit || '50', 10);
+    const offset = parseInt(queryParams.offset || '0', 10);
 
-    let query = 'SELECT * FROM analysis_results WHERE 1=1';
+    let sqlQuery = 'SELECT * FROM analysis_results WHERE 1=1';
     const params: any[] = [];
 
     if (streamId) {
-      query += ' AND stream_id = ?';
+      sqlQuery += ' AND stream_id = ?';
       params.push(streamId);
     }
 
     if (concernLevel) {
-      query += ' AND concern_level = ?';
+      sqlQuery += ' AND concern_level = ?';
       params.push(concernLevel);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    sqlQuery += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const results = await db.all(query, params);
+    const results = await db.all(sqlQuery, params);
 
     // Parse detected_issues JSON
     const parsed = results.map((r: any) => ({
