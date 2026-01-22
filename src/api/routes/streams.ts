@@ -11,6 +11,7 @@ import { getSafeOSDatabase, generateId, now } from '../../db';
 import { requireAuth, getProfileId } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { CreateStreamSchema, UpdateStreamSchema } from '../schemas/index.js';
+import { notFound, internalError } from '../utils/errors.js';
 
 // =============================================================================
 // Router
@@ -26,41 +27,85 @@ streamRoutes.use(requireAuth);
 // =============================================================================
 
 /**
- * GET /api/streams - List all streams
+ * GET /api/streams - List all streams for the authenticated user
+ *
+ * Supports pagination via `limit` and `offset` query params.
+ * Returns streams with alert counts using a single JOIN query.
  */
 streamRoutes.get('/', async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
+    const profileId = getProfileId(req);
     const status = req.query.status as string | undefined;
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
 
-    let query = 'SELECT * FROM streams ORDER BY created_at DESC';
-    const params: any[] = [];
+    // Build query with LEFT JOIN to get alert counts in single query (avoids N+1)
+    let baseQuery = `
+      SELECT
+        s.*,
+        COALESCE(a.alert_count, 0) as alertCount,
+        COALESCE(a.unack_count, 0) as unacknowledgedAlerts
+      FROM streams s
+      LEFT JOIN (
+        SELECT
+          stream_id,
+          COUNT(*) as alert_count,
+          SUM(CASE WHEN acknowledged = 0 THEN 1 ELSE 0 END) as unack_count
+        FROM alerts
+        GROUP BY stream_id
+      ) a ON s.id = a.stream_id
+      WHERE s.user_id = ?
+    `;
+    const params: any[] = [profileId];
 
     if (status) {
-      query = 'SELECT * FROM streams WHERE status = ? ORDER BY created_at DESC';
+      baseQuery += ' AND s.status = ?';
       params.push(status);
     }
 
-    const streams = await db.all(query, params);
-    res.json({ streams });
+    // Get total count for pagination
+    const countQuery = `SELECT COUNT(*) as total FROM streams WHERE user_id = ?${status ? ' AND status = ?' : ''}`;
+    const countResult = await db.get<{ total: number }>(countQuery, status ? [profileId, status] : [profileId]);
+    const total = countResult?.total || 0;
+
+    // Add ordering and pagination
+    baseQuery += ' ORDER BY s.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const streams = await db.all(baseQuery, params);
+
+    res.json({
+      streams,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + streams.length < total,
+      },
+    });
   } catch (error) {
     console.error('Failed to list streams:', error);
-    res.status(500).json({ error: 'Failed to list streams' });
+    internalError(res, 'Failed to list streams');
   }
 });
 
 /**
- * GET /api/streams/:id - Get stream by ID
+ * GET /api/streams/:id - Get stream by ID (with ownership verification)
  */
 streamRoutes.get('/:id', async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
+    const profileId = getProfileId(req);
     const { id } = req.params;
 
-    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+    const stream = await db.get(
+      'SELECT * FROM streams WHERE id = ? AND user_id = ?',
+      [id, profileId]
+    );
 
     if (!stream) {
-      return res.status(404).json({ error: 'Stream not found' });
+      return notFound(res, 'Stream');
     }
 
     // Get alert count
@@ -77,7 +122,7 @@ streamRoutes.get('/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Failed to get stream:', error);
-    res.status(500).json({ error: 'Failed to get stream' });
+    internalError(res, 'Failed to get stream');
   }
 });
 
@@ -104,22 +149,26 @@ streamRoutes.post('/', validate(CreateStreamSchema), async (req: Request, res: R
     res.status(201).json({ stream });
   } catch (error) {
     console.error('Failed to create stream:', error);
-    res.status(500).json({ error: 'Failed to create stream' });
+    internalError(res, 'Failed to create stream');
   }
 });
 
 /**
- * PATCH /api/streams/:id - Update stream
+ * PATCH /api/streams/:id - Update stream (with ownership verification)
  */
 streamRoutes.patch('/:id', validate(UpdateStreamSchema), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
+    const profileId = getProfileId(req);
     const { id } = req.params;
     const { status } = req.body;
 
-    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+    const stream = await db.get(
+      'SELECT * FROM streams WHERE id = ? AND user_id = ?',
+      [id, profileId]
+    );
     if (!stream) {
-      return res.status(404).json({ error: 'Stream not found' });
+      return notFound(res, 'Stream');
     }
 
     if (status) {
@@ -129,52 +178,69 @@ streamRoutes.patch('/:id', validate(UpdateStreamSchema), async (req: Request, re
       }
 
       await db.run(
-        `UPDATE streams SET status = ?, ended_at = ? WHERE id = ?`,
-        [status, updates.ended_at || null, id]
+        `UPDATE streams SET status = ?, ended_at = ? WHERE id = ? AND user_id = ?`,
+        [status, updates.ended_at || null, id, profileId]
       );
     }
 
-    const updated = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+    const updated = await db.get(
+      'SELECT * FROM streams WHERE id = ? AND user_id = ?',
+      [id, profileId]
+    );
     res.json({ stream: updated });
   } catch (error) {
     console.error('Failed to update stream:', error);
-    res.status(500).json({ error: 'Failed to update stream' });
+    internalError(res, 'Failed to update stream');
   }
 });
 
 /**
- * DELETE /api/streams/:id - End/delete stream
+ * DELETE /api/streams/:id - End/delete stream (with ownership verification)
  */
 streamRoutes.delete('/:id', async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
+    const profileId = getProfileId(req);
     const { id } = req.params;
 
-    const stream = await db.get('SELECT * FROM streams WHERE id = ?', [id]);
+    const stream = await db.get(
+      'SELECT * FROM streams WHERE id = ? AND user_id = ?',
+      [id, profileId]
+    );
     if (!stream) {
-      return res.status(404).json({ error: 'Stream not found' });
+      return notFound(res, 'Stream');
     }
 
     // Mark as ended instead of deleting
     await db.run(
-      `UPDATE streams SET status = 'ended', ended_at = ? WHERE id = ?`,
-      [now(), id]
+      `UPDATE streams SET status = 'ended', ended_at = ? WHERE id = ? AND user_id = ?`,
+      [now(), id, profileId]
     );
 
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to delete stream:', error);
-    res.status(500).json({ error: 'Failed to delete stream' });
+    internalError(res, 'Failed to delete stream');
   }
 });
 
 /**
- * GET /api/streams/:id/stats - Get stream statistics
+ * GET /api/streams/:id/stats - Get stream statistics (with ownership verification)
  */
 streamRoutes.get('/:id/stats', async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
+    const profileId = getProfileId(req);
     const { id } = req.params;
+
+    // Verify ownership first
+    const stream = await db.get(
+      'SELECT id FROM streams WHERE id = ? AND user_id = ?',
+      [id, profileId]
+    );
+    if (!stream) {
+      return notFound(res, 'Stream');
+    }
 
     // Get alert counts by severity
     const alerts = await db.all<{ severity: string; count: number }>(
@@ -205,7 +271,7 @@ streamRoutes.get('/:id/stats', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Failed to get stream stats:', error);
-    res.status(500).json({ error: 'Failed to get stream stats' });
+    internalError(res, 'Failed to get stream stats');
   }
 });
 

@@ -34,24 +34,46 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Sat', fullLabel: 'Saturday' },
 ];
 
-const QUIET_MODES = [
+const QUIET_MODES: Array<{
+  value: 'silent' | 'reduced' | 'emergency_only';
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}> = [
   {
-    value: 'silent' as const,
+    value: 'silent',
     label: 'Silent',
     description: 'All alerts muted completely',
-    icon: '🔇',
+    icon: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+        <line x1="22" y1="9" x2="16" y2="15" />
+        <line x1="16" y1="9" x2="22" y2="15" />
+      </svg>
+    ),
   },
   {
-    value: 'reduced' as const,
+    value: 'reduced',
     label: 'Reduced Volume',
     description: 'Alerts at lower volume',
-    icon: '🔉',
+    icon: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      </svg>
+    ),
   },
   {
-    value: 'emergency_only' as const,
+    value: 'emergency_only',
     label: 'Emergency Only',
     description: 'Only critical alerts sound',
-    icon: '🚨',
+    icon: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86L7.86 2z" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+    ),
   },
 ];
 

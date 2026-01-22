@@ -9,6 +9,13 @@
 import { Router, Request, Response } from 'express';
 import { getSafeOSDatabase } from '../../db';
 import { requireAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import {
+  ListAnalysisQuerySchema,
+  AnalysisStatsQuerySchema,
+  IdParamsSchema,
+} from '../schemas/index.js';
+import { notFound, internalError } from '../utils/errors.js';
 
 // =============================================================================
 // Router
@@ -26,10 +33,15 @@ analysisRoutes.use(requireAuth);
 /**
  * GET /api/analysis - List analysis results
  */
-analysisRoutes.get('/', async (req: Request, res: Response) => {
+analysisRoutes.get('/', validate(ListAnalysisQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
-    const { streamId, concernLevel, limit = 50, offset = 0 } = req.query;
+    const { streamId, concernLevel, limit, offset } = req.query as {
+      streamId?: string;
+      concernLevel?: string;
+      limit: number;
+      offset: number;
+    };
 
     let query = 'SELECT * FROM analysis_results WHERE 1=1';
     const params: any[] = [];
@@ -45,7 +57,7 @@ analysisRoutes.get('/', async (req: Request, res: Response) => {
     }
 
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(Number(limit), Number(offset));
+    params.push(limit, offset);
 
     const results = await db.all(query, params);
 
@@ -58,22 +70,22 @@ analysisRoutes.get('/', async (req: Request, res: Response) => {
     res.json({ results: parsed });
   } catch (error) {
     console.error('Failed to list analysis results:', error);
-    res.status(500).json({ error: 'Failed to list analysis results' });
+    internalError(res, 'Failed to list analysis results');
   }
 });
 
 /**
  * GET /api/analysis/:id - Get analysis by ID
  */
-analysisRoutes.get('/:id', async (req: Request, res: Response) => {
+analysisRoutes.get('/:id', validate(IdParamsSchema, 'params'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
 
     const result = await db.get('SELECT * FROM analysis_results WHERE id = ?', [id]);
 
     if (!result) {
-      return res.status(404).json({ error: 'Analysis result not found' });
+      return notFound(res, 'Analysis result');
     }
 
     res.json({
@@ -86,17 +98,17 @@ analysisRoutes.get('/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Failed to get analysis result:', error);
-    res.status(500).json({ error: 'Failed to get analysis result' });
+    internalError(res, 'Failed to get analysis result');
   }
 });
 
 /**
  * GET /api/analysis/stats - Get analysis statistics
  */
-analysisRoutes.get('/stats/summary', async (req: Request, res: Response) => {
+analysisRoutes.get('/stats/summary', validate(AnalysisStatsQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
-    const { streamId, since } = req.query;
+    const { streamId, since } = req.query as { streamId?: string; since?: string };
 
     let whereClause = '1=1';
     const params: any[] = [];
@@ -151,7 +163,7 @@ analysisRoutes.get('/stats/summary', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Failed to get analysis stats:', error);
-    res.status(500).json({ error: 'Failed to get analysis stats' });
+    internalError(res, 'Failed to get analysis stats');
   }
 });
 

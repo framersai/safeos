@@ -460,32 +460,95 @@ Action a content flag.
 
 ## WebSocket API
 
-Connect to `ws://localhost:3001` for real-time updates.
+Connect to `ws://localhost:3001` for real-time frame submission and alerts.
 
-### Events
+### Connection
 
-#### Subscribe to channels
+Include your session token as a query parameter:
+
+```
+ws://localhost:3001?token=your-session-token
+```
+
+### Client → Server Messages
+
+#### Submit Frame for Analysis
 ```json
 {
-  "type": "subscribe",
-  "channel": "alerts" | "stats" | "stream:{streamId}"
+  "type": "frame",
+  "streamId": "stream-uuid",
+  "frameData": "base64-encoded-jpeg",
+  "motionScore": 15,
+  "audioLevel": 8,
+  "timestamp": "2024-12-21T00:00:00.000Z"
 }
 ```
 
-#### Receive alert
+**Rate Limit:** 30 frames per minute per client. Excess frames receive `rate_limited` response.
+
+#### Acknowledge Alert
+```json
+{
+  "type": "acknowledge",
+  "alertId": "alert-uuid"
+}
+```
+
+#### Heartbeat Response
+```json
+{
+  "type": "pong"
+}
+```
+
+### Server → Client Messages
+
+#### Alert Notification
 ```json
 {
   "type": "alert",
-  "payload": {
+  "alert": {
     "id": "alert-uuid",
+    "streamId": "stream-uuid",
+    "alertType": "motion_detected",
     "severity": "high",
-    "message": "Motion detected",
-    "streamId": "stream-uuid"
+    "message": "Unusual motion detected in monitored area",
+    "createdAt": "2024-12-21T00:00:00.000Z"
   }
 }
 ```
 
-#### Receive stats update
+#### Analysis Result
+```json
+{
+  "type": "analysis",
+  "result": {
+    "concernLevel": "medium",
+    "description": "Pet appears to be scratching at the door",
+    "detectedIssues": ["door_scratching", "vocalization"]
+  }
+}
+```
+
+#### Heartbeat Ping
+```json
+{
+  "type": "ping"
+}
+```
+
+Clients must respond with `pong` within 30 seconds. After 3 missed heartbeats, the connection is terminated.
+
+#### Rate Limit Warning
+```json
+{
+  "type": "rate_limited",
+  "message": "Frame submission rate exceeded",
+  "retryAfter": 2000
+}
+```
+
+#### Stats Update
 ```json
 {
   "type": "stats",
@@ -494,6 +557,17 @@ Connect to `ws://localhost:3001` for real-time updates.
     "analysisQueueSize": 5,
     "ollamaStatus": "online"
   }
+}
+```
+
+### Channel Subscriptions
+
+Subscribe to specific event channels:
+
+```json
+{
+  "type": "subscribe",
+  "channel": "alerts" | "stats" | "stream:{streamId}"
 }
 ```
 

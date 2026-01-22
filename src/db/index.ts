@@ -238,6 +238,30 @@ export async function runMigrations(db: Database): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_sessions_device_id ON sessions(device_id)
   `);
 
+  // =============================================================================
+  // Performance Indexes (Phase 3.2)
+  // =============================================================================
+
+  // Index for stream_id lookups in alerts (used in JOIN queries)
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_alerts_stream_id ON alerts(stream_id)
+  `);
+
+  // Index for date-based alert queries
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at)
+  `);
+
+  // Index for user_id lookups in streams (multi-tenancy queries)
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_streams_user_id ON streams(user_id)
+  `);
+
+  // Index for analysis queue processing
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_analysis_queue_status ON analysis_queue(status, priority)
+  `);
+
   // Create push_subscriptions table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS push_subscriptions (

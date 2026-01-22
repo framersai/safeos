@@ -22,13 +22,73 @@ interface InlineSettingsPanelProps {
   defaultExpanded?: string[];
 }
 
-const PRESET_BUTTONS: { id: PresetId; label: string; icon: string; color: string }[] = [
-  { id: 'infant_sleep', label: 'Infant', icon: '👶', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50' },
-  { id: 'pet_sleep', label: 'Pet', icon: '🐕', color: 'bg-amber-500/20 text-amber-400 border-amber-500/50' },
-  { id: 'silent', label: 'Silent', icon: '🔇', color: 'bg-slate-500/20 text-slate-400 border-slate-500/50' },
-  { id: 'night', label: 'Night', icon: '🌙', color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50' },
-  { id: 'maximum', label: 'Max', icon: '⚡', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' },
-  { id: 'ultimate', label: 'Ultimate', icon: '🔴', color: 'bg-red-500/20 text-red-400 border-red-500/50' },
+const PRESET_BUTTONS: { id: PresetId; label: string; icon: React.ReactNode; color: string }[] = [
+  {
+    id: 'infant_sleep',
+    label: 'Infant',
+    icon: (
+      <svg className="w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M20 21a8 8 0 1 0-16 0" />
+      </svg>
+    ),
+    color: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+  },
+  {
+    id: 'pet_sleep',
+    label: 'Pet',
+    icon: (
+      <svg className="w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="11" cy="4" r="2" />
+        <circle cx="18" cy="8" r="2" />
+        <circle cx="20" cy="16" r="2" />
+        <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
+      </svg>
+    ),
+    color: 'bg-amber-500/20 text-amber-400 border-amber-500/50',
+  },
+  {
+    id: 'silent',
+    label: 'Silent',
+    icon: (
+      <svg className="w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+        <line x1="23" y1="9" x2="17" y2="15" />
+        <line x1="17" y1="9" x2="23" y2="15" />
+      </svg>
+    ),
+    color: 'bg-slate-500/20 text-slate-400 border-slate-500/50',
+  },
+  {
+    id: 'night',
+    label: 'Night',
+    icon: (
+      <svg className="w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    ),
+    color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50',
+  },
+  {
+    id: 'maximum',
+    label: 'Max',
+    icon: (
+      <svg className="w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    ),
+    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+  },
+  {
+    id: 'ultimate',
+    label: 'Ultimate',
+    icon: (
+      <svg className="w-4 h-4 inline-block" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="12" cy="12" r="6" />
+      </svg>
+    ),
+    color: 'bg-red-500/20 text-red-400 border-red-500/50',
+  },
 ];
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];

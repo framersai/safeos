@@ -769,7 +769,13 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-semibold text-white">Privacy & Data</h2>
 
                 <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                  <h3 className="text-white font-medium mb-2">🔒 Your Privacy Matters</h3>
+                  <h3 className="text-white font-medium mb-2 flex items-center gap-2">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    Your Privacy Matters
+                  </h3>
                   <ul className="text-sm text-slate-300 space-y-2">
                     <li>• All video processing happens locally in your browser</li>
                     <li>• Frames are only kept for 5-10 minutes (rolling buffer)</li>

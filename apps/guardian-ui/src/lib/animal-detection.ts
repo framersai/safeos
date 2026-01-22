@@ -462,9 +462,9 @@ export function getDangerLabel(level: DangerLevel): string {
  */
 export function getSizeIcon(size: SizeCategory): string {
   switch (size) {
-    case 'large': return '🦁';
-    case 'medium': return '🦊';
-    default: return '🐿️';
+    case 'large': return 'large';
+    case 'medium': return 'medium';
+    default: return 'small';
   }
 }
 

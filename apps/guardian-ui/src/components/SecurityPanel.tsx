@@ -471,17 +471,27 @@ export function SecurityPanel({ className = '', onTrigger }: SecurityPanelProps)
             <label className="flex items-center justify-between">
               <span className="text-sm text-slate-400">Screen Flash</span>
               <button
-                onClick={() => updateAlertSettings({ 
-                  flashEnabled: !settings.alerts.flashEnabled 
+                onClick={() => updateAlertSettings({
+                  flashEnabled: !settings.alerts.flashEnabled
                 })}
                 disabled={isArmedOrArming}
+                aria-label={settings.alerts.flashEnabled ? 'Disable screen flash' : 'Enable screen flash'}
+                aria-pressed={settings.alerts.flashEnabled}
                 className={`p-2 rounded-lg transition-colors ${
                   settings.alerts.flashEnabled
                     ? 'bg-yellow-500/20 text-yellow-400'
                     : 'bg-slate-700 text-slate-500'
                 }`}
               >
-                {settings.alerts.flashEnabled ? '⚡' : '○'}
+                {settings.alerts.flashEnabled ? (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8" />
+                  </svg>
+                )}
               </button>
             </label>
 

@@ -40,6 +40,12 @@ interface WSClient {
   ws: WebSocket;
   streamId?: string;
   subscriptions: Set<string>;
+  // Rate limiting
+  frameCount: number;
+  frameWindowStart: number;
+  // Heartbeat tracking
+  lastPong: number;
+  missedHeartbeats: number;
 }
 
 interface WSMessage {
@@ -56,6 +62,11 @@ interface WSMessage {
 
 const PORT = parseInt(process.env['SAFEOS_PORT'] || '3001', 10);
 const WS_HEARTBEAT_INTERVAL = 30000;
+
+// Rate limiting constants
+const MAX_FRAMES_PER_MINUTE = 30;
+const FRAME_WINDOW_MS = 60000; // 1 minute
+const MAX_MISSED_HEARTBEATS = 3; // Disconnect after 3 missed heartbeats (90 seconds)
 
 // =============================================================================
 // Server Class
@@ -155,10 +166,17 @@ export class SafeOSServer {
   private setupWebSocket(): void {
     this.wss.on('connection', (ws: WebSocket) => {
       const clientId = generateId();
+      const now = Date.now();
       const client: WSClient = {
         id: clientId,
         ws,
         subscriptions: new Set(),
+        // Initialize rate limiting
+        frameCount: 0,
+        frameWindowStart: now,
+        // Initialize heartbeat tracking
+        lastPong: now,
+        missedHeartbeats: 0,
       };
       this.clients.set(clientId, client);
 
@@ -192,13 +210,35 @@ export class SafeOSServer {
       });
     });
 
-    // Start heartbeat
+    // Start heartbeat with stale client cleanup
     this.heartbeatInterval = setInterval(() => {
+      const staleClients: string[] = [];
+
       this.clients.forEach((client) => {
         if (client.ws.readyState === WebSocket.OPEN) {
-          this.sendToClient(client, { type: 'ping' });
+          // Increment missed heartbeats (will be reset when pong received)
+          client.missedHeartbeats++;
+
+          if (client.missedHeartbeats > MAX_MISSED_HEARTBEATS) {
+            // Client is stale, mark for removal
+            console.log(`Stale client detected, disconnecting: ${client.id}`);
+            staleClients.push(client.id);
+            client.ws.close(1000, 'Heartbeat timeout');
+          } else {
+            this.sendToClient(client, { type: 'ping' });
+          }
+        } else {
+          // Connection not open, mark for cleanup
+          staleClients.push(client.id);
         }
       });
+
+      // Cleanup stale clients
+      staleClients.forEach((id) => this.clients.delete(id));
+
+      if (staleClients.length > 0) {
+        console.log(`Cleaned up ${staleClients.length} stale WebSocket client(s)`);
+      }
     }, WS_HEARTBEAT_INTERVAL);
   }
 
@@ -209,7 +249,9 @@ export class SafeOSServer {
         break;
 
       case 'pong':
-        // Client responded to heartbeat
+        // Client responded to heartbeat - reset tracking
+        client.lastPong = Date.now();
+        client.missedHeartbeats = 0;
         break;
 
       case 'subscribe':
@@ -259,6 +301,29 @@ export class SafeOSServer {
   private async handleFrame(client: WSClient, message: WSMessage): Promise<void> {
     const { streamId, payload } = message;
     if (!streamId || !payload) return;
+
+    // Rate limiting check
+    const currentTime = Date.now();
+    if (currentTime - client.frameWindowStart > FRAME_WINDOW_MS) {
+      // Reset window
+      client.frameCount = 0;
+      client.frameWindowStart = currentTime;
+    }
+
+    client.frameCount++;
+
+    if (client.frameCount > MAX_FRAMES_PER_MINUTE) {
+      // Rate limit exceeded - notify client and drop frame
+      this.sendToClient(client, {
+        type: 'error',
+        payload: {
+          code: 'RATE_LIMITED',
+          message: `Frame rate limit exceeded (max ${MAX_FRAMES_PER_MINUTE}/min). Frame dropped.`,
+        },
+      });
+      console.log(`Rate limit exceeded for client ${client.id}: ${client.frameCount} frames/min`);
+      return;
+    }
 
     const { imageData, motionScore, audioLevel } = payload;
 

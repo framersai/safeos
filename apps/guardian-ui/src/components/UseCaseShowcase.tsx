@@ -249,10 +249,12 @@ function UseCaseCard({ useCase, compact }: UseCaseCardProps) {
             <p className="text-sm text-slate-400 mb-4">{useCase.description}</p>
 
             {/* Features */}
-            <ul className="space-y-1.5 mb-4">
+            <ul className="space-y-1.5 mb-4" aria-label="Features">
               {useCase.features.slice(0, 3).map((feature, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-slate-400">
-                  <span className={useCase.color}>✓</span>
+                  <svg className={`w-3 h-3 flex-shrink-0 mt-0.5 ${useCase.color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
                   <span>{feature}</span>
                 </li>
               ))}

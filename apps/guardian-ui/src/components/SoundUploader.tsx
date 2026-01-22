@@ -50,6 +50,69 @@ interface RecordingState {
 }
 
 // =============================================================================
+// Trigger Icon Helper (converts data emoji to accessible SVG)
+// =============================================================================
+
+const getTriggerIcon = (trigger: SoundTrigger): React.ReactNode => {
+  const icons: Record<SoundTrigger, React.ReactNode> = {
+    person_detected: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+    pet_detected: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <ellipse cx="4.5" cy="9" rx="2.5" ry="3" />
+        <ellipse cx="19.5" cy="9" rx="2.5" ry="3" />
+        <ellipse cx="8" cy="5" rx="2" ry="2.5" />
+        <ellipse cx="16" cy="5" rx="2" ry="2.5" />
+        <path d="M12 14c-3 0-5.5 2.5-5.5 5.5 0 1.5 1.5 2.5 3 2.5h5c1.5 0 3-1 3-2.5 0-3-2.5-5.5-5.5-5.5z" />
+      </svg>
+    ),
+    motion_detected: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </svg>
+    ),
+    video_activity: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <rect x="2" y="4" width="14" height="12" rx="2" />
+        <path d="m22 8-4 3 4 3V8z" />
+      </svg>
+    ),
+    sound_detected: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+      </svg>
+    ),
+    idle_timeout: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
+    emergency: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        <line x1="12" y1="2" x2="12" y2="4" />
+      </svg>
+    ),
+    system_event: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    ),
+  };
+  return icons[trigger] || null;
+};
+
+// =============================================================================
 // Component
 // =============================================================================
 
@@ -345,7 +408,11 @@ export function SoundUploader({
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50 bg-slate-900/50">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-          🔊 Custom Sound
+          <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+          </svg>
+          Custom Sound
         </h3>
         <p className="text-sm text-slate-400 mt-1">
           {step === 'source'
@@ -374,7 +441,10 @@ export function SoundUploader({
                     : 'bg-slate-700/50 text-slate-400 border border-slate-600 hover:bg-slate-700'
                 }`}
               >
-                📁 Upload File
+                <svg className="w-4 h-4 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+                Upload File
               </button>
               <button
                 onClick={() => setMode('record')}
@@ -384,7 +454,13 @@ export function SoundUploader({
                     : 'bg-slate-700/50 text-slate-400 border border-slate-600 hover:bg-slate-700'
                 }`}
               >
-                🎙️ Record
+                <svg className="w-4 h-4 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+                Record
               </button>
             </div>
 
@@ -392,7 +468,12 @@ export function SoundUploader({
               /* File Upload */
               <div className="space-y-3">
                 <div className="text-xs text-slate-500 p-3 bg-slate-900/50 rounded-lg">
-                  <p className="font-medium text-slate-400 mb-1">💡 Tips:</p>
+                  <p className="font-medium text-slate-400 mb-1 flex items-center gap-1">
+                    <svg className="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M9 18h6M10 22h4M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                    Tips:
+                  </p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>Supported formats: MP3, WAV, OGG, WebM, M4A</li>
                     <li>Maximum file size: 10MB</li>
@@ -413,8 +494,11 @@ export function SoundUploader({
                   className="w-full py-8 border-2 border-dashed border-slate-600 rounded-lg
                              text-slate-400 hover:text-white hover:border-blue-500/50
                              transition-colors flex flex-col items-center gap-2"
+                  aria-label="Click to select audio file or drag and drop"
                 >
-                  <span className="text-3xl">📁</span>
+                  <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  </svg>
                   <span>Click to select audio file</span>
                   <span className="text-xs text-slate-500">or drag and drop</span>
                 </button>
@@ -423,7 +507,12 @@ export function SoundUploader({
               /* Microphone Recording */
               <div className="space-y-3">
                 <div className="text-xs text-slate-500 p-3 bg-slate-900/50 rounded-lg">
-                  <p className="font-medium text-slate-400 mb-1">💡 Recording Tips:</p>
+                  <p className="font-medium text-slate-400 mb-1 flex items-center gap-1">
+                    <svg className="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M9 18h6M10 22h4M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                    Recording Tips:
+                  </p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>Record a voice message to call your pet home</li>
                     <li>Create custom verbal alerts for specific situations</li>
@@ -434,16 +523,36 @@ export function SoundUploader({
 
                 <div className="flex flex-col items-center gap-4 py-6">
                   {/* Recording indicator */}
-                  <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors ${
-                    recording.isRecording
-                      ? recording.isPaused
-                        ? 'bg-yellow-500/20 border-2 border-yellow-500/50'
-                        : 'bg-red-500/20 border-2 border-red-500/50 animate-pulse'
-                      : 'bg-slate-700/50 border-2 border-slate-600'
-                  }`}>
-                    <span className="text-3xl">
-                      {recording.isRecording ? (recording.isPaused ? '⏸️' : '🔴') : '🎙️'}
-                    </span>
+                  <div
+                    className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors ${
+                      recording.isRecording
+                        ? recording.isPaused
+                          ? 'bg-yellow-500/20 border-2 border-yellow-500/50'
+                          : 'bg-red-500/20 border-2 border-red-500/50 animate-pulse'
+                        : 'bg-slate-700/50 border-2 border-slate-600'
+                    }`}
+                    role="status"
+                    aria-label={recording.isRecording ? (recording.isPaused ? 'Recording paused' : 'Recording in progress') : 'Ready to record'}
+                  >
+                    {recording.isRecording ? (
+                      recording.isPaused ? (
+                        <svg className="w-8 h-8 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <rect x="6" y="4" width="4" height="16" rx="1" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" />
+                        </svg>
+                      ) : (
+                        <svg className="w-8 h-8 text-red-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <circle cx="12" cy="12" r="8" />
+                        </svg>
+                      )
+                    ) : (
+                      <svg className="w-8 h-8 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    )}
                   </div>
 
                   {/* Duration */}
@@ -458,24 +567,51 @@ export function SoundUploader({
                         onClick={startRecording}
                         className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg
                                    font-medium transition-colors flex items-center gap-2"
+                        aria-label="Start Recording"
                       >
-                        <span>🎙️</span> Start Recording
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                          <line x1="12" y1="19" x2="12" y2="23" />
+                          <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg>
+                        Start Recording
                       </button>
                     ) : (
                       <>
                         <button
                           onClick={recording.isPaused ? resumeRecording : pauseRecording}
                           className="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg
-                                     font-medium transition-colors"
+                                     font-medium transition-colors flex items-center gap-1"
+                          aria-label={recording.isPaused ? 'Resume recording' : 'Pause recording'}
                         >
-                          {recording.isPaused ? '▶️ Resume' : '⏸️ Pause'}
+                          {recording.isPaused ? (
+                            <>
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                              </svg>
+                              Resume
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <rect x="6" y="4" width="4" height="16" rx="1" />
+                                <rect x="14" y="4" width="4" height="16" rx="1" />
+                              </svg>
+                              Pause
+                            </>
+                          )}
                         </button>
                         <button
                           onClick={stopRecording}
                           className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg
-                                     font-medium transition-colors"
+                                     font-medium transition-colors flex items-center gap-1"
+                          aria-label="Stop recording"
                         >
-                          ⏹️ Stop
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <rect x="4" y="4" width="16" height="16" rx="2" />
+                          </svg>
+                          Stop
                         </button>
                       </>
                     )}
@@ -497,8 +633,17 @@ export function SoundUploader({
                     ? 'bg-emerald-500/20 text-emerald-400'
                     : 'bg-slate-700 text-white hover:bg-slate-600'
                 }`}
+                aria-label={isPlaying ? 'Stop preview' : 'Play preview'}
               >
-                {isPlaying ? '⏹️' : '▶️'}
+                {isPlaying ? (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <rect x="4" y="4" width="16" height="16" rx="2" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                )}
               </button>
               <div className="flex-1">
                 <div className="text-sm text-white font-medium">
@@ -651,7 +796,7 @@ export function SoundUploader({
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <span>{info.icon}</span>
+                        <span className="flex-shrink-0">{getTriggerIcon(trigger)}</span>
                         <span className="text-sm font-medium">{info.label}</span>
                       </div>
                       <p className="text-xs text-slate-500 line-clamp-2">{info.description}</p>
@@ -682,7 +827,14 @@ export function SoundUploader({
                            font-medium hover:bg-emerald-600 transition-colors
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? '💾 Saving...' : '💾 Save Sound'}
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                  {isSubmitting ? 'Saving...' : 'Save Sound'}
+                </span>
               </button>
             </div>
           </>

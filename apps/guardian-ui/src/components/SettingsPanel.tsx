@@ -125,7 +125,7 @@ export function SettingsPanel() {
               {/* Default Scenario */}
               <div className="mb-6">
                 <label className="block text-sm text-slate-400 mb-2">Default Monitoring Profile</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {(['pet', 'baby', 'elderly'] as const).map((scenario) => (
                     <button
                       key={scenario}
@@ -139,7 +139,25 @@ export function SettingsPanel() {
                       `}
                     >
                       <span className="text-2xl block mb-1">
-                        {scenario === 'pet' ? '🐕' : scenario === 'baby' ? '👶' : '👴'}
+                        {scenario === 'pet' ? (
+                          <svg className="w-6 h-6 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <circle cx="11" cy="4" r="2" />
+                            <circle cx="18" cy="8" r="2" />
+                            <circle cx="20" cy="16" r="2" />
+                            <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
+                          </svg>
+                        ) : scenario === 'baby' ? (
+                          <svg className="w-6 h-6 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <circle cx="12" cy="8" r="4" />
+                            <path d="M20 21a8 8 0 1 0-16 0" />
+                          </svg>
+                        ) : (
+                          <svg className="w-6 h-6 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <circle cx="12" cy="5" r="3" />
+                            <path d="M12 8v4m0 0-2 8m2-8 2 8" />
+                            <path d="M6 13h4m4 0h4" />
+                          </svg>
+                        )}
                       </span>
                       <span className="text-sm capitalize">{scenario}</span>
                     </button>
@@ -203,7 +221,7 @@ export function SettingsPanel() {
               {/* Theme */}
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Theme</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {(['dark', 'light', 'system'] as const).map((theme) => (
                     <button
                       key={theme}
@@ -244,20 +262,22 @@ export function SettingsPanel() {
                     <p className="text-sm text-slate-400">Alerts on this device while your browser/app is running</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateNotificationSettings({ browserPush: !notificationSettings.browserPush })}
-                  className={`
-                    relative w-12 h-6 rounded-full transition-colors
-                    ${notificationSettings.browserPush ? 'bg-emerald-500' : 'bg-slate-600'}
-                  `}
-                >
-                  <span
+                <div className="min-w-[44px] min-h-[44px] flex items-center justify-end">
+                  <button
+                    onClick={() => updateNotificationSettings({ browserPush: !notificationSettings.browserPush })}
                     className={`
-                      absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                      ${notificationSettings.browserPush ? 'left-6' : 'left-0.5'}
+                      relative w-12 h-6 rounded-full transition-colors
+                      ${notificationSettings.browserPush ? 'bg-emerald-500' : 'bg-slate-600'}
                     `}
-                  />
-                </button>
+                  >
+                    <span
+                      className={`
+                        absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
+                        ${notificationSettings.browserPush ? 'left-6' : 'left-0.5'}
+                      `}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* SMS */}
@@ -273,21 +293,23 @@ export function SettingsPanel() {
                     <p className="text-sm text-slate-400">Optional (requires monitoring server + provider credentials)</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateNotificationSettings({ sms: !notificationSettings.sms })}
-                  title="Requires a monitoring server (API) + SMS provider credentials (e.g. Twilio)."
-                  className={`
-                    relative w-12 h-6 rounded-full transition-colors
-                    ${notificationSettings.sms ? 'bg-emerald-500' : 'bg-slate-600'}
-                  `}
-                >
-                  <span
+                <div className="min-w-[44px] min-h-[44px] flex items-center justify-end">
+                  <button
+                    onClick={() => updateNotificationSettings({ sms: !notificationSettings.sms })}
+                    title="Requires a monitoring server (API) + SMS provider credentials (e.g. Twilio)."
                     className={`
-                      absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                      ${notificationSettings.sms ? 'left-6' : 'left-0.5'}
+                      relative w-12 h-6 rounded-full transition-colors
+                      ${notificationSettings.sms ? 'bg-emerald-500' : 'bg-slate-600'}
                     `}
-                  />
-                </button>
+                  >
+                    <span
+                      className={`
+                        absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
+                        ${notificationSettings.sms ? 'left-6' : 'left-0.5'}
+                      `}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* Telegram */}
@@ -303,21 +325,23 @@ export function SettingsPanel() {
                     <p className="text-sm text-slate-400">Optional (requires monitoring server + bot credentials)</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateNotificationSettings({ telegram: !notificationSettings.telegram })}
-                  title="Requires a monitoring server (API) + Telegram bot credentials."
-                  className={`
-                    relative w-12 h-6 rounded-full transition-colors
-                    ${notificationSettings.telegram ? 'bg-emerald-500' : 'bg-slate-600'}
-                  `}
-                >
-                  <span
+                <div className="min-w-[44px] min-h-[44px] flex items-center justify-end">
+                  <button
+                    onClick={() => updateNotificationSettings({ telegram: !notificationSettings.telegram })}
+                    title="Requires a monitoring server (API) + Telegram bot credentials."
                     className={`
-                      absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                      ${notificationSettings.telegram ? 'left-6' : 'left-0.5'}
+                      relative w-12 h-6 rounded-full transition-colors
+                      ${notificationSettings.telegram ? 'bg-emerald-500' : 'bg-slate-600'}
                     `}
-                  />
-                </button>
+                  >
+                    <span
+                      className={`
+                        absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
+                        ${notificationSettings.telegram ? 'left-6' : 'left-0.5'}
+                      `}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -329,7 +353,13 @@ export function SettingsPanel() {
             <h3 className="text-lg font-medium text-white mb-4">Privacy & Data</h3>
 
             <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-              <h4 className="text-emerald-400 font-medium mb-2">🔒 Privacy First</h4>
+              <h4 className="text-emerald-400 font-medium mb-2 flex items-center gap-2">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Privacy First
+              </h4>
               <p className="text-sm text-slate-300">
                 SafeOS is designed with privacy at its core:
               </p>
@@ -370,9 +400,14 @@ export function SettingsPanel() {
           <div className="space-y-6">
             <h3 className="text-lg font-medium text-white mb-4">Advanced Settings</h3>
 
-            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <p className="text-sm text-amber-400">
-                ⚠️ These settings are for advanced users. Changing them may affect performance.
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg" role="alert">
+              <p className="text-sm text-amber-400 flex items-start gap-2">
+                <svg className="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span>These settings are for advanced users. Changing them may affect performance.</span>
               </p>
             </div>
 

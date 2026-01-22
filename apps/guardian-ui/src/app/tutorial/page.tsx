@@ -53,9 +53,9 @@ const tutorialSteps: TutorialStep[] = [
       </svg>
     ),
     tips: [
-      '🐕 Pet: Detects eating, illness, distress',
-      '👶 Baby: Crying, movement, breathing patterns',
-      '👴 Elderly: Falls, confusion, inactivity',
+      'Pet: Detects eating, illness, distress',
+      'Baby: Crying, movement, breathing patterns',
+      'Elderly: Falls, confusion, inactivity',
     ],
   },
   {
@@ -254,7 +254,13 @@ export default function TutorialPage() {
             href="/docs/QUICKSTART.md"
             className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors"
           >
-            <h3 className="text-white font-medium mb-1">📖 Quick Start Guide</h3>
+            <h3 className="text-white font-medium mb-1 flex items-center gap-2">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+              </svg>
+              Quick Start Guide
+            </h3>
             <p className="text-sm text-slate-400">Detailed setup instructions</p>
           </Link>
 
@@ -262,7 +268,12 @@ export default function TutorialPage() {
             href="/api/docs"
             className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors"
           >
-            <h3 className="text-white font-medium mb-1">🔧 API Documentation</h3>
+            <h3 className="text-white font-medium mb-1 flex items-center gap-2">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+              </svg>
+              API Documentation
+            </h3>
             <p className="text-sm text-slate-400">Integrate with other systems</p>
           </Link>
         </div>

@@ -537,8 +537,15 @@ function MotionIndicator({ score, threshold }: MotionIndicatorProps) {
       : 'bg-slate-700/80';
 
   return (
-    <div className={`px-3 py-1.5 ${color} rounded-full backdrop-blur-sm flex items-center gap-2`}>
-      <span className="text-lg">👁️</span>
+    <div
+      className={`px-3 py-1.5 ${color} rounded-full backdrop-blur-sm flex items-center gap-2`}
+      role="status"
+      aria-label={`Motion level ${Math.round(score)}%${isActive ? ', motion detected' : ''}`}
+    >
+      <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
       <div className="w-16 h-1.5 bg-slate-600 rounded-full overflow-hidden">
         <div
           className={`h-full ${isActive ? 'bg-orange-400' : 'bg-emerald-400'} transition-all duration-200`}
@@ -564,8 +571,26 @@ function AudioIndicator({ level, threshold, hasCrying }: AudioIndicatorProps) {
       : 'bg-slate-700/80';
 
   return (
-    <div className={`px-3 py-1.5 ${color} rounded-full backdrop-blur-sm flex items-center gap-2`}>
-      <span className="text-lg">{hasCrying ? '😢' : '🔊'}</span>
+    <div
+      className={`px-3 py-1.5 ${color} rounded-full backdrop-blur-sm flex items-center gap-2`}
+      role="status"
+      aria-label={hasCrying ? 'Crying detected!' : `Audio level ${Math.round(level)}%${isActive ? ', audio detected' : ''}`}
+    >
+      {hasCrying ? (
+        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M8 15h8" />
+          <line x1="9" y1="9" x2="9.01" y2="9" />
+          <line x1="15" y1="9" x2="15.01" y2="9" />
+          <path d="M8 9v2" />
+          <path d="M16 9v2" />
+        </svg>
+      ) : (
+        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+        </svg>
+      )}
       <div className="w-12 h-1.5 bg-slate-600 rounded-full overflow-hidden">
         <div
           className={`h-full ${hasCrying ? 'bg-red-400' : isActive ? 'bg-orange-400' : 'bg-emerald-400'} transition-all duration-100`}

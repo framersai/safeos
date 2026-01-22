@@ -8,7 +8,13 @@
 
 import { Router, Request, Response } from 'express';
 import { validate } from '../middleware/validate.js';
-import { PushSubscriptionSchema, TelegramConfigSchema } from '../schemas/index.js';
+import {
+  PushSubscriptionSchema,
+  TelegramConfigSchema,
+  UnsubscribeSchema,
+  TelegramUnregisterSchema,
+  TestNotificationSchema,
+} from '../schemas/index.js';
 
 // =============================================================================
 // Router
@@ -44,7 +50,7 @@ notificationRoutes.post('/subscribe', validate(PushSubscriptionSchema), async (r
 /**
  * DELETE /api/notifications/subscribe - Unsubscribe from browser push
  */
-notificationRoutes.delete('/subscribe', async (req: Request, res: Response) => {
+notificationRoutes.delete('/subscribe', validate(UnsubscribeSchema), async (req: Request, res: Response) => {
   try {
     const { userId } = req.body;
 
@@ -78,7 +84,7 @@ notificationRoutes.post('/telegram/register', validate(TelegramConfigSchema), as
 /**
  * DELETE /api/notifications/telegram/register - Unregister Telegram chat ID
  */
-notificationRoutes.delete('/telegram/register', async (req: Request, res: Response) => {
+notificationRoutes.delete('/telegram/register', validate(TelegramUnregisterSchema), async (req: Request, res: Response) => {
   try {
     const { chatId } = req.body;
 
@@ -115,7 +121,7 @@ notificationRoutes.get('/status', async (_req: Request, res: Response) => {
 /**
  * POST /api/notifications/test - Send test notification
  */
-notificationRoutes.post('/test', async (req: Request, res: Response) => {
+notificationRoutes.post('/test', validate(TestNotificationSchema), async (req: Request, res: Response) => {
   try {
     const { channel, target } = req.body;
 

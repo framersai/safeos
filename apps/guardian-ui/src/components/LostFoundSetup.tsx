@@ -35,6 +35,26 @@ interface LostFoundSetupProps {
   onCancel?: () => void;
 }
 
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Format milliseconds to human-readable duration
+ */
+function formatDuration(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) {
+    return `${seconds} sec`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (remainingSeconds === 0) {
+    return `${minutes} min`;
+  }
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 interface ImagePreview {
   id: string;
   src: string;
@@ -474,6 +494,159 @@ export function LostFoundSetup({ onComplete, onCancel }: LostFoundSetupProps) {
                   <span className="text-sm text-[var(--color-steel-300)]">Browser notification</span>
                 </label>
               </div>
+            </div>
+
+            {/* Custom Media Overlay - Image Flash */}
+            <div className="space-y-4 pt-4 border-t border-[var(--color-steel-700)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm font-medium text-[var(--color-steel-300)]">
+                    Image Flash Overlay
+                  </label>
+                  <p className="text-xs text-[var(--color-steel-500)] mt-0.5">
+                    Display uploaded photos when detected
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.customMediaEnabled}
+                    onChange={(e) => updateSettings({ customMediaEnabled: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-[var(--color-steel-600)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+
+              {settings.customMediaEnabled && (
+                <div className="space-y-4 pl-4 border-l-2 border-emerald-500/30">
+                  {/* Display interval per image */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <label className="text-sm text-[var(--color-steel-300)]">
+                        Time per image
+                      </label>
+                      <span className="text-sm text-emerald-400">
+                        {formatDuration(settings.customMediaImageIntervalMs)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="3000"
+                      max="300000"
+                      step="1000"
+                      value={settings.customMediaImageIntervalMs}
+                      onChange={(e) => updateSettings({ customMediaImageIntervalMs: parseInt(e.target.value) })}
+                      className="w-full accent-emerald-500"
+                    />
+                    <div className="flex justify-between text-xs text-[var(--color-steel-500)] mt-1">
+                      <span>3 sec</span>
+                      <span>5 min</span>
+                    </div>
+                  </div>
+
+                  {/* Playback mode */}
+                  <div>
+                    <label className="text-sm text-[var(--color-steel-300)] mb-2 block">
+                      Playback mode
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => updateSettings({ customMediaPlaybackMode: 'count' })}
+                        className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
+                          settings.customMediaPlaybackMode === 'count'
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                            : 'border-[var(--color-steel-600)] text-[var(--color-steel-400)] hover:border-[var(--color-steel-500)]'
+                        }`}
+                      >
+                        Repeat X times
+                      </button>
+                      <button
+                        onClick={() => updateSettings({ customMediaPlaybackMode: 'timer' })}
+                        className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
+                          settings.customMediaPlaybackMode === 'timer'
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                            : 'border-[var(--color-steel-600)] text-[var(--color-steel-400)] hover:border-[var(--color-steel-500)]'
+                        }`}
+                      >
+                        For duration
+                      </button>
+                      <button
+                        onClick={() => updateSettings({ customMediaPlaybackMode: 'loop' })}
+                        className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
+                          settings.customMediaPlaybackMode === 'loop'
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                            : 'border-[var(--color-steel-600)] text-[var(--color-steel-400)] hover:border-[var(--color-steel-500)]'
+                        }`}
+                      >
+                        Until closed
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Count mode: repeat count */}
+                  {settings.customMediaPlaybackMode === 'count' && (
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <label className="text-sm text-[var(--color-steel-300)]">
+                          Repeat count
+                        </label>
+                        <span className="text-sm text-emerald-400">
+                          {settings.customMediaRepeatCount} {settings.customMediaRepeatCount === 1 ? 'time' : 'times'}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={settings.customMediaRepeatCount}
+                        onChange={(e) => updateSettings({ customMediaRepeatCount: parseInt(e.target.value) })}
+                        className="w-full accent-emerald-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Timer mode: duration */}
+                  {settings.customMediaPlaybackMode === 'timer' && (
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <label className="text-sm text-[var(--color-steel-300)]">
+                          Display duration
+                        </label>
+                        <span className="text-sm text-emerald-400">
+                          {formatDuration(settings.customMediaTimerMs)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="3000"
+                        max="300000"
+                        step="1000"
+                        value={settings.customMediaTimerMs}
+                        onChange={(e) => updateSettings({ customMediaTimerMs: parseInt(e.target.value) })}
+                        className="w-full accent-emerald-500"
+                      />
+                      <div className="flex justify-between text-xs text-[var(--color-steel-500)] mt-1">
+                        <span>3 sec</span>
+                        <span>5 min</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TTS toggle */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.customMediaTTSEnabled}
+                      onChange={(e) => updateSettings({ customMediaTTSEnabled: e.target.checked })}
+                      className="w-4 h-4 rounded accent-emerald-500"
+                    />
+                    <span className="text-sm text-[var(--color-steel-300)]">
+                      Speak alert message
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-between pt-4">

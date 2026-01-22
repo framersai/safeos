@@ -25,7 +25,36 @@ module.exports = {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
+      // Accessibility: Focus ring utilities for keyboard navigation
+      ringWidth: {
+        DEFAULT: '2px',
+      },
+      ringColor: {
+        DEFAULT: '#10B981', // safeos-primary (emerald-500)
+      },
+      ringOffsetWidth: {
+        DEFAULT: '2px',
+      },
+      ringOffsetColor: {
+        DEFAULT: '#0F172A', // safeos-dark (slate-900)
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    // Accessibility: Add focus-visible utilities for keyboard-only focus
+    function({ addUtilities }) {
+      addUtilities({
+        '.focus-ring': {
+          '@apply focus:outline-none focus-visible:ring-2 focus-visible:ring-safeos-primary focus-visible:ring-offset-2 focus-visible:ring-offset-safeos-dark': {},
+        },
+        '.focus-ring-inset': {
+          '@apply focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-safeos-primary': {},
+        },
+        // Minimum touch target size (44x44px per WCAG)
+        '.touch-target': {
+          '@apply min-w-[44px] min-h-[44px]': {},
+        },
+      });
+    },
+  ],
 };

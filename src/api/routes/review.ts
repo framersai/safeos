@@ -9,7 +9,12 @@
 import { Router, Request, Response } from 'express';
 import { getSafeOSDatabase, now } from '../../db';
 import { validate } from '../middleware/validate.js';
-import { ReviewActionSchema } from '../schemas/index.js';
+import {
+  ReviewActionSchema,
+  ListFlagsQuerySchema,
+  ReviewQueueQuerySchema,
+  IdParamsSchema,
+} from '../schemas/index.js';
 
 // =============================================================================
 // Router
@@ -24,7 +29,7 @@ export const reviewRoutes = Router();
 /**
  * GET /api/review/flags - List content flags
  */
-reviewRoutes.get('/flags', async (req: Request, res: Response) => {
+reviewRoutes.get('/flags', validate(ListFlagsQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { status, tier, limit = 50, offset = 0 } = req.query;
@@ -76,7 +81,7 @@ reviewRoutes.get('/flags', async (req: Request, res: Response) => {
 /**
  * GET /api/review/flags/:id - Get flag by ID
  */
-reviewRoutes.get('/flags/:id', async (req: Request, res: Response) => {
+reviewRoutes.get('/flags/:id', validate(IdParamsSchema, 'params'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { id } = req.params;
@@ -102,7 +107,7 @@ reviewRoutes.get('/flags/:id', async (req: Request, res: Response) => {
 /**
  * POST /api/review/flags/:id/action - Take action on a flag
  */
-reviewRoutes.post('/flags/:id/action', validate(ReviewActionSchema), async (req: Request, res: Response) => {
+reviewRoutes.post('/flags/:id/action', validate(IdParamsSchema, 'params'), validate(ReviewActionSchema), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { id } = req.params;
@@ -184,7 +189,7 @@ reviewRoutes.get('/stats', async (_req: Request, res: Response) => {
 /**
  * GET /api/review/queue - Get review queue (pending flags sorted by priority)
  */
-reviewRoutes.get('/queue', async (req: Request, res: Response) => {
+reviewRoutes.get('/queue', validate(ReviewQueueQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { limit = 20 } = req.query;

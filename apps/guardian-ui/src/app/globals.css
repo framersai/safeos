@@ -11,6 +11,9 @@
 /* Import design system */
 @import '../styles/design-system.css';
 
+/* Import touch optimization styles */
+@import '../styles/touch.css';
+
 /* =============================================================================
    Additional Base Styles
    ============================================================================= */

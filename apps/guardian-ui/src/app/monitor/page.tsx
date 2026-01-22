@@ -14,6 +14,7 @@ import { useSearchParams } from 'next/navigation';
 import { CameraFeed } from '../../components/CameraFeed';
 import { AlertPanel } from '../../components/AlertPanel';
 import { SubjectPreviewOverlay, SubjectPreview } from '../../components/SubjectPreview';
+import { LostFoundMediaOverlay } from '../../components/LostFoundMediaOverlay';
 import { QuickSettingsPanel } from '../../components/QuickSettingsPanel';
 import { InlineSettingsPanel } from '../../components/monitor';
 import { IconSearch, IconFingerprint, IconRadar, IconChevronDown, IconShield } from '../../components/icons';
@@ -110,6 +111,14 @@ export default function MonitorPage() {
 
   const [showLostFoundPanel, setShowLostFoundPanel] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
+
+  // Media overlay state for Lost & Found alerts
+  const [showMediaOverlay, setShowMediaOverlay] = useState(false);
+  const [mediaOverlayData, setMediaOverlayData] = useState<{
+    subjectName: string;
+    confidence: number;
+    images: string[];
+  } | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const matcherRef = useRef(getSubjectMatcher());
   const modeDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -191,8 +200,8 @@ export default function MonitorPage() {
       if (matcher.shouldAlert()) {
         recordLostFoundAlert();
 
-        // Play sound if enabled
-        if (lostFoundSettings.alertSound) {
+        // Play sound if enabled (only if custom media is disabled, else CustomMediaPlayer handles it)
+        if (lostFoundSettings.alertSound && !lostFoundSettings.customMediaEnabled) {
           getSoundManager().play('alert');
         }
 
@@ -202,6 +211,16 @@ export default function MonitorPage() {
             body: `${activeSubject.name} - ${result.confidence}% confidence`,
             icon: activeSubject.referenceImages[0],
           });
+        }
+
+        // Show full-screen media overlay if custom media is enabled
+        if (lostFoundSettings.customMediaEnabled && activeSubject.referenceImages.length > 0) {
+          setMediaOverlayData({
+            subjectName: activeSubject.name,
+            confidence: result.confidence,
+            images: activeSubject.referenceImages,
+          });
+          setShowMediaOverlay(true);
         }
       }
     } else {
@@ -1463,6 +1482,20 @@ export default function MonitorPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Lost & Found Media Overlay */}
+      {showMediaOverlay && mediaOverlayData && (
+        <LostFoundMediaOverlay
+          isOpen={showMediaOverlay}
+          onClose={() => {
+            setShowMediaOverlay(false);
+            setMediaOverlayData(null);
+          }}
+          subjectName={mediaOverlayData.subjectName}
+          confidence={mediaOverlayData.confidence}
+          images={mediaOverlayData.images}
+        />
       )}
     </div>
   );

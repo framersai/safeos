@@ -81,7 +81,10 @@ export function StreamGrid() {
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
         <h3 className="font-semibold text-white flex items-center gap-2">
-          <span>📹</span>
+          <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M23 7l-7 5 7 5V7z" />
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+          </svg>
           Active Streams
         </h3>
         <Link
@@ -99,7 +102,7 @@ export function StreamGrid() {
         ) : streams.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {streams.map((stream) => (
               <StreamCard
                 key={stream.id}
@@ -124,11 +127,35 @@ interface StreamCardProps {
 }
 
 function StreamCard({ stream, isActive }: StreamCardProps) {
-  const scenarioIcons = {
-    pet: '🐕',
-    baby: '👶',
-    elderly: '👴',
-    security: '🛡️',
+  // SVG icons for accessibility (screen reader compatible)
+  const scenarioIcons: Record<Stream['scenario'], React.ReactNode> = {
+    pet: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5M14 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.344-2.5" />
+        <path d="M8 14v.5M16 14v.5M11.25 16.25h1.5L12 17l-.75-.75z" />
+        <path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306" />
+      </svg>
+    ),
+    baby: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="8" r="5" />
+        <path d="M20 21a8 8 0 1 0-16 0" />
+        <path d="M12 11v2" />
+      </svg>
+    ),
+    elderly: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="5" r="3" />
+        <path d="M12 8v4m0 0-2 8m2-8 2 8" />
+        <path d="M6 13h4m4 0h4" />
+      </svg>
+    ),
+    security: (
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    ),
   };
 
   const scenarioColors = {
@@ -162,9 +189,10 @@ function StreamCard({ stream, isActive }: StreamCardProps) {
 
         {/* Scenario icon */}
         <div
-          className={`w-12 h-12 rounded-xl bg-gradient-to-br ${scenarioColors[stream.scenario]} flex items-center justify-center mb-3`}
+          className={`w-12 h-12 rounded-xl bg-gradient-to-br ${scenarioColors[stream.scenario]} flex items-center justify-center mb-3 text-white`}
+          aria-label={`${stream.scenario} monitoring`}
         >
-          <span className="text-2xl">{scenarioIcons[stream.scenario]}</span>
+          {scenarioIcons[stream.scenario]}
         </div>
 
         {/* Stream info */}
@@ -178,12 +206,18 @@ function StreamCard({ stream, isActive }: StreamCardProps) {
         {/* Stats */}
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1">
-            <span className="text-slate-500">⏱</span>
+            <svg className="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
             <span className="text-slate-300">{uptime}</span>
           </div>
           {stream.alertCount !== undefined && stream.alertCount > 0 && (
-            <div className="flex items-center gap-1">
-              <span className="text-orange-400">🔔</span>
+            <div className="flex items-center gap-1" role="status" aria-label={`${stream.alertCount} alerts`}>
+              <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
               <span className="text-orange-400">{stream.alertCount}</span>
             </div>
           )}
@@ -200,7 +234,7 @@ function StreamCard({ stream, isActive }: StreamCardProps) {
 
 function LoadingState() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {[1, 2].map((i) => (
         <div
           key={i}
@@ -219,7 +253,10 @@ function EmptyState() {
   return (
     <div className="text-center py-8">
       <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
-        <span className="text-3xl opacity-50">📹</span>
+        <svg className="w-8 h-8 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M23 7l-7 5 7 5V7z" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        </svg>
       </div>
       <h4 className="text-white font-medium mb-2">No Active Streams</h4>
       <p className="text-sm text-slate-400 mb-4">

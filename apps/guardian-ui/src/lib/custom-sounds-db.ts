@@ -306,42 +306,42 @@ export const TRIGGER_DESCRIPTIONS: Record<SoundTrigger, { label: string; descrip
   person_detected: {
     label: 'Person Detected',
     description: 'Play when AI detects a human in the camera view',
-    icon: '👤',
+    icon: 'user',
   },
   pet_detected: {
     label: 'Pet Detected',
     description: 'Play when your pet is seen on camera (call them home!)',
-    icon: '🐕',
+    icon: 'paw-print',
   },
   object_found: {
     label: 'Lost Item Found',
     description: 'Play when a Lost & Found subject match is detected',
-    icon: '🔍',
+    icon: 'search',
   },
   motion_detected: {
     label: 'Motion Detected',
     description: 'Play when motion exceeds the sensitivity threshold',
-    icon: '🎬',
+    icon: 'activity',
   },
   audio_detected: {
     label: 'Audio Detected',
     description: 'Play when sound levels exceed the threshold',
-    icon: '🔊',
+    icon: 'volume-2',
   },
   inactivity_alert: {
     label: 'Inactivity Alert',
     description: 'Play when no movement is detected for the specified time',
-    icon: '⏰',
+    icon: 'clock',
   },
   emergency: {
     label: 'Emergency',
     description: 'Play when emergency mode is activated',
-    icon: '🚨',
+    icon: 'alert-triangle',
   },
   custom: {
     label: 'Custom Trigger',
     description: 'Manually triggered or API-triggered sound',
-    icon: '⚙️',
+    icon: 'settings',
   },
 };
 

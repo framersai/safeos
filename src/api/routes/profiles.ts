@@ -9,7 +9,12 @@
 import { Router, Request, Response } from 'express';
 import { getSafeOSDatabase, generateId, now } from '../../db';
 import { validate } from '../middleware/validate.js';
-import { CreateProfileSchema, UpdateProfileSchema } from '../schemas/index.js';
+import {
+  CreateProfileSchema,
+  UpdateProfileSchema,
+  ListProfilesQuerySchema,
+  IdParamsSchema,
+} from '../schemas/index.js';
 import { requireAuth } from '../middleware/auth.js';
 
 // =============================================================================
@@ -28,7 +33,7 @@ profileRoutes.use(requireAuth);
 /**
  * GET /api/profiles - List all profiles
  */
-profileRoutes.get('/', async (req: Request, res: Response) => {
+profileRoutes.get('/', validate(ListProfilesQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { scenario } = req.query;
@@ -61,7 +66,7 @@ profileRoutes.get('/', async (req: Request, res: Response) => {
 /**
  * GET /api/profiles/:id - Get profile by ID
  */
-profileRoutes.get('/:id', async (req: Request, res: Response) => {
+profileRoutes.get('/:id', validate(IdParamsSchema, 'params'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { id } = req.params;
@@ -118,7 +123,7 @@ profileRoutes.post('/', validate(CreateProfileSchema), async (req: Request, res:
 /**
  * PATCH /api/profiles/:id - Update profile
  */
-profileRoutes.patch('/:id', validate(UpdateProfileSchema), async (req: Request, res: Response) => {
+profileRoutes.patch('/:id', validate(IdParamsSchema, 'params'), validate(UpdateProfileSchema), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { id } = req.params;
@@ -179,7 +184,7 @@ profileRoutes.patch('/:id', validate(UpdateProfileSchema), async (req: Request, 
 /**
  * DELETE /api/profiles/:id - Delete profile
  */
-profileRoutes.delete('/:id', async (req: Request, res: Response) => {
+profileRoutes.delete('/:id', validate(IdParamsSchema, 'params'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { id } = req.params;
@@ -207,7 +212,7 @@ profileRoutes.delete('/:id', async (req: Request, res: Response) => {
 /**
  * POST /api/profiles/:id/activate - Activate profile
  */
-profileRoutes.post('/:id/activate', async (req: Request, res: Response) => {
+profileRoutes.post('/:id/activate', validate(IdParamsSchema, 'params'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { id } = req.params;

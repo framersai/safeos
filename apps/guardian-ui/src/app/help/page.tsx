@@ -25,12 +25,97 @@ interface FAQItem {
 interface HelpSection {
   id: string;
   title: string;
-  icon: string;
+  icon: React.ReactNode;
 }
 
 // =============================================================================
 // Data
 // =============================================================================
+
+// Section icons as accessible SVGs
+const sectionIcons: Record<string, React.ReactNode> = {
+  'getting-started': (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+    </svg>
+  ),
+  'faq': (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  'shortcuts': (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+      <path d="M6 8h.001" />
+      <path d="M10 8h.001" />
+      <path d="M14 8h.001" />
+      <path d="M18 8h.001" />
+      <path d="M8 12h.001" />
+      <path d="M12 12h.001" />
+      <path d="M16 12h.001" />
+      <path d="M7 16h10" />
+    </svg>
+  ),
+  'troubleshooting': (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </svg>
+  ),
+  'contact': (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+};
+
+// Contact section icons
+const contactIcons: Record<string, React.ReactNode> = {
+  github: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  ),
+  discord: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  email: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <polyline points="22,6 12,13 2,6" />
+    </svg>
+  ),
+  twitter: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
+      <path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
+    </svg>
+  ),
+};
+
+// Video icons
+const videoIcon = (
+  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+    <polyline points="17 2 12 7 7 2" />
+  </svg>
+);
+
+const playIcon = (
+  <svg className="w-10 h-10 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" />
+    <polygon points="10 8 16 12 10 16 10 8" />
+  </svg>
+);
 
 const faqs: FAQItem[] = [
   {
@@ -96,11 +181,11 @@ const faqs: FAQItem[] = [
 ];
 
 const sections: HelpSection[] = [
-  { id: 'getting-started', title: 'Getting Started', icon: '🚀' },
-  { id: 'faq', title: 'FAQ', icon: '❓' },
-  { id: 'shortcuts', title: 'Keyboard Shortcuts', icon: '⌨️' },
-  { id: 'troubleshooting', title: 'Troubleshooting', icon: '🔧' },
-  { id: 'contact', title: 'Contact Support', icon: '💬' },
+  { id: 'getting-started', title: 'Getting Started', icon: sectionIcons['getting-started'] },
+  { id: 'faq', title: 'FAQ', icon: sectionIcons['faq'] },
+  { id: 'shortcuts', title: 'Keyboard Shortcuts', icon: sectionIcons['shortcuts'] },
+  { id: 'troubleshooting', title: 'Troubleshooting', icon: sectionIcons['troubleshooting'] },
+  { id: 'contact', title: 'Contact Support', icon: sectionIcons['contact'] },
 ];
 
 // =============================================================================
@@ -237,10 +322,13 @@ export default function HelpPage() {
 
                 {/* Video Tutorial Embed */}
                 <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">📺 Video Tutorial</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    {videoIcon}
+                    <span>Video Tutorial</span>
+                  </h3>
                   <div className="aspect-video bg-slate-700 rounded-lg flex items-center justify-center">
                     <div className="text-center">
-                      <span className="text-4xl opacity-50">▶️</span>
+                      {playIcon}
                       <p className="text-slate-400 mt-2">Video tutorial coming soon</p>
                     </div>
                   </div>
@@ -367,7 +455,7 @@ export default function HelpPage() {
                     rel="noopener noreferrer"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
                   >
-                    <span className="text-2xl">🐛</span>
+                    <span className="text-slate-300">{contactIcons.github}</span>
                     <h3 className="text-white font-medium mt-2">GitHub Issues</h3>
                     <p className="text-sm text-slate-400">Report bugs and request features</p>
                   </a>
@@ -378,7 +466,7 @@ export default function HelpPage() {
                     rel="noopener noreferrer"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
                   >
-                    <span className="text-2xl">💬</span>
+                    <span className="text-slate-300">{contactIcons.discord}</span>
                     <h3 className="text-white font-medium mt-2">Discord Community</h3>
                     <p className="text-sm text-slate-400">Chat with other users</p>
                   </a>
@@ -387,7 +475,7 @@ export default function HelpPage() {
                     href="mailto:support@safeos.dev"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
                   >
-                    <span className="text-2xl">📧</span>
+                    <span className="text-slate-300">{contactIcons.email}</span>
                     <h3 className="text-white font-medium mt-2">Email Support</h3>
                     <p className="text-sm text-slate-400">support@safeos.dev</p>
                   </a>
@@ -398,7 +486,7 @@ export default function HelpPage() {
                     rel="noopener noreferrer"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
                   >
-                    <span className="text-2xl">𝕏</span>
+                    <span className="text-slate-300">{contactIcons.twitter}</span>
                     <h3 className="text-white font-medium mt-2">Twitter/X</h3>
                     <p className="text-sm text-slate-400">@framedev</p>
                   </a>

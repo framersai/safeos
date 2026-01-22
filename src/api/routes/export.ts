@@ -8,6 +8,10 @@
 
 import { Router } from 'express';
 import { getSafeOSDatabase } from '../../db/index.js';
+import { validate } from '../middleware/validate.js';
+import { ExportQuerySchema, ConcernLevelEnum } from '../schemas/index.js';
+import { unauthorized, internalError } from '../utils/errors.js';
+import { z } from 'zod';
 
 // =============================================================================
 // Router
@@ -15,26 +19,45 @@ import { getSafeOSDatabase } from '../../db/index.js';
 
 export const exportRouter = Router();
 
+// Extended schema for analysis export with concernLevel
+const ExportAnalysisQuerySchema = ExportQuerySchema.extend({
+  concernLevel: ConcernLevelEnum.optional(),
+});
+
 // =============================================================================
 // Export Endpoints
 // =============================================================================
 
 /**
  * GET /api/export/alerts
- * Export alerts as JSON or CSV
+ * Export alerts as JSON or CSV (authenticated, user-scoped)
  */
-exportRouter.get('/alerts', async (req, res) => {
+exportRouter.get('/alerts', validate(ExportQuerySchema, 'query'), async (req, res) => {
   try {
     const token = req.headers['x-session-token'] as string;
+
+    if (!token) {
+      return unauthorized(res);
+    }
+
+    const db = await getSafeOSDatabase();
+
+    const session = await db.get<{ profile_id: string }>(
+      `SELECT profile_id FROM sessions WHERE token = ?`,
+      [token]
+    );
+
+    if (!session) {
+      return unauthorized(res, 'Invalid session');
+    }
+
     const format = (req.query.format as string) || 'json';
     const startDate = req.query.startDate as string;
     const endDate = req.query.endDate as string;
 
-    const db = await getSafeOSDatabase();
-
-    // Build query
+    // Build query - only fetch alerts for user's streams
     let query = `
-      SELECT 
+      SELECT
         a.id,
         a.stream_id,
         a.alert_type,
@@ -44,23 +67,20 @@ exportRouter.get('/alerts', async (req, res) => {
         a.acknowledged_at,
         a.created_at
       FROM alerts a
+      INNER JOIN streams s ON a.stream_id = s.id
+      WHERE s.user_id = ?
     `;
 
-    const params: string[] = [];
-    const conditions: string[] = [];
+    const params: string[] = [session.profile_id];
 
     if (startDate) {
-      conditions.push('a.created_at >= ?');
+      query += ' AND a.created_at >= ?';
       params.push(startDate);
     }
 
     if (endDate) {
-      conditions.push('a.created_at <= ?');
+      query += ' AND a.created_at <= ?';
       params.push(endDate);
-    }
-
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
     }
 
     query += ' ORDER BY a.created_at DESC LIMIT 10000';
@@ -92,61 +112,74 @@ exportRouter.get('/alerts', async (req, res) => {
     });
   } catch (error) {
     console.error('Export alerts error:', error);
-    res.status(500).json({ success: false, error: 'Failed to export alerts' });
+    internalError(res, 'Failed to export alerts');
   }
 });
 
 /**
  * GET /api/export/analysis
- * Export analysis results
+ * Export analysis results (authenticated, user-scoped)
  */
-exportRouter.get('/analysis', async (req, res) => {
+exportRouter.get('/analysis', validate(ExportAnalysisQuerySchema, 'query'), async (req, res) => {
   try {
+    const token = req.headers['x-session-token'] as string;
+
+    if (!token) {
+      return unauthorized(res);
+    }
+
+    const db = await getSafeOSDatabase();
+
+    const session = await db.get<{ profile_id: string }>(
+      `SELECT profile_id FROM sessions WHERE token = ?`,
+      [token]
+    );
+
+    if (!session) {
+      return unauthorized(res, 'Invalid session');
+    }
+
     const format = (req.query.format as string) || 'json';
     const startDate = req.query.startDate as string;
     const endDate = req.query.endDate as string;
     const concernLevel = req.query.concernLevel as string;
 
-    const db = await getSafeOSDatabase();
-
+    // Build query - only fetch results for user's streams
     let query = `
-      SELECT 
-        id,
-        stream_id,
-        frame_id,
-        concern_level,
-        description,
-        detected_issues,
-        processing_time_ms,
-        model_used,
-        is_cloud_fallback,
-        created_at
-      FROM analysis_results
+      SELECT
+        ar.id,
+        ar.stream_id,
+        ar.frame_id,
+        ar.concern_level,
+        ar.description,
+        ar.detected_issues,
+        ar.processing_time_ms,
+        ar.model_used,
+        ar.is_cloud_fallback,
+        ar.created_at
+      FROM analysis_results ar
+      INNER JOIN streams s ON ar.stream_id = s.id
+      WHERE s.user_id = ?
     `;
 
-    const params: string[] = [];
-    const conditions: string[] = [];
+    const params: string[] = [session.profile_id];
 
     if (startDate) {
-      conditions.push('created_at >= ?');
+      query += ' AND ar.created_at >= ?';
       params.push(startDate);
     }
 
     if (endDate) {
-      conditions.push('created_at <= ?');
+      query += ' AND ar.created_at <= ?';
       params.push(endDate);
     }
 
     if (concernLevel) {
-      conditions.push('concern_level = ?');
+      query += ' AND ar.concern_level = ?';
       params.push(concernLevel);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    query += ' ORDER BY created_at DESC LIMIT 10000';
+    query += ' ORDER BY ar.created_at DESC LIMIT 10000';
 
     const results = await db.all(query, params);
 
@@ -175,22 +208,38 @@ exportRouter.get('/analysis', async (req, res) => {
     });
   } catch (error) {
     console.error('Export analysis error:', error);
-    res.status(500).json({ success: false, error: 'Failed to export analysis' });
+    internalError(res, 'Failed to export analysis');
   }
 });
 
 /**
  * GET /api/export/streams
- * Export stream history
+ * Export stream history (authenticated, user-scoped)
  */
-exportRouter.get('/streams', async (req, res) => {
+exportRouter.get('/streams', validate(ExportQuerySchema, 'query'), async (req, res) => {
   try {
-    const format = (req.query.format as string) || 'json';
+    const token = req.headers['x-session-token'] as string;
+
+    if (!token) {
+      return unauthorized(res);
+    }
 
     const db = await getSafeOSDatabase();
 
-    const streams = await db.all(`
-      SELECT 
+    const session = await db.get<{ profile_id: string }>(
+      `SELECT profile_id FROM sessions WHERE token = ?`,
+      [token]
+    );
+
+    if (!session) {
+      return unauthorized(res, 'Invalid session');
+    }
+
+    const format = (req.query.format as string) || 'json';
+
+    const streams = await db.all(
+      `
+      SELECT
         s.id,
         s.scenario,
         s.status,
@@ -202,10 +251,13 @@ exportRouter.get('/streams', async (req, res) => {
       FROM streams s
       LEFT JOIN alerts a ON s.id = a.stream_id
       LEFT JOIN analysis_results ar ON s.id = ar.stream_id
+      WHERE s.user_id = ?
       GROUP BY s.id
       ORDER BY s.created_at DESC
       LIMIT 1000
-    `);
+    `,
+      [session.profile_id]
+    );
 
     if (format === 'csv') {
       const csv = convertToCSV(streams as Record<string, unknown>[], [
@@ -231,7 +283,7 @@ exportRouter.get('/streams', async (req, res) => {
     });
   } catch (error) {
     console.error('Export streams error:', error);
-    res.status(500).json({ success: false, error: 'Failed to export streams' });
+    internalError(res, 'Failed to export streams');
   }
 });
 
@@ -244,7 +296,7 @@ exportRouter.get('/profile', async (req, res) => {
     const token = req.headers['x-session-token'] as string;
 
     if (!token) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
+      return unauthorized(res);
     }
 
     const db = await getSafeOSDatabase();
@@ -255,7 +307,7 @@ exportRouter.get('/profile', async (req, res) => {
     );
 
     if (!session) {
-      return res.status(401).json({ success: false, error: 'Invalid session' });
+      return unauthorized(res, 'Invalid session');
     }
 
     const profile = await db.get(
@@ -294,7 +346,7 @@ exportRouter.get('/profile', async (req, res) => {
     });
   } catch (error) {
     console.error('Export profile error:', error);
-    res.status(500).json({ success: false, error: 'Failed to export profile' });
+    internalError(res, 'Failed to export profile');
   }
 });
 
@@ -307,7 +359,7 @@ exportRouter.get('/all', async (req, res) => {
     const token = req.headers['x-session-token'] as string;
 
     if (!token) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
+      return unauthorized(res);
     }
 
     const db = await getSafeOSDatabase();
@@ -318,7 +370,7 @@ exportRouter.get('/all', async (req, res) => {
     );
 
     if (!session) {
-      return res.status(401).json({ success: false, error: 'Invalid session' });
+      return unauthorized(res, 'Invalid session');
     }
 
     // Gather all user data
@@ -332,9 +384,27 @@ exportRouter.get('/all', async (req, res) => {
       [session.profile_id]
     );
 
-    const streams = await db.all(`SELECT * FROM streams LIMIT 1000`);
-    const alerts = await db.all(`SELECT * FROM alerts LIMIT 5000`);
-    const analysisResults = await db.all(`SELECT * FROM analysis_results LIMIT 5000`);
+    // User-scoped queries
+    const streams = await db.all(
+      `SELECT * FROM streams WHERE user_id = ? LIMIT 1000`,
+      [session.profile_id]
+    );
+
+    const alerts = await db.all(
+      `SELECT a.* FROM alerts a
+       INNER JOIN streams s ON a.stream_id = s.id
+       WHERE s.user_id = ?
+       LIMIT 5000`,
+      [session.profile_id]
+    );
+
+    const analysisResults = await db.all(
+      `SELECT ar.* FROM analysis_results ar
+       INNER JOIN streams s ON ar.stream_id = s.id
+       WHERE s.user_id = ?
+       LIMIT 5000`,
+      [session.profile_id]
+    );
 
     const exportData = {
       exportedAt: new Date().toISOString(),
@@ -351,7 +421,7 @@ exportRouter.get('/all', async (req, res) => {
     res.json(exportData);
   } catch (error) {
     console.error('Export all error:', error);
-    res.status(500).json({ success: false, error: 'Failed to export data' });
+    internalError(res, 'Failed to export data');
   }
 });
 

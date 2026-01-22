@@ -1765,3 +1765,45 @@ export function IconComputer({ size = 24, className = '', strokeWidth = 1.5 }: I
   );
 }
 
+// =============================================================================
+// Media Playback Icons
+// =============================================================================
+
+export function IconPause({ size = 24, className = '', strokeWidth = 1.5 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="6" y="4" width="4" height="16" />
+      <rect x="14" y="4" width="4" height="16" />
+    </svg>
+  );
+}
+
+export function IconSkipForward({ size = 24, className = '', strokeWidth = 1.5 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polygon points="5 4 15 12 5 20 5 4" />
+      <line x1="19" y1="5" x2="19" y2="19" />
+    </svg>
+  );
+}
+

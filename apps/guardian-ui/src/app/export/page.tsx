@@ -24,7 +24,7 @@ interface ExportOption {
   id: ExportType;
   label: string;
   description: string;
-  icon: string;
+  icon: React.ReactNode;
   formats: ExportFormat[];
 }
 
@@ -32,40 +32,75 @@ interface ExportOption {
 // Data
 // =============================================================================
 
+// Export type icons as accessible SVGs
+const exportIcons: Record<ExportType, React.ReactNode> = {
+  alerts: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  ),
+  analysis: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  ),
+  streams: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  ),
+  profile: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  all: (
+    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
+    </svg>
+  ),
+};
+
 const EXPORT_OPTIONS: ExportOption[] = [
   {
     id: 'alerts',
     label: 'Alerts',
     description: 'All alerts with timestamps, severity, and messages',
-    icon: '🔔',
+    icon: exportIcons.alerts,
     formats: ['json', 'csv'],
   },
   {
     id: 'analysis',
     label: 'AI Analysis Results',
     description: 'Analysis results, concern levels, and processing times',
-    icon: '🔍',
+    icon: exportIcons.analysis,
     formats: ['json', 'csv'],
   },
   {
     id: 'streams',
     label: 'Stream History',
     description: 'All monitoring sessions with stats',
-    icon: '📹',
+    icon: exportIcons.streams,
     formats: ['json', 'csv'],
   },
   {
     id: 'profile',
     label: 'Profile & Settings',
     description: 'Your profile, preferences, and notification settings',
-    icon: '👤',
+    icon: exportIcons.profile,
     formats: ['json'],
   },
   {
     id: 'all',
     label: 'Full Data Export',
     description: 'Complete data export (GDPR compliant)',
-    icon: '📦',
+    icon: exportIcons.all,
     formats: ['json'],
   },
 ];
@@ -229,7 +264,7 @@ export default function ExportPage() {
                   }`}
               >
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-2xl">{option.icon}</span>
+                  <span className="text-slate-300">{option.icon}</span>
                   <span className="font-medium text-white">{option.label}</span>
                 </div>
                 <p className="text-sm text-slate-400">{option.description}</p>

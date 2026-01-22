@@ -378,7 +378,7 @@ export function DetectionZoneEditor({
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setIsDrawMode(!isDrawMode)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isDrawMode
+                            className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-lg text-sm font-medium transition-colors active:scale-95 ${isDrawMode
                                     ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                                     : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-slate-600'
                                 }`}
@@ -393,7 +393,7 @@ export function DetectionZoneEditor({
                                     onClick={() => {
                                         updateDetectionZone(selectedZone.id, { enabled: !selectedZone.enabled });
                                     }}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedZone.enabled
+                                    className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-lg text-sm font-medium transition-colors active:scale-95 ${selectedZone.enabled
                                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                                             : 'bg-slate-700/50 text-slate-400 border border-slate-600'
                                         }`}
@@ -409,7 +409,7 @@ export function DetectionZoneEditor({
                                             setSelectedZoneId(null);
                                         }
                                     }}
-                                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+                                    className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-lg text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors active:scale-95"
                                 >
                                     <TrashIcon className="w-4 h-4" />
                                     Delete
@@ -620,14 +620,23 @@ function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
                         )}
                         <button
                             onClick={() => handleMotionChange(override.motion !== undefined ? undefined : globalSettings.motionSensitivity)}
-                            className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-colors ${
+                            className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg flex items-center justify-center text-sm transition-colors active:scale-95 ${
                                 override.motion !== undefined
                                     ? 'bg-blue-500/20 text-blue-400'
                                     : 'bg-slate-700 text-slate-500 hover:text-slate-300'
                             }`}
                             title={override.motion !== undefined ? 'Use global value' : 'Override'}
+                            aria-label={override.motion !== undefined ? 'Motion override enabled, click to use global value' : 'Click to override motion sensitivity'}
                         >
-                            {override.motion !== undefined ? '✓' : '○'}
+                            {override.motion !== undefined ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                    <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                            ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="8" />
+                                </svg>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -638,10 +647,11 @@ function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
                         max={100}
                         value={override.motion}
                         onChange={(e) => handleMotionChange(Number(e.target.value))}
-                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
-                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
-                                   [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500
-                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                        className="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6
+                                   [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-blue-500
+                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                                   [&::-webkit-slider-thumb]:active:scale-110"
                     />
                 )}
             </div>
@@ -658,14 +668,23 @@ function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
                         )}
                         <button
                             onClick={() => handleAudioChange(override.audio !== undefined ? undefined : globalSettings.audioSensitivity)}
-                            className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-colors ${
+                            className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg flex items-center justify-center text-sm transition-colors active:scale-95 ${
                                 override.audio !== undefined
                                     ? 'bg-purple-500/20 text-purple-400'
                                     : 'bg-slate-700 text-slate-500 hover:text-slate-300'
                             }`}
                             title={override.audio !== undefined ? 'Use global value' : 'Override'}
+                            aria-label={override.audio !== undefined ? 'Audio override enabled, click to use global value' : 'Click to override audio sensitivity'}
                         >
-                            {override.audio !== undefined ? '✓' : '○'}
+                            {override.audio !== undefined ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                    <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                            ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="8" />
+                                </svg>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -676,10 +695,11 @@ function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
                         max={100}
                         value={override.audio}
                         onChange={(e) => handleAudioChange(Number(e.target.value))}
-                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
-                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
-                                   [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-purple-500
-                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                        className="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6
+                                   [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-purple-500
+                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                                   [&::-webkit-slider-thumb]:active:scale-110"
                     />
                 )}
             </div>
@@ -696,14 +716,23 @@ function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
                         )}
                         <button
                             onClick={() => handlePixelChange(override.pixel !== undefined ? undefined : globalSettings.absolutePixelThreshold)}
-                            className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-colors ${
+                            className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg flex items-center justify-center text-sm transition-colors active:scale-95 ${
                                 override.pixel !== undefined
                                     ? 'bg-emerald-500/20 text-emerald-400'
                                     : 'bg-slate-700 text-slate-500 hover:text-slate-300'
                             }`}
                             title={override.pixel !== undefined ? 'Use global value' : 'Override'}
+                            aria-label={override.pixel !== undefined ? 'Pixel threshold override enabled, click to use global value' : 'Click to override pixel threshold'}
                         >
-                            {override.pixel !== undefined ? '✓' : '○'}
+                            {override.pixel !== undefined ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                    <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                            ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="8" />
+                                </svg>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -715,10 +744,11 @@ function ZoneSensitivityPanel({ zone, onUpdate }: ZoneSensitivityPanelProps) {
                         step={1}
                         value={override.pixel}
                         onChange={(e) => handlePixelChange(Number(e.target.value))}
-                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer
-                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4
-                                   [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-emerald-500
-                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                        className="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6
+                                   [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-emerald-500
+                                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                                   [&::-webkit-slider-thumb]:active:scale-110"
                     />
                 )}
             </div>

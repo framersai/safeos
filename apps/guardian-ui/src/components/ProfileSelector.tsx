@@ -29,7 +29,12 @@ const PROFILES = [
   {
     id: 'baby' as const,
     name: 'Baby & Toddler',
-    emoji: '👶',
+    icon: (
+      <svg className="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M20 21a8 8 0 1 0-16 0" />
+      </svg>
+    ),
     description: 'Monitor infants and toddlers for safety',
     features: [
       'Sleep position monitoring',
@@ -43,7 +48,14 @@ const PROFILES = [
   {
     id: 'pet' as const,
     name: 'Pet Monitoring',
-    emoji: '🐕',
+    icon: (
+      <svg className="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="11" cy="4" r="2" />
+        <circle cx="18" cy="8" r="2" />
+        <circle cx="20" cy="16" r="2" />
+        <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
+      </svg>
+    ),
     description: 'Keep an eye on your furry friends',
     features: [
       'Activity monitoring',
@@ -57,7 +69,13 @@ const PROFILES = [
   {
     id: 'elderly' as const,
     name: 'Elderly Care',
-    emoji: '👴',
+    icon: (
+      <svg className="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="5" r="3" />
+        <path d="M12 8v4m0 0-2 8m2-8 2 8" />
+        <path d="M6 13h4m4 0h4" />
+      </svg>
+    ),
     description: 'Support senior safety and wellbeing',
     features: [
       'Fall detection',
@@ -112,8 +130,8 @@ export function ProfileSelector({
             </div>
           )}
 
-          {/* Emoji */}
-          <div className="text-5xl mb-4">{profile.emoji}</div>
+          {/* Icon */}
+          <div className="mb-4 text-current">{profile.icon}</div>
 
           {/* Title */}
           <h3

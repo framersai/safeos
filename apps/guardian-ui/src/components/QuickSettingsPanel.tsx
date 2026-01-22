@@ -284,10 +284,26 @@ export function QuickSettingsPanel({ className = '' }: QuickSettingsPanelProps) 
                 <div>
                   <label className="text-xs sm:text-[10px] text-slate-400 uppercase tracking-wider mb-1 block">Test Sounds</label>
                   <div className="flex gap-1">
-                    <TestSoundButton label="🔔" onClick={() => soundManager.test('notification')} title="Notification" />
-                    <TestSoundButton label="⚠️" onClick={() => soundManager.test('alert')} title="Alert" />
-                    <TestSoundButton label="🚨" onClick={() => soundManager.test('warning')} title="Warning" />
-                    <TestSoundButton label="🔊" onClick={() => soundManager.test('alarm')} title="Alarm" />
+                    <TestSoundButton
+                      icon={<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>}
+                      onClick={() => soundManager.test('notification')}
+                      title="Notification"
+                    />
+                    <TestSoundButton
+                      icon={<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
+                      onClick={() => soundManager.test('alert')}
+                      title="Alert"
+                    />
+                    <TestSoundButton
+                      icon={<svg className="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>}
+                      onClick={() => soundManager.test('warning')}
+                      title="Warning"
+                    />
+                    <TestSoundButton
+                      icon={<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>}
+                      onClick={() => soundManager.test('alarm')}
+                      title="Alarm"
+                    />
                   </div>
                 </div>
               </div>
@@ -365,12 +381,12 @@ function SensitivitySlider({ label, value, onChange }: SensitivitySliderProps) {
 }
 
 interface TestSoundButtonProps {
-  label: string;
+  icon: React.ReactNode;
   onClick: () => void;
-  title?: string;
+  title: string;
 }
 
-function TestSoundButton({ label, onClick, title }: TestSoundButtonProps) {
+function TestSoundButton({ icon, onClick, title }: TestSoundButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -378,9 +394,9 @@ function TestSoundButton({ label, onClick, title }: TestSoundButtonProps) {
       className="flex-1 py-2.5 px-2 min-h-[44px] bg-slate-700/30 rounded-lg text-base
                  hover:bg-slate-700/50 active:bg-slate-600/50 transition-colors
                  flex items-center justify-center"
-      aria-label={`Test ${title || label} sound`}
+      aria-label={`Test ${title} sound`}
     >
-      {label}
+      {icon}
     </button>
   );
 }

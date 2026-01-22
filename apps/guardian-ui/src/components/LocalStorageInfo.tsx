@@ -72,14 +72,44 @@ function AccordionItem({ title, icon, children, defaultOpen = false }: Accordion
 
 interface BrowserStepProps {
   browser: string;
-  icon: string;
+  icon: React.ReactNode;
   steps: string;
 }
+
+// Browser-specific SVG icons for accessibility
+const browserIcons = {
+  chrome: (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="21.17" y1="8" x2="12" y2="8" />
+      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+    </svg>
+  ),
+  firefox: (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z" />
+      <path d="M17 8c-1-2-3-3-5-3-3 0-5 2-5 5s2 5 5 5c2 0 4-1 5-3" />
+    </svg>
+  ),
+  safari: (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </svg>
+  ),
+  edge: (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M12 2C6.48 2 2 6.48 2 12c0 4.83 3.44 8.87 8 9.8V15H8v-3h2v-2c0-2.21 1.79-4 4-4h2v3h-2c-.55 0-1 .45-1 1v2h3l-.5 3H13v6.8c4.56-.93 8-4.97 8-9.8 0-5.52-4.48-10-10-10z" />
+    </svg>
+  ),
+};
 
 function BrowserStep({ browser, icon, steps }: BrowserStepProps) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg bg-[var(--color-steel-900)] border border-[var(--color-steel-800)]">
-      <span className="text-lg">{icon}</span>
+      <span className="text-[var(--color-steel-300)] flex-shrink-0">{icon}</span>
       <div>
         <div className="font-medium text-[var(--color-steel-200)] mb-1">{browser}</div>
         <div className="text-xs text-[var(--color-steel-400)]">{steps}</div>
@@ -168,25 +198,25 @@ export function LocalStorageInfo() {
           <p className="mb-4">{t('storage.whereStored.text')}</p>
           
           <div className="grid gap-2">
-            <BrowserStep 
-              browser="Chrome" 
-              icon="🌐" 
-              steps={t('storage.whereStored.browsers.chrome')} 
+            <BrowserStep
+              browser="Chrome"
+              icon={browserIcons.chrome}
+              steps={t('storage.whereStored.browsers.chrome')}
             />
-            <BrowserStep 
-              browser="Firefox" 
-              icon="🦊" 
-              steps={t('storage.whereStored.browsers.firefox')} 
+            <BrowserStep
+              browser="Firefox"
+              icon={browserIcons.firefox}
+              steps={t('storage.whereStored.browsers.firefox')}
             />
-            <BrowserStep 
-              browser="Safari" 
-              icon="🧭" 
-              steps={t('storage.whereStored.browsers.safari')} 
+            <BrowserStep
+              browser="Safari"
+              icon={browserIcons.safari}
+              steps={t('storage.whereStored.browsers.safari')}
             />
-            <BrowserStep 
-              browser="Edge" 
-              icon="🔵" 
-              steps={t('storage.whereStored.browsers.edge')} 
+            <BrowserStep
+              browser="Edge"
+              icon={browserIcons.edge}
+              steps={t('storage.whereStored.browsers.edge')}
             />
           </div>
         </AccordionItem>
@@ -240,25 +270,25 @@ export function LocalStorageInfo() {
 
           <h4 className="font-medium text-[var(--color-steel-200)] mb-2">Browser-Specific Steps:</h4>
           <div className="grid gap-2">
-            <BrowserStep 
-              browser="Chrome" 
-              icon="🌐" 
-              steps={t('storage.clear.steps.chrome')} 
+            <BrowserStep
+              browser="Chrome"
+              icon={browserIcons.chrome}
+              steps={t('storage.clear.steps.chrome')}
             />
-            <BrowserStep 
-              browser="Firefox" 
-              icon="🦊" 
-              steps={t('storage.clear.steps.firefox')} 
+            <BrowserStep
+              browser="Firefox"
+              icon={browserIcons.firefox}
+              steps={t('storage.clear.steps.firefox')}
             />
-            <BrowserStep 
-              browser="Safari" 
-              icon="🧭" 
-              steps={t('storage.clear.steps.safari')} 
+            <BrowserStep
+              browser="Safari"
+              icon={browserIcons.safari}
+              steps={t('storage.clear.steps.safari')}
             />
-            <BrowserStep 
-              browser="Edge" 
-              icon="🔵" 
-              steps={t('storage.clear.steps.edge')} 
+            <BrowserStep
+              browser="Edge"
+              icon={browserIcons.edge}
+              steps={t('storage.clear.steps.edge')}
             />
           </div>
         </AccordionItem>

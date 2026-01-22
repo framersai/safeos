@@ -10,7 +10,13 @@ import { Router, Request, Response } from 'express';
 import { getSafeOSDatabase, now } from '../../db';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { AcknowledgeAllAlertsSchema } from '../schemas/index.js';
+import {
+  AcknowledgeAllAlertsSchema,
+  ListAlertsQuerySchema,
+  AlertSummaryQuerySchema,
+  IdParamsSchema,
+} from '../schemas/index.js';
+import { notFound, internalError } from '../utils/errors.js';
 
 // =============================================================================
 // Router
@@ -27,60 +33,76 @@ alertRoutes.use(requireAuth);
 
 /**
  * GET /api/alerts - List alerts
+ *
+ * Supports pagination via `limit` and `offset` query params.
  */
-alertRoutes.get('/', async (req: Request, res: Response) => {
+alertRoutes.get('/', validate(ListAlertsQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
-    const { streamId, acknowledged, severity, limit = 50, offset = 0 } = req.query;
+    const { streamId, acknowledged, severity } = req.query;
+    // Bounds-checked pagination
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
 
     let query = 'SELECT * FROM alerts WHERE 1=1';
     const params: any[] = [];
+    const countParams: any[] = [];
 
     if (streamId) {
       query += ' AND stream_id = ?';
       params.push(streamId);
+      countParams.push(streamId);
     }
 
     if (acknowledged !== undefined) {
+      const ackValue = acknowledged === 'true' ? 1 : 0;
       query += ' AND acknowledged = ?';
-      params.push(acknowledged === 'true' ? 1 : 0);
+      params.push(ackValue);
+      countParams.push(ackValue);
     }
 
     if (severity) {
       query += ' AND severity = ?';
       params.push(severity);
+      countParams.push(severity);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(Number(limit), Number(offset));
-
-    const alerts = await db.all(query, params);
-
-    // Get total count
-    const countResult = await db.get<{ count: number }>(
+    // Build count query with same filters
+    const countQuery =
       'SELECT COUNT(*) as count FROM alerts WHERE 1=1' +
-        (streamId ? ' AND stream_id = ?' : '') +
-        (acknowledged !== undefined ? ' AND acknowledged = ?' : '') +
-        (severity ? ' AND severity = ?' : ''),
-      params.slice(0, -2)
-    );
+      (streamId ? ' AND stream_id = ?' : '') +
+      (acknowledged !== undefined ? ' AND acknowledged = ?' : '') +
+      (severity ? ' AND severity = ?' : '');
+
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const [alerts, countResult] = await Promise.all([
+      db.all(query, params),
+      db.get<{ count: number }>(countQuery, countParams),
+    ]);
+
+    const total = countResult?.count || 0;
 
     res.json({
       alerts,
-      total: countResult?.count || 0,
-      limit: Number(limit),
-      offset: Number(offset),
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + alerts.length < total,
+      },
     });
   } catch (error) {
     console.error('Failed to list alerts:', error);
-    res.status(500).json({ error: 'Failed to list alerts' });
+    internalError(res, 'Failed to list alerts');
   }
 });
 
 /**
  * GET /api/alerts/:id - Get alert by ID
  */
-alertRoutes.get('/:id', async (req: Request, res: Response) => {
+alertRoutes.get('/:id', validate(IdParamsSchema, 'params'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { id } = req.params;
@@ -88,13 +110,13 @@ alertRoutes.get('/:id', async (req: Request, res: Response) => {
     const alert = await db.get('SELECT * FROM alerts WHERE id = ?', [id]);
 
     if (!alert) {
-      return res.status(404).json({ error: 'Alert not found' });
+      return notFound(res, 'Alert');
     }
 
     res.json({ alert });
   } catch (error) {
     console.error('Failed to get alert:', error);
-    res.status(500).json({ error: 'Failed to get alert' });
+    internalError(res, 'Failed to get alert');
   }
 });
 
@@ -108,7 +130,7 @@ alertRoutes.post('/:id/acknowledge', async (req: Request, res: Response) => {
 
     const alert = await db.get('SELECT * FROM alerts WHERE id = ?', [id]);
     if (!alert) {
-      return res.status(404).json({ error: 'Alert not found' });
+      return notFound(res, 'Alert');
     }
 
     await db.run(
@@ -120,7 +142,7 @@ alertRoutes.post('/:id/acknowledge', async (req: Request, res: Response) => {
     res.json({ alert: updated });
   } catch (error) {
     console.error('Failed to acknowledge alert:', error);
-    res.status(500).json({ error: 'Failed to acknowledge alert' });
+    internalError(res, 'Failed to acknowledge alert');
   }
 });
 
@@ -148,14 +170,14 @@ alertRoutes.post('/acknowledge/all', validate(AcknowledgeAllAlertsSchema), async
     });
   } catch (error) {
     console.error('Failed to acknowledge alerts:', error);
-    res.status(500).json({ error: 'Failed to acknowledge alerts' });
+    internalError(res, 'Failed to acknowledge alerts');
   }
 });
 
 /**
  * GET /api/alerts/summary - Get alert summary
  */
-alertRoutes.get('/summary/stats', async (req: Request, res: Response) => {
+alertRoutes.get('/summary/stats', validate(AlertSummaryQuerySchema, 'query'), async (req: Request, res: Response) => {
   try {
     const db = await getSafeOSDatabase();
     const { streamId, since } = req.query;
@@ -210,7 +232,7 @@ alertRoutes.get('/summary/stats', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Failed to get alert summary:', error);
-    res.status(500).json({ error: 'Failed to get alert summary' });
+    internalError(res, 'Failed to get alert summary');
   }
 });
 

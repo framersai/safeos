@@ -256,7 +256,10 @@ export function Nav() {
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <span className="text-lg">📖</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+              </svg>
               <span>About</span>
             </Link>
             <Link
@@ -264,7 +267,11 @@ export function Nav() {
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <span className="text-lg">❓</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
               <span>FAQ</span>
             </Link>
             <Link
@@ -272,7 +279,12 @@ export function Nav() {
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-all"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <span className="text-lg">📝</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                <path d="M2 2l7.586 7.586" />
+                <circle cx="11" cy="11" r="2" />
+              </svg>
               <span>Blog</span>
             </Link>
           </div>

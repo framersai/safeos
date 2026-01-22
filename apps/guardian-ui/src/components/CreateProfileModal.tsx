@@ -71,25 +71,48 @@ const scenarioDefaults: Record<string, ProfileFormData['settings']> = {
   },
 };
 
-const scenarioLabels: Record<string, { name: string; icon: string; description: string }> = {
+const scenarioLabels: Record<string, { name: string; icon: React.ReactNode; description: string }> = {
   pet: {
     name: 'Pet Monitoring',
-    icon: '🐾',
+    icon: (
+      <svg className="w-8 h-8 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="11" cy="4" r="2" />
+        <circle cx="18" cy="8" r="2" />
+        <circle cx="20" cy="16" r="2" />
+        <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
+      </svg>
+    ),
     description: 'Monitor pets for activity, distress, and health indicators',
   },
   baby: {
     name: 'Baby Monitoring',
-    icon: '👶',
+    icon: (
+      <svg className="w-8 h-8 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M20 21a8 8 0 1 0-16 0" />
+      </svg>
+    ),
     description: 'Watch for crying, movement, and sleep patterns',
   },
   elderly: {
     name: 'Elderly Care',
-    icon: '👵',
+    icon: (
+      <svg className="w-8 h-8 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="5" r="3" />
+        <path d="M12 8v4m0 0-2 8m2-8 2 8" />
+        <path d="M6 13h4m4 0h4" />
+      </svg>
+    ),
     description: 'Detect falls, calls for help, and inactivity',
   },
   security: {
     name: 'Security',
-    icon: '🔒',
+    icon: (
+      <svg className="w-8 h-8 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    ),
     description: 'General motion and intrusion detection',
   },
 };

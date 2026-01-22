@@ -13,6 +13,18 @@ import { useMonitoringStore, type Alert } from '../stores/monitoring-store';
 import { isStaticMode, getApiUrl } from '../lib/env';
 import { useSettingsStore } from '../stores/settings-store';
 import { getSoundManager, type SoundType } from '../lib/sound-manager';
+import {
+  IconInfo,
+  IconBell,
+  IconAlertTriangle,
+  IconSiren,
+  IconShieldAlert,
+  IconVolume,
+  IconVolumeOff,
+  IconCheck,
+  IconChevronUp,
+  IconChevronDown,
+} from './icons';
 
 // =============================================================================
 // Types
@@ -41,12 +53,12 @@ const SEVERITY_COLORS: Record<
   critical: { bg: 'bg-red-500/20', border: 'border-red-500/50', text: 'text-red-400' },
 };
 
-const SEVERITY_ICONS = {
-  info: 'ℹ️',
-  low: '📢',
-  medium: '⚠️',
-  high: '🚨',
-  critical: '🆘',
+const SEVERITY_ICONS: Record<Alert['severity'], React.ComponentType<{ size?: number; className?: string }>> = {
+  info: IconInfo,
+  low: IconBell,
+  medium: IconAlertTriangle,
+  high: IconSiren,
+  critical: IconShieldAlert,
 };
 
 // =============================================================================
@@ -256,7 +268,7 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
         <h3 className="font-semibold text-white flex items-center gap-2">
-          <span>🔔</span>
+          <IconBell size={18} className="text-slate-400" aria-hidden="true" />
           Alerts
           {unacknowledgedAlerts.length > 0 && (
             <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs">
@@ -275,12 +287,16 @@ export function AlertPanel({ alerts: propAlerts, onAcknowledge }: AlertPanelProp
               : 'bg-slate-700/50 text-slate-400 hover:text-white'
           } ${globalMute ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
-          <span aria-hidden="true" className="text-lg">{effectiveMuted ? '🔇' : '🔊'}</span>
+          {effectiveMuted ? (
+            <IconVolumeOff size={20} aria-hidden="true" />
+          ) : (
+            <IconVolume size={20} aria-hidden="true" />
+          )}
         </button>
       </div>
 
       {/* Content */}
-      <div className="max-h-[400px] overflow-y-auto">
+      <div className="max-h-[60vh] sm:max-h-[400px] overflow-y-auto">
         {alerts.length === 0 ? (
           <EmptyState />
         ) : (
@@ -318,7 +334,7 @@ interface AlertCardProps {
 
 function AlertCard({ alert, escalationLevel, onAcknowledge }: AlertCardProps) {
   const colors = SEVERITY_COLORS[alert.severity];
-  const icon = SEVERITY_ICONS[alert.severity];
+  const IconComponent = SEVERITY_ICONS[alert.severity];
   const alertTime = alert.createdAt || alert.timestamp || new Date().toISOString();
   const timeAgo = getTimeAgo(alertTime);
 
@@ -355,7 +371,7 @@ function AlertCard({ alert, escalationLevel, onAcknowledge }: AlertCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span>{icon}</span>
+              <IconComponent size={16} className={colors.text} aria-hidden="true" />
               <span className={`text-sm font-medium ${colors.text} capitalize`}>
                 {alert.severity}
               </span>
@@ -402,7 +418,11 @@ function AcknowledgedSection({ alerts }: AcknowledgedSectionProps) {
         <span className="text-sm">
           {alerts.length} acknowledged alert{alerts.length !== 1 ? 's' : ''}
         </span>
-        <span aria-hidden="true">{expanded ? '▲' : '▼'}</span>
+        {expanded ? (
+          <IconChevronUp size={16} aria-hidden="true" />
+        ) : (
+          <IconChevronDown size={16} aria-hidden="true" />
+        )}
       </button>
 
       {expanded && (
@@ -410,7 +430,10 @@ function AcknowledgedSection({ alerts }: AcknowledgedSectionProps) {
           {alerts.slice(0, 5).map((alert) => (
             <div key={alert.id} className="p-3 opacity-60">
               <div className="flex items-center gap-2 text-sm">
-                <span>{SEVERITY_ICONS[alert.severity]}</span>
+                {(() => {
+                  const Icon = SEVERITY_ICONS[alert.severity];
+                  return <Icon size={14} className="text-slate-400 flex-shrink-0" aria-hidden="true" />;
+                })()}
                 <span className="text-slate-300 truncate">{alert.message}</span>
                 <span className="text-xs text-slate-500 ml-auto">
                   {getTimeAgo(alert.createdAt || alert.timestamp || new Date().toISOString())}
@@ -433,7 +456,7 @@ function EmptyState() {
   return (
     <div className="p-8 text-center">
       <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-3">
-        <span className="text-2xl opacity-50">✓</span>
+        <IconCheck size={24} className="text-emerald-500 opacity-50" aria-hidden="true" />
       </div>
       <p className="text-slate-400 text-sm">No active alerts</p>
       <p className="text-slate-500 text-xs mt-1">

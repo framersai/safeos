@@ -633,7 +633,14 @@ function RecentAlertsPanel({ alerts }: RecentAlertsPanelProps) {
                   </p>
                   <p className="font-mono text-xs text-[var(--color-steel-500)]">
                     {new Date(alert.createdAt || alert.timestamp || new Date()).toLocaleTimeString()}
-                    {alert.acknowledged && <span className="ml-2 text-emerald-500">✓ Acknowledged</span>}
+                    {alert.acknowledged && (
+                      <span className="ml-2 text-emerald-500 inline-flex items-center gap-1">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                        Acknowledged
+                      </span>
+                    )}
                   </p>
                 </div>
                 <button

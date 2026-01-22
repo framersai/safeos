@@ -10,7 +10,7 @@ import { Router } from 'express';
 import { createHmac, randomBytes } from 'crypto';
 import { getSafeOSDatabase, generateId, now } from '../../db/index.js';
 import { validate } from '../middleware/validate.js';
-import { CreateWebhookSchema } from '../schemas/index.js';
+import { CreateWebhookSchema, IdParamsSchema } from '../schemas/index.js';
 
 // =============================================================================
 // Types
@@ -144,7 +144,7 @@ webhookRouter.post('/', validate(CreateWebhookSchema), async (req, res) => {
  * DELETE /api/webhooks/:id
  * Delete a webhook
  */
-webhookRouter.delete('/:id', async (req, res) => {
+webhookRouter.delete('/:id', validate(IdParamsSchema, 'params'), async (req, res) => {
   try {
     const token = req.headers['x-session-token'] as string;
     if (!token) {
@@ -186,7 +186,7 @@ webhookRouter.delete('/:id', async (req, res) => {
  * POST /api/webhooks/:id/test
  * Send a test payload to a webhook
  */
-webhookRouter.post('/:id/test', async (req, res) => {
+webhookRouter.post('/:id/test', validate(IdParamsSchema, 'params'), async (req, res) => {
   try {
     const token = req.headers['x-session-token'] as string;
     if (!token) {

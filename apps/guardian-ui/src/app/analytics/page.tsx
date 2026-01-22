@@ -203,34 +203,65 @@ export default function AnalyticsPage() {
               <StatCard
                 label="Total Alerts"
                 value={analyticsData.overview.totalAlerts}
-                icon="🚨"
+                icon={
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                }
               />
               <StatCard
                 label="Active Streams"
                 value={analyticsData.overview.totalStreams}
-                icon="📹"
+                icon={
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M23 7l-7 5 7 5V7z" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                }
               />
               <StatCard
                 label="Hours Monitored"
                 value={`${analyticsData.overview.totalHours}h`}
-                icon="⏱️"
+                icon={
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                }
               />
               <StatCard
                 label="Local AI Usage"
                 value={`${analyticsData.overview.localAiUsage.toFixed(1)}%`}
-                icon="🤖"
+                icon={
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <rect x="3" y="11" width="18" height="10" rx="2" />
+                    <circle cx="12" cy="5" r="2" />
+                    <path d="M12 7v4" />
+                    <circle cx="8" cy="16" r="1" />
+                    <circle cx="16" cy="16" r="1" />
+                  </svg>
+                }
                 highlight={analyticsData.overview.localAiUsage > 80}
               />
               <StatCard
                 label="Cloud Fallback"
                 value={`${analyticsData.overview.cloudFallbackRate.toFixed(1)}%`}
-                icon="☁️"
+                icon={
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
+                  </svg>
+                }
                 highlight={analyticsData.overview.cloudFallbackRate < 10}
               />
               <StatCard
                 label="Avg Response"
                 value={`${analyticsData.overview.avgResponseTime.toFixed(0)}ms`}
-                icon="⚡"
+                icon={
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                }
               />
             </div>
           </section>
@@ -389,7 +420,7 @@ export default function AnalyticsPage() {
 interface StatCardProps {
   label: string;
   value: string | number;
-  icon: string;
+  icon: React.ReactNode;
   highlight?: boolean;
 }
 
@@ -400,8 +431,15 @@ function StatCard({ label, value, icon, highlight = false }: StatCardProps) {
         }`}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-2xl">{icon}</span>
-        {highlight && <span className="text-emerald-400 text-xs">✓ Good</span>}
+        <span className="text-slate-300">{icon}</span>
+        {highlight && (
+          <span className="text-emerald-400 text-xs flex items-center gap-1">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Good
+          </span>
+        )}
       </div>
       <p className="text-2xl font-bold text-white">{value}</p>
       <p className="text-xs text-slate-400">{label}</p>

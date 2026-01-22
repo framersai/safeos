@@ -11,7 +11,7 @@
 // =============================================================================
 
 export const CRITICAL_DISCLAIMER = `
-⚠️ IMPORTANT SAFETY DISCLAIMER
+[WARNING] IMPORTANT SAFETY DISCLAIMER
 
 SafeOS Guardian is a FREE supplementary monitoring tool offered as part of 
 SuperCloud's humanitarian mission. This service is NOT a replacement for:
@@ -56,7 +56,7 @@ use this service responsibly and in accordance with all applicable laws.
 // =============================================================================
 
 export const BABY_MONITORING_DISCLAIMER = `
-👶 BABY MONITORING ADDITIONAL NOTICE
+[BABY] BABY MONITORING ADDITIONAL NOTICE
 
 This tool is designed to SUPPLEMENT - not replace - direct supervision.
 
@@ -71,7 +71,7 @@ for the first 6-12 months. This tool does not replace these guidelines.
 `.trim();
 
 export const ELDERLY_MONITORING_DISCLAIMER = `
-👴 ELDERLY CARE ADDITIONAL NOTICE
+[ELDERLY] ELDERLY CARE ADDITIONAL NOTICE
 
 This tool is designed to SUPPLEMENT - not replace - proper care.
 
@@ -86,7 +86,7 @@ alert systems with 24/7 monitoring are strongly recommended.
 `.trim();
 
 export const PET_MONITORING_DISCLAIMER = `
-🐕 PET MONITORING ADDITIONAL NOTICE
+[PET] PET MONITORING ADDITIONAL NOTICE
 
 This tool is designed to help monitor pets when you're away.
 
@@ -101,25 +101,25 @@ attentive pet ownership and regular veterinary check-ups.
 `.trim();
 
 export const NAP_MODE_DISCLAIMER = `
-⏰ NAP TIME MONITORING - CRITICAL NOTICE
+[TIME] NAP TIME MONITORING - CRITICAL NOTICE
 
 This feature is designed ONLY for brief daytime naps (15-60 minutes)
 when a caregiver needs to rest while a child sleeps nearby.
 
-⚠️ THIS IS NOT:
+[WARNING] THIS IS NOT:
 • A replacement for human supervision
 • Suitable for overnight or extended sleep periods
 • A substitute for proper childcare arrangements
 • 100% reliable - technology can fail
 
-🛡️ BEFORE USING NAP MODE:
+[SAFETY] BEFORE USING NAP MODE:
 • Ensure the child is in a safe, childproofed environment
 • Position camera to clearly see the child's sleep area
 • Test that your device volume is LOUD and unmuted
 • Set a backup phone alarm for your maximum nap time
 • Keep your device close enough to hear alerts
 
-⚡ IMPORTANT REMINDERS:
+[IMPORTANT] IMPORTANT REMINDERS:
 • Children can move silently - detection is not guaranteed
 • You are FULLY RESPONSIBLE for child safety at all times
 • If you feel too tired to respond to alerts, do NOT nap
@@ -137,11 +137,11 @@ the safety of any children under your care.
 export const ACKNOWLEDGMENT_TEXT = `
 I have read and understand the disclaimers above. I acknowledge that:
 
-✓ SafeOS Guardian is a supplementary tool, not a replacement for proper care
-✓ AI systems can fail and this tool may not detect all concerning events
-✓ I remain fully responsible for the safety and wellbeing of those I monitor
-✓ I will not rely solely on this tool for emergencies
-✓ I will use this service responsibly and legally
+* SafeOS Guardian is a supplementary tool, not a replacement for proper care
+* AI systems can fail and this tool may not detect all concerning events
+* I remain fully responsible for the safety and wellbeing of those I monitor
+* I will not rely solely on this tool for emergencies
+* I will use this service responsibly and legally
 `.trim();
 
 // =============================================================================

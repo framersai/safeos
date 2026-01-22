@@ -24,7 +24,7 @@ import { BackButton } from '@/components/BackButton';
 interface ScenarioConfig {
   id: ScenarioType;
   name: string;
-  icon: string;
+  icon: React.ReactNode;
   description: string;
   colorClass: string;
   defaults: {
@@ -38,7 +38,12 @@ const SCENARIOS: ScenarioConfig[] = [
   {
     id: 'baby',
     name: 'Baby Monitoring',
-    icon: '👶',
+    icon: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M20 21a8 8 0 1 0-16 0" />
+      </svg>
+    ),
     description: 'Optimized for infant detection and cry monitoring',
     colorClass: 'pink',
     defaults: { motionSensitivity: 35, audioSensitivity: 40, inactivityMinutes: 30 },
@@ -46,7 +51,14 @@ const SCENARIOS: ScenarioConfig[] = [
   {
     id: 'pet',
     name: 'Pet Monitoring',
-    icon: '🐕',
+    icon: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="11" cy="4" r="2" />
+        <circle cx="18" cy="8" r="2" />
+        <circle cx="20" cy="16" r="2" />
+        <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
+      </svg>
+    ),
     description: 'Balanced sensitivity for pets',
     colorClass: 'amber',
     defaults: { motionSensitivity: 40, audioSensitivity: 50, inactivityMinutes: 60 },
@@ -54,7 +66,13 @@ const SCENARIOS: ScenarioConfig[] = [
   {
     id: 'elderly',
     name: 'Elderly Care',
-    icon: '👴',
+    icon: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="5" r="3" />
+        <path d="M12 8v4m0 0-2 8m2-8 2 8" />
+        <path d="M6 13h4m4 0h4" />
+      </svg>
+    ),
     description: 'Fall detection and wellness monitoring',
     colorClass: 'blue',
     defaults: { motionSensitivity: 30, audioSensitivity: 35, inactivityMinutes: 45 },
@@ -62,7 +80,12 @@ const SCENARIOS: ScenarioConfig[] = [
   {
     id: 'security',
     name: 'Security',
-    icon: '🔒',
+    icon: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    ),
     description: 'Intrusion detection focus',
     colorClass: 'red',
     defaults: { motionSensitivity: 95, audioSensitivity: 85, inactivityMinutes: 0 },

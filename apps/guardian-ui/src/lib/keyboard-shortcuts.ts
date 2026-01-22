@@ -33,11 +33,11 @@ export interface ShortcutGroup {
 // =============================================================================
 
 export const SHORTCUT_CATEGORIES = {
-  monitoring: { label: 'Monitoring', icon: '📹' },
-  navigation: { label: 'Navigation', icon: '🧭' },
-  audio: { label: 'Audio', icon: '🔊' },
-  settings: { label: 'Settings', icon: '⚙️' },
-  general: { label: 'General', icon: '⌨️' },
+  monitoring: { label: 'Monitoring', icon: 'video' },
+  navigation: { label: 'Navigation', icon: 'compass' },
+  audio: { label: 'Audio', icon: 'volume-2' },
+  settings: { label: 'Settings', icon: 'settings' },
+  general: { label: 'General', icon: 'keyboard' },
 } as const;
 
 export const DEFAULT_SHORTCUTS: Omit<KeyboardShortcut, 'action'>[] = [

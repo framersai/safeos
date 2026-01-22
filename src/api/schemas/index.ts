@@ -84,6 +84,10 @@ export const UpdateProfileSchema = z.object({
   settings: z.record(z.any()).optional(),
 });
 
+export const ListProfilesQuerySchema = z.object({
+  scenario: ScenarioEnum.optional(),
+});
+
 // =============================================================================
 // Auth Schemas
 // =============================================================================
@@ -166,6 +170,19 @@ export const SmsConfigSchema = z.object({
   phoneNumber: z.string().min(10).max(15).regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number'),
 });
 
+export const UnsubscribeSchema = z.object({
+  userId: z.string().min(1).optional(),
+});
+
+export const TelegramUnregisterSchema = z.object({
+  chatId: z.string().min(1).regex(/^\d+$/, 'Chat ID must be numeric').optional(),
+});
+
+export const TestNotificationSchema = z.object({
+  channel: z.enum(['push', 'telegram', 'sms', 'email']),
+  target: z.string().min(1).optional(),
+});
+
 // =============================================================================
 // Review Schemas
 // =============================================================================
@@ -175,6 +192,15 @@ export const ReviewActionEnum = z.enum(['approved', 'rejected', 'escalated', 'ba
 export const ReviewActionSchema = z.object({
   action: ReviewActionEnum,
   notes: z.string().max(1000).optional(),
+});
+
+export const ListFlagsQuerySchema = PaginationSchema.extend({
+  status: z.enum(['pending', 'approved', 'rejected', 'escalated', 'banned']).optional(),
+  tier: z.coerce.number().int().min(0).max(3).optional(),
+});
+
+export const ReviewQueueQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
 // =============================================================================

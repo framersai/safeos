@@ -35,6 +35,85 @@ import {
 } from '@/lib/custom-sounds-db';
 
 // =============================================================================
+// Icons
+// =============================================================================
+
+const soundCardIcons = {
+  play: (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  ),
+  stop: (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+    </svg>
+  ),
+  microphone: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  ),
+  file: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  loop: (
+    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  ),
+  volume: (
+    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    </svg>
+  ),
+  clock: (
+    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  chart: (
+    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  ),
+  check: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  circle: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+    </svg>
+  ),
+  edit: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  ),
+  trash: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  ),
+};
+
+// =============================================================================
 // Page Component
 // =============================================================================
 
@@ -142,7 +221,11 @@ export default function SoundsSettingsPage() {
             <span className="text-sm font-medium">Back to Settings</span>
           </BackButton>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            🔊 Custom Sounds
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+            </svg>
+            Custom Sounds
           </h1>
           <p className="text-slate-400 mt-2">
             Upload or record custom sounds to play when specific events are detected.
@@ -152,7 +235,12 @@ export default function SoundsSettingsPage() {
         {/* Usage Guide */}
         <section className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
           <h2 className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
-            💡 How Custom Sounds Work
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+            How Custom Sounds Work
           </h2>
           <div className="text-sm text-slate-300 space-y-2">
             <p>
@@ -161,25 +249,51 @@ export default function SoundsSettingsPage() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
               <div className="p-2 bg-slate-800/50 rounded-lg">
-                <span className="font-medium text-emerald-400">🐕 Pet Recall</span>
+                <span className="font-medium text-emerald-400 flex items-center gap-1">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="11" cy="4" r="2" />
+                    <circle cx="18" cy="8" r="2" />
+                    <circle cx="20" cy="16" r="2" />
+                    <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
+                  </svg>
+                  Pet Recall
+                </span>
                 <p className="text-xs text-slate-400 mt-1">
                   Record "Come home Buddy!" to play when your dog is detected outdoors
                 </p>
               </div>
               <div className="p-2 bg-slate-800/50 rounded-lg">
-                <span className="font-medium text-red-400">👤 Intruder Alert</span>
+                <span className="font-medium text-red-400 flex items-center gap-1">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M20 21a8 8 0 1 0-16 0" />
+                  </svg>
+                  Intruder Alert
+                </span>
                 <p className="text-xs text-slate-400 mt-1">
                   Upload a loud siren for nighttime person detection
                 </p>
               </div>
               <div className="p-2 bg-slate-800/50 rounded-lg">
-                <span className="font-medium text-purple-400">👶 Baby Monitor</span>
+                <span className="font-medium text-purple-400 flex items-center gap-1">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M20 21a8 8 0 1 0-16 0" />
+                  </svg>
+                  Baby Monitor
+                </span>
                 <p className="text-xs text-slate-400 mt-1">
                   Play a lullaby when baby is detected but no movement for 5 min
                 </p>
               </div>
               <div className="p-2 bg-slate-800/50 rounded-lg">
-                <span className="font-medium text-amber-400">🔍 Lost & Found</span>
+                <span className="font-medium text-amber-400 flex items-center gap-1">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  Lost &amp; Found
+                </span>
                 <p className="text-xs text-slate-400 mt-1">
                   Special alert when a missing pet or item is spotted
                 </p>
@@ -196,7 +310,10 @@ export default function SoundsSettingsPage() {
                        rounded-xl text-slate-400 hover:text-white hover:border-emerald-500/50
                        transition-colors flex items-center justify-center gap-2"
           >
-            <span className="text-xl">➕</span>
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
             <span className="font-medium">Add Custom Sound</span>
           </button>
         )}
@@ -223,21 +340,30 @@ export default function SoundsSettingsPage() {
         {/* Sound List */}
         <section>
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            📂 Your Sounds
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            Your Sounds
             <span className="text-sm font-normal text-slate-500">({sounds.length})</span>
           </h2>
 
           {isLoading ? (
             <div className="text-center py-12 text-slate-500">
-              <div className="animate-spin text-4xl mb-2">🔄</div>
+              <div className="w-10 h-10 mx-auto mb-2 border-2 border-slate-600 border-t-emerald-500 rounded-full animate-spin" aria-hidden="true" />
               Loading sounds...
             </div>
           ) : sounds.length === 0 ? (
             <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700/50">
-              <div className="text-4xl mb-3">🔇</div>
+              <div className="mb-3 flex justify-center">
+                <svg className="w-10 h-10 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                  <line x1="22" y1="9" x2="16" y2="15" />
+                  <line x1="16" y1="9" x2="22" y2="15" />
+                </svg>
+              </div>
               <p className="text-slate-400">No custom sounds yet</p>
               <p className="text-sm text-slate-500 mt-1">
-                Click "Add Custom Sound" to get started
+                Click &quot;Add Custom Sound&quot; to get started
               </p>
             </div>
           ) : (
@@ -312,7 +438,7 @@ function SoundCard({
           }`}
           aria-label={isPlaying ? 'Stop' : 'Play'}
         >
-          {isPlaying ? '⏹️' : '▶️'}
+          {isPlaying ? soundCardIcons.stop : soundCardIcons.play}
         </button>
 
         {/* Info */}
@@ -320,11 +446,11 @@ function SoundCard({
           <div className="flex items-center gap-2">
             <h3 className="text-white font-medium truncate">{sound.name}</h3>
             <span className="text-xs text-slate-500">
-              {sound.source === 'recording' ? '🎙️' : '📁'}
+              {sound.source === 'recording' ? soundCardIcons.microphone : soundCardIcons.file}
             </span>
             {sound.loop && (
-              <span className="text-xs px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded">
-                🔁 Loop
+              <span className="text-xs px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1">
+                {soundCardIcons.loop} Loop
               </span>
             )}
             {sound.repeatCount > 0 && (
@@ -352,9 +478,9 @@ function SoundCard({
 
           {/* Stats */}
           <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-            <span>🔊 {sound.volume}%</span>
-            <span>⏱️ {formatDuration(sound.durationSeconds)}</span>
-            <span>📊 Played {sound.playCount}x</span>
+            <span className="flex items-center gap-1">{soundCardIcons.volume} {sound.volume}%</span>
+            <span className="flex items-center gap-1">{soundCardIcons.clock} {formatDuration(sound.durationSeconds)}</span>
+            <span className="flex items-center gap-1">{soundCardIcons.chart} Played {sound.playCount}x</span>
           </div>
         </div>
 
@@ -369,21 +495,21 @@ function SoundCard({
             }`}
             aria-label={sound.enabled ? 'Disable' : 'Enable'}
           >
-            {sound.enabled ? '✓' : '○'}
+            {sound.enabled ? soundCardIcons.check : soundCardIcons.circle}
           </button>
           <button
             onClick={onEdit}
             className="p-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors"
             aria-label="Edit"
           >
-            ✏️
+            {soundCardIcons.edit}
           </button>
           <button
             onClick={onDelete}
             className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
             aria-label="Delete"
           >
-            🗑️
+            {soundCardIcons.trash}
           </button>
         </div>
       </div>

@@ -1,0 +1,392 @@
+/**
+ * Touch Optimization Styles
+ *
+ * Mobile touch states, touch targets, and interaction feedback.
+ * Ensures WCAG 2.5.5 compliance (44px minimum touch targets).
+ *
+ * @module styles/touch
+ */
+
+/* =============================================================================
+   Touch Target Minimum Sizes
+   ============================================================================= */
+
+/**
+ * Utility class for ensuring minimum touch target size (44x44px)
+ * Apply to any interactive element that may be too small on mobile
+ */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/**
+ * Touch target wrapper - use when the actual clickable content is smaller
+ * but you need the touch area to be larger
+ */
+.touch-target-wrapper {
+  position: relative;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.touch-target-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  pointer-events: auto;
+}
+
+/* =============================================================================
+   Active States for Touch Feedback
+   ============================================================================= */
+
+/**
+ * Buttons - provide immediate visual feedback on touch
+ */
+.btn:active,
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/**
+ * Primary button active state
+ */
+.btn-primary:active {
+  background-color: var(--color-accent-700);
+}
+
+/**
+ * Secondary button active state
+ */
+.btn-secondary:active {
+  background-color: var(--color-steel-700);
+}
+
+/**
+ * Ghost button active state
+ */
+.btn-ghost:active {
+  background-color: var(--color-steel-700);
+}
+
+/**
+ * Danger button active state
+ */
+.btn-danger:active {
+  background-color: #991b1b;
+}
+
+/**
+ * Card/panel active states for tappable elements
+ */
+.card:active,
+.panel:active,
+[role="button"]:active {
+  transform: scale(0.99);
+  opacity: 0.95;
+}
+
+/**
+ * Link active states
+ */
+a:active {
+  opacity: 0.8;
+}
+
+/**
+ * Interactive list items
+ */
+li[role="option"]:active,
+li[role="menuitem"]:active,
+[role="listitem"]:active {
+  background-color: var(--color-steel-700);
+}
+
+/* =============================================================================
+   Toggle Switch Touch States
+   ============================================================================= */
+
+/**
+ * Toggle switch active state - slightly scale the thumb
+ */
+button[role="switch"]:active span,
+.toggle-switch:active .toggle-thumb {
+  transform: scale(1.1);
+}
+
+/* =============================================================================
+   Touch Action Properties
+   ============================================================================= */
+
+/**
+ * Prevent double-tap zoom on interactive elements
+ */
+button,
+[role="button"],
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+/**
+ * Allow horizontal scrolling only (for carousels, sliders)
+ */
+.touch-scroll-x {
+  touch-action: pan-x;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/**
+ * Allow vertical scrolling only (for lists)
+ */
+.touch-scroll-y {
+  touch-action: pan-y;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/**
+ * Prevent any touch scrolling (for draggable areas)
+ */
+.touch-none {
+  touch-action: none;
+}
+
+/* =============================================================================
+   Tap Highlight Control
+   ============================================================================= */
+
+/**
+ * Remove default tap highlight on iOS
+ */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/**
+ * Custom tap highlight - subtle overlay
+ */
+.tap-highlight {
+  position: relative;
+}
+
+.tap-highlight:active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-steel-100);
+  opacity: 0.1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* =============================================================================
+   Slider/Range Touch Optimization
+   ============================================================================= */
+
+/**
+ * Larger touch targets for range sliders
+ */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-accent-500);
+  cursor: pointer;
+  margin-top: -10px;
+  border: 2px solid var(--color-steel-900);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+  background: var(--color-accent-400);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--color-steel-700);
+  border-radius: 2px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-accent-500);
+  cursor: pointer;
+  border: 2px solid var(--color-steel-900);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+input[type="range"]::-moz-range-thumb:active {
+  transform: scale(1.15);
+  background: var(--color-accent-400);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--color-steel-700);
+  border-radius: 2px;
+}
+
+/* =============================================================================
+   Checkbox/Radio Touch Optimization
+   ============================================================================= */
+
+/**
+ * Ensure checkboxes and radios have adequate touch targets
+ */
+input[type="checkbox"],
+input[type="radio"] {
+  min-width: 20px;
+  min-height: 20px;
+}
+
+/**
+ * Wrapper for checkbox/radio with larger touch area
+ */
+.checkbox-wrapper,
+.radio-wrapper {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.checkbox-wrapper:active,
+.radio-wrapper:active {
+  opacity: 0.9;
+}
+
+/* =============================================================================
+   Mobile-Specific Enhancements
+   ============================================================================= */
+
+@media (hover: none) and (pointer: coarse) {
+  /**
+   * On touch devices, ensure buttons are large enough
+   */
+  .btn {
+    min-height: 44px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /**
+   * Increase spacing between interactive elements
+   */
+  .btn + .btn {
+    margin-left: 0.5rem;
+  }
+
+  /**
+   * Make close buttons easier to tap
+   */
+  [aria-label="Close"],
+  [aria-label="Dismiss"],
+  .close-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /**
+   * Improve select dropdown touch targets
+   */
+  select {
+    min-height: 44px;
+    padding: 0.75rem 2.5rem 0.75rem 0.75rem;
+  }
+
+  /**
+   * Input fields should be tall enough for comfortable input
+   */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="url"],
+  textarea {
+    min-height: 44px;
+    padding: 0.75rem;
+  }
+}
+
+/* =============================================================================
+   Light Mode Active States
+   ============================================================================= */
+
+html.light .btn:active {
+  opacity: 0.85;
+}
+
+html.light .btn-primary:active {
+  background-color: var(--color-accent-700);
+}
+
+html.light .btn-secondary:active {
+  background-color: var(--color-steel-800);
+}
+
+html.light .tap-highlight:active::after {
+  background-color: var(--color-steel-900);
+  opacity: 0.08;
+}
+
+html.light a:active {
+  opacity: 0.75;
+}
+
+/* =============================================================================
+   Reduced Motion - Disable Transform Animations
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active,
+  button:active,
+  .card:active,
+  .panel:active,
+  [role="button"]:active {
+    transform: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:active,
+  input[type="range"]::-moz-range-thumb:active {
+    transform: none;
+  }
+
+  button[role="switch"]:active span,
+  .toggle-switch:active .toggle-thumb {
+    transform: none;
+  }
+}

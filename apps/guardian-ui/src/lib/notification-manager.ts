@@ -194,15 +194,16 @@ class NotificationManager {
     alert: Alert,
     callbacks: NotificationCallbacks = {}
   ): Promise<Notification | null> {
-    const severityIcons: Record<string, string> = {
-      info: '🔵',
-      low: '🟢',
-      medium: '🟡',
-      high: '🟠',
-      critical: '🔴',
+    // Severity prefixes for plain text notification titles (no emoji for accessibility)
+    const severityPrefixes: Record<string, string> = {
+      info: 'INFO',
+      low: 'LOW',
+      medium: 'MEDIUM',
+      high: 'HIGH',
+      critical: 'CRITICAL',
     };
 
-    const title = `SafeOS Alert: ${severityIcons[alert.severity]} ${alert.severity.toUpperCase()}`;
+    const title = `SafeOS Alert [${severityPrefixes[alert.severity] || alert.severity.toUpperCase()}]`;
     
     return this.show(
       title,
@@ -239,7 +240,7 @@ class NotificationManager {
     callbacks: NotificationCallbacks = {}
   ): Promise<Notification | null> {
     return this.show(
-      '🚨 EMERGENCY ALERT 🚨',
+      '[EMERGENCY] SafeOS Guardian Alert',
       {
         body: `CRITICAL: ${alert.message}. Immediate attention required!`,
         icon: this.defaultIcon,
