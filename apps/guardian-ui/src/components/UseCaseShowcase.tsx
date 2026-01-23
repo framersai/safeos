@@ -44,15 +44,15 @@ const USE_CASES: UseCase[] = [
   {
     id: 'baby',
     name: 'Baby Monitoring',
-    tagline: 'Sleep peacefully knowing your baby is safe',
+    tagline: 'Supplemental alerts for short naps',
     description:
-      'Ultra-sensitive motion and audio detection designed for infant sleep monitoring. Alerts you to the smallest movements or sounds while your baby sleeps.',
+      'A supplementary alert layer for when you AND your infant are napping nearby. Provides audio cues if movement or sounds are detected — NOT a replacement for supervision.',
     features: [
-      '5px pixel threshold - detects tiniest movements',
-      'Baby cry detection (300-600Hz optimization)',
-      'Inactivity alerts for peace of mind',
+      'SUPPLEMENTARY ONLY — not a babysitter replacement',
+      'Best for short naps when parent is also resting nearby',
+      'Audio/visual alerts to wake you if needed',
       '100% local processing - your data stays private',
-      'Escalating alert system with sound options',
+      'Peace of mind as an extra safety layer',
     ],
     icon: <BabyIcon />,
     color: 'text-pink-400',
@@ -64,14 +64,14 @@ const USE_CASES: UseCase[] = [
   {
     id: 'pet',
     name: 'Pet Care',
-    tagline: 'Keep an eye on your furry friends',
+    tagline: 'Extra awareness for brief absences',
     description:
-      'Monitor your pets when you\'re away. Record custom voice messages that play when your pet is detected - perfect for calling them home or comforting them.',
+      'A supplementary layer to get alerts about your pets during brief absences from the room. Play custom sounds when detected — but NEVER leave pets unattended for long periods.',
     features: [
-      'AI-powered pet detection (dogs, cats, more)',
+      'SUPPLEMENTARY ONLY — not a pet-sitter replacement',
+      'Best for brief room absences (bathroom, quick errands)',
       'Custom sound recordings for pet recall',
-      'Motion tracking for activity monitoring',
-      'Multi-pet household support',
+      'Alerts for unusual activity patterns',
       'Integrate with Lost & Found for escape alerts',
     ],
     icon: <PetIcon />,
@@ -84,15 +84,15 @@ const USE_CASES: UseCase[] = [
   {
     id: 'elderly',
     name: 'Elderly Care',
-    tagline: 'Non-intrusive wellness monitoring',
+    tagline: 'Supplemental wellness check-ins',
     description:
-      'Gentle monitoring for elderly family members. Get alerts if there\'s no movement for extended periods, helping ensure their safety without invading privacy.',
+      'A supplementary alert system for additional peace of mind. Get notified of extended inactivity — but this is NOT a replacement for proper care, medical monitoring, or regular check-ins.',
     features: [
-      'Inactivity monitoring with customizable thresholds',
-      'Fall detection using AI pose estimation',
-      'Audio monitoring for calls for help',
+      'SUPPLEMENTARY ONLY — not a caregiver replacement',
+      'Additional awareness layer, not primary care',
+      'Inactivity alerts as backup notification',
       'Privacy-first local processing',
-      'Emergency escalation (increasing alert urgency)',
+      'Works alongside regular human check-ins',
     ],
     icon: <ElderlyIcon />,
     color: 'text-blue-400',
@@ -104,15 +104,15 @@ const USE_CASES: UseCase[] = [
   {
     id: 'lost-found',
     name: 'Lost & Found',
-    tagline: 'Never lose a pet or item again',
+    tagline: 'Aid in locating missing subjects',
     description:
-      'Upload a photo of your missing pet or item. The AI continuously scans camera feeds and alerts you immediately when a match is detected.',
+      'Upload a photo to help locate a missing pet or person. This is a supplementary search aid — continue active searching and contact authorities for missing persons.',
     features: [
-      'AI-powered image matching',
+      'SUPPLEMENTARY SEARCH AID — not primary search method',
+      'Helps increase coverage of search area',
       'Works with pets, people, and objects',
-      'Community sharing for wider coverage',
-      'Instant alerts when subject is spotted',
-      'Historical timeline of sightings',
+      'Alerts when potential match is spotted',
+      'Always continue active searching efforts',
     ],
     icon: <LostFoundIcon />,
     color: 'text-purple-400',
@@ -124,15 +124,15 @@ const USE_CASES: UseCase[] = [
   {
     id: 'security',
     name: 'Security',
-    tagline: 'Protect your home and property',
+    tagline: 'Supplemental intruder awareness',
     description:
-      'Full security monitoring with person detection, motion alerts, and emergency mode. Perfect for monitoring entry points and detecting intruders.',
+      'A supplementary alert layer for home awareness. Provides motion/person alerts — but is NOT a replacement for proper security systems, locks, or professional monitoring.',
     features: [
-      'AI person detection with confidence scoring',
-      'High-sensitivity motion detection',
-      'Instant on-device alerts (sound + browser notifications)',
-      'Emergency mode with maximum alerts',
-      'Detection zone configuration',
+      'SUPPLEMENTARY ONLY — not a security system replacement',
+      'Additional awareness layer for peace of mind',
+      'On-device alerts (sound + browser notifications)',
+      'Best used alongside proper locks and security',
+      'Detection zones for focused monitoring',
     ],
     icon: <SecurityIcon />,
     color: 'text-red-400',
@@ -144,13 +144,13 @@ const USE_CASES: UseCase[] = [
   {
     id: 'wildlife',
     name: 'Wildlife Watching',
-    tagline: 'Discover the wildlife in your backyard',
+    tagline: 'Observe backyard visitors',
     description:
-      'Set up cameras to capture wildlife activity. The AI detects animals and logs sightings, building a journal of creatures that visit your property.',
+      'Capture wildlife activity in your yard. This is for observation and enjoyment — the AI detects animals and logs sightings for nature enthusiasts.',
     features: [
+      'Casual observation tool for nature lovers',
       'Animal detection and classification',
       'Motion-triggered recording',
-      'Time-lapse compilation of activity',
       'Species logging and statistics',
       'Night vision compatible',
     ],
@@ -186,19 +186,17 @@ export function UseCaseShowcase({
     <section className={className}>
       {!compact && (
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-sm mb-4">
-            <span className="font-bold">100% FREE</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-sm mb-4">
+            <span className="font-bold">⚠️ SUPPLEMENTARY TOOL</span>
             <span className="text-slate-400">•</span>
-            <span>Open Source</span>
-            <span className="text-slate-400">•</span>
-            <span>Local-First</span>
+            <span>Not a Replacement for Human Care</span>
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">
-            What Can SafeOS Guardian Do?
+            Supplementary Use Cases
           </h2>
           <p className="text-slate-400 max-w-2xl mx-auto">
-            From baby monitoring to security cameras, Guardian adapts to your needs.
-            All features are free, and your data never leaves your device.
+            SafeOS provides <strong className="text-amber-400">additional awareness</strong> as a backup layer.
+            It is <strong className="text-red-400">NOT a replacement</strong> for human supervision, professional care, or proper security systems.
           </p>
         </div>
       )}

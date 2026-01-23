@@ -83,14 +83,14 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
 
               {/* Message */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                <span className="text-sm font-medium text-amber-300">
+                <span className="text-sm font-medium text-white">
                   {!isMonitoringApiOnline
                     ? 'No Monitoring Server (API) Online'
                     : !isOllamaOnline
                     ? 'Monitoring Server Online, Ollama Offline'
                     : 'Running Locally'}
                 </span>
-                <span className="text-xs text-amber-300/70">
+                <span className="text-xs text-slate-300">
                   {!isMonitoringApiOnline ? (
                     <>
                       SafeOS is running fully local/offline AI on this device. Remote channels and integrations work when a monitoring server is available.
