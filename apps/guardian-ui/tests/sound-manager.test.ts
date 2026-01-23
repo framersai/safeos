@@ -63,7 +63,6 @@ class MockAudioElement {
 
 // Reset module cache to get fresh instance
 let getSoundManager: typeof import('../src/lib/sound-manager').getSoundManager;
-let SoundType: typeof import('../src/lib/sound-manager').SoundType;
 
 // =============================================================================
 // Tests

@@ -20,8 +20,12 @@ export type SoundTrigger =
   | 'object_found'         // Lost & Found match detected
   | 'motion_detected'      // Motion triggered
   | 'audio_detected'       // Audio threshold exceeded
+  | 'sound_detected'       // Audio event detected (alias)
+  | 'video_activity'       // Video/camera activity detected
   | 'inactivity_alert'     // No movement for specified time
+  | 'idle_timeout'         // Idle timeout (alias)
   | 'emergency'            // Emergency mode activated
+  | 'system_event'         // System event notification
   | 'custom';              // User-defined trigger
 
 /**
@@ -328,10 +332,30 @@ export const TRIGGER_DESCRIPTIONS: Record<SoundTrigger, { label: string; descrip
     description: 'Play when sound levels exceed the threshold',
     icon: 'volume-2',
   },
+  sound_detected: {
+    label: 'Sound Detected',
+    description: 'Play when audio events are detected',
+    icon: 'volume-2',
+  },
+  video_activity: {
+    label: 'Video Activity',
+    description: 'Play when video/camera activity is detected',
+    icon: 'video',
+  },
   inactivity_alert: {
     label: 'Inactivity Alert',
     description: 'Play when no movement is detected for the specified time',
     icon: 'clock',
+  },
+  idle_timeout: {
+    label: 'Idle Timeout',
+    description: 'Play when the system has been idle for too long',
+    icon: 'clock',
+  },
+  system_event: {
+    label: 'System Event',
+    description: 'Play for system notifications and events',
+    icon: 'settings',
   },
   emergency: {
     label: 'Emergency',
