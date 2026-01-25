@@ -60,6 +60,8 @@ jobs:
           NEXT_PUBLIC_SITE_URL: 'https://safeos.sh'
           NEXT_PUBLIC_API_URL: ''
           NEXT_PUBLIC_WS_URL: ''
+          NEXT_PUBLIC_GA_ID: ${{ secrets.NEXT_PUBLIC_GA_ID }}
+          NEXT_PUBLIC_CLARITY_ID: ${{ secrets.NEXT_PUBLIC_CLARITY_ID }}
 
       - name: Add .nojekyll file
         run: touch out/.nojekyll
