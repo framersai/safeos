@@ -156,12 +156,13 @@ export function PWAInstallPrompt() {
   if (!mounted || !showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[100] md:right-auto md:left-4 md:max-w-sm animate-slide-up">
-      <div className="bg-[rgba(15,20,25,0.98)] backdrop-blur-xl border border-emerald-500/20 rounded-xl p-4 shadow-2xl shadow-black/50">
+    <div className="fixed bottom-4 left-4 right-4 z-[100] md:right-auto md:left-4 md:max-w-sm animate-fade-in">
+      <div className="bg-gradient-to-br from-[rgba(10,14,18,0.98)] to-[rgba(8,16,12,0.98)] backdrop-blur-xl
+                      border border-emerald-500/40 rounded-xl p-4 shadow-2xl shadow-emerald-900/30">
         {/* Close button */}
         <button
           onClick={handleDismiss}
-          className="absolute top-3 right-3 p-1 text-slate-500 hover:text-slate-300 transition-colors"
+          className="absolute top-3 right-3 p-1 text-slate-400 hover:text-slate-200 transition-colors"
           aria-label="Dismiss"
         >
           <IconX size={16} />
@@ -171,26 +172,26 @@ export function PWAInstallPrompt() {
           // iOS Instructions
           <div className="pr-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                <IconDownload size={20} className="text-emerald-400" />
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/25 flex items-center justify-center">
+                <IconDownload size={20} className="text-emerald-300" />
               </div>
               <div>
                 <h3 className="font-semibold text-white text-sm">Install SafeOS</h3>
-                <p className="text-xs text-slate-400">Add to your home screen</p>
+                <p className="text-xs text-slate-300">Add to your home screen</p>
               </div>
             </div>
-            
-            <div className="space-y-2 text-xs text-slate-300">
+
+            <div className="space-y-2 text-xs text-slate-200">
               <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">1</span>
+                <span className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">1</span>
                 <span className="flex items-center gap-1">
-                  Tap the <IconShare size={14} className="text-blue-400 inline" /> Share button
+                  Tap the <IconShare size={14} className="text-blue-300 inline" /> Share button
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">2</span>
+                <span className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">2</span>
                 <span className="flex items-center gap-1">
-                  Tap <IconPlus size={14} className="text-slate-400 inline" /> "Add to Home Screen"
+                  Tap <IconPlus size={14} className="text-slate-300 inline" /> &ldquo;Add to Home Screen&rdquo;
                 </span>
               </div>
             </div>
@@ -199,15 +200,15 @@ export function PWAInstallPrompt() {
           // Android/Desktop Install Button
           <div className="pr-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                <IconDownload size={20} className="text-emerald-400" />
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/25 flex items-center justify-center">
+                <IconDownload size={20} className="text-emerald-300" />
               </div>
               <div>
                 <h3 className="font-semibold text-white text-sm">Install SafeOS</h3>
-                <p className="text-xs text-slate-400">Quick access from your device</p>
+                <p className="text-xs text-slate-300">Quick access from your device</p>
               </div>
             </div>
-            
+
             <button
               onClick={handleInstall}
               className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"

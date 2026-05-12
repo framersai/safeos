@@ -113,12 +113,12 @@ export function NotificationPermission() {
   if (!mounted || !showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[99] md:left-4 md:right-auto md:max-w-sm animate-slide-up">
-      <div className="bg-[rgba(15,20,25,0.98)] backdrop-blur-xl border border-blue-500/20 rounded-xl p-4 shadow-2xl shadow-black/50">
+    <div className="fixed top-20 left-4 right-4 z-[99] md:left-auto md:right-4 md:max-w-sm animate-fade-in">
+      <div className="bg-[rgba(15,20,25,0.98)] backdrop-blur-xl border border-blue-500/40 rounded-xl p-4 shadow-2xl shadow-black/50">
         {/* Close button */}
         <button
           onClick={handleDismiss}
-          className="absolute top-3 right-3 p-1 text-slate-500 hover:text-slate-300 transition-colors"
+          className="absolute top-3 right-3 p-1 text-slate-400 hover:text-slate-200 transition-colors"
           aria-label="Dismiss"
         >
           <IconX size={16} />
@@ -126,17 +126,17 @@ export function NotificationPermission() {
 
         <div className="pr-6">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-              <IconBell size={20} className="text-blue-400" />
+            <div className="w-10 h-10 rounded-xl bg-blue-500/25 flex items-center justify-center">
+              <IconBell size={20} className="text-blue-300" />
             </div>
             <div>
-              <h3 className="font-semibold text-white text-sm">Enable Notifications</h3>
-              <p className="text-xs text-slate-400">Get instant alerts</p>
+              <h3 className="font-semibold text-white text-sm">Enable notifications</h3>
+              <p className="text-xs text-slate-300">Get instant alerts</p>
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 mb-3">
-            Receive immediate alerts when motion, sound, or other events are detected—even when the browser is minimized.
+          <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+            Receive immediate alerts when motion, sound, or other events are detected — even when the browser is minimized.
           </p>
 
           <div className="flex gap-2">

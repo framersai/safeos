@@ -14,6 +14,14 @@ import {
   IconHeart,
   IconWarning,
   IconInfo,
+  IconRadar,
+  IconEye,
+  IconFingerprint,
+  IconMic,
+  IconWifiOff,
+  IconCpu,
+  IconChevronDown,
+  IconDatabase,
 } from '../components/icons';
 import { UseCaseShowcase } from '../components/UseCaseShowcase';
 import { HomeCTA } from '@/components/home/HomeCTA';
@@ -149,40 +157,45 @@ function LandingPage() {
             <AnimatedShield />
           </div>
           
-          {/* Title */}
-          <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-steel-100)] mb-2
-                         font-[family-name:var(--font-space-grotesk)]">
-            SafeOS Guardian
+          {/* Title - split style matching nav Logo (SafeOS primary, Guardian secondary) */}
+          <h1 className="mb-3 flex flex-col items-center gap-1">
+            <span className="text-5xl md:text-6xl font-bold tracking-tight text-[var(--color-steel-100)] leading-none
+                             font-[family-name:var(--font-inter)]">
+              SafeOS
+            </span>
+            <span className="text-lg md:text-2xl font-mono uppercase tracking-[0.4em] text-emerald-400/90 leading-none
+                             pl-[0.4em]">
+              Guardian
+            </span>
           </h1>
-          
-          <p className="text-sm text-emerald-500/80 mb-6 tracking-wider uppercase
-                        font-[family-name:var(--font-space-grotesk)]">
+
+          <p className="text-xs md:text-sm text-emerald-500 mb-6 tracking-[0.25em] uppercase font-medium">
             Experimental Supplemental Monitoring Tool
           </p>
 
           {/* Tagline */}
-          <p className="text-lg md:text-xl text-[var(--color-steel-400)] mb-8 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-[var(--color-steel-200)] mb-8 max-w-2xl mx-auto leading-relaxed">
             A free, lo-tech monitoring aid using standard{' '}
-            <span className="text-emerald-400">webcams</span> and{' '}
-            <span className="text-emerald-400">microphones</span>.
+            <span className="text-emerald-400 font-medium">webcams</span> and{' '}
+            <span className="text-emerald-400 font-medium">microphones</span>.
             <br />
-            <span className="text-[var(--color-steel-500)]">
+            <span className="text-[var(--color-steel-300)]">
               Designed for tech-savvy parents or those willing to learn. Portable by design.
             </span>
           </p>
 
           {/* Critical Disclaimer Box */}
-          <div className="max-w-2xl mx-auto mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <div className="max-w-2xl mx-auto mb-8 p-4 bg-amber-500/10 border border-amber-500/40 rounded-lg">
             <div className="flex items-start gap-3">
-              <IconWarning size={24} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <IconWarning size={24} className="text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="text-left">
-                <p className="text-sm text-amber-200 font-semibold mb-1">
+                <p className="text-sm text-amber-100 font-semibold mb-1">
                   This is NOT a replacement for human supervision
                 </p>
-                <p className="text-xs text-amber-200/70 leading-relaxed">
-                  SafeOS Guardian is a <strong>supplemental experimental tool</strong> only. 
-                  It cannot and should not replace direct human care and attention. 
-                  Technology can fail. Always maintain proper supervision of children, 
+                <p className="text-xs text-amber-100/90 leading-relaxed">
+                  SafeOS Guardian is a <strong>supplemental experimental tool</strong> only.
+                  It cannot and should not replace direct human care and attention.
+                  Technology can fail. Always maintain proper supervision of children,
                   pets, and elderly family members.
                 </p>
               </div>
@@ -192,44 +205,20 @@ function LandingPage() {
           {/* CTA Buttons */}
           <HomeCTA />
 
-          {/* Open Source Badge */}
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* GitHub CTA - single prominent button */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
               href="https://github.com/framersai/safeos"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 rounded-lg transition-colors"
+              className="inline-flex items-center gap-3 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-emerald-500/30 hover:border-emerald-500/60 rounded-lg transition-colors group"
             >
-              <svg className="w-5 h-5 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
                 <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
               </svg>
-              <span className="text-sm text-slate-300 font-medium">Open Source</span>
-              <span className="text-xs text-slate-500">MIT License</span>
+              <span className="text-sm text-slate-100 font-semibold">View on GitHub</span>
+              <span className="text-xs text-slate-400 border-l border-slate-600 pl-3">MIT License</span>
             </a>
-            <div className="flex items-center gap-3">
-              <a
-                href="https://github.com/framersai/safeos/stargazers"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/30 hover:bg-slate-700/40 border border-slate-700/30 rounded-md transition-colors"
-              >
-                <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-                <span className="text-xs text-slate-400">Star</span>
-              </a>
-              <a
-                href="https://github.com/framersai/safeos/fork"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/30 hover:bg-slate-700/40 border border-slate-700/30 rounded-md transition-colors"
-              >
-                <svg className="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M7 5C7 3.89543 7.89543 3 9 3C10.1046 3 11 3.89543 11 5C11 5.74028 10.5978 6.38663 10 6.73244V8H14V6.73244C13.4022 6.38663 13 5.74028 13 5C13 3.89543 13.8954 3 15 3C16.1046 3 17 3.89543 17 5C17 5.74028 16.5978 6.38663 16 6.73244V9C16 9.55228 15.5523 10 15 10H13V12.2676C13.5978 12.6134 14 13.2597 14 14C14 15.1046 13.1046 16 12 16C10.8954 16 10 15.1046 10 14C10 13.2597 10.4022 12.6134 11 12.2676V10H9C8.44772 10 8 9.55228 8 9V6.73244C7.40221 6.38663 7 5.74028 7 5Z" />
-                </svg>
-                <span className="text-xs text-slate-400">Fork</span>
-              </a>
-            </div>
           </div>
         </div>
 
@@ -252,28 +241,148 @@ function LandingPage() {
           />
         </div>
 
+        {/* Deep Learning, In Your Browser - Expandable Product Cards */}
+        <section className="mt-20 max-w-5xl mx-auto w-full">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
+              <IconCpu size={14} className="text-emerald-400" />
+              <span className="text-xs uppercase tracking-widest text-emerald-300 font-semibold">
+                On-device inference
+              </span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-steel-100)] mb-3 leading-tight">
+              Deep learning, in your browser.
+            </h2>
+            <p className="text-base md:text-lg text-[var(--color-steel-200)] max-w-2xl mx-auto leading-relaxed">
+              Every frame is analyzed by computer vision models running locally on{' '}
+              <span className="text-emerald-400 font-medium">your device</span>. No uploads.
+              No cloud round-trips. Tap any card to see the architecture underneath.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <DeepLearningCard
+              icon={IconRadar}
+              title="Real-time object detection"
+              tag="COCO-SSD · TensorFlow.js"
+              size="~5 MB"
+              summary="Spots people, pets, and 80+ object classes in every camera frame at 10–30 FPS on consumer hardware."
+              details={[
+                'Runs on TensorFlow.js with WebGL acceleration (WebGPU on supported browsers).',
+                'Bounding-box localization plus confidence scoring per class.',
+                'Frame buffer keeps the most recent 5–10 minutes; older frames are discarded automatically.',
+                'Configurable confidence thresholds per scenario (pets, baby, elderly).',
+              ]}
+            />
+
+            <DeepLearningCard
+              icon={IconEye}
+              title="Scene classification fallback"
+              tag="ViT-base · Transformers.js"
+              size="~89 MB"
+              summary="When detection is ambiguous, a Vision Transformer cross-checks the scene to reduce false positives."
+              details={[
+                'Hugging Face Xenova/vit-base-patch16-224 quantized for browser use.',
+                'Runs entirely client-side via Transformers.js — no inference API needed.',
+                'Loaded on demand and cached by the service worker after the first run.',
+                'Used as a tie-breaker, not a primary path, to keep latency low.',
+              ]}
+            />
+
+            <DeepLearningCard
+              icon={IconFingerprint}
+              title="Visual fingerprinting for Lost & Found"
+              tag="Color + edge signatures"
+              size="< 1 KB / photo"
+              summary="Upload 1–5 reference photos of a missing pet or person. The browser builds a perceptual fingerprint and matches every incoming frame against it."
+              details={[
+                '32-bucket color histogram per reference photo.',
+                'Top-5 dominant colors via k-means clustering.',
+                '8×8 edge signature grid (Sobel-derived) for shape matching.',
+                'Aspect-ratio and size estimates for sanity-check matching.',
+                'Real-time cosine similarity against the live frame; configurable sensitivity.',
+              ]}
+            />
+
+            <DeepLearningCard
+              icon={IconMic}
+              title="Audio distress detection"
+              tag="Web Audio API"
+              size="No model required"
+              summary="A FFT-based analyzer listens for crying, barking, glass breaks, and prolonged silence — entirely in the browser."
+              details={[
+                'Spectral analysis via the Web Audio API.',
+                'Configurable thresholds per scenario (infant cry, distress vocalizations, elderly fall sounds).',
+                'Optional Ollama / cloud LLM secondary classification when ambiguity is high.',
+                'Volume-ramping escalation: starts quiet, gets louder until you acknowledge.',
+              ]}
+            />
+
+            <DeepLearningCard
+              icon={IconWifiOff}
+              title="Offline-first by design"
+              tag="PWA · Service worker"
+              size="Disconnect after first load"
+              summary="The whole app is a Progressive Web App. After the first visit, every model and every page is cached. Pull the WiFi and it keeps running."
+              details={[
+                'Service worker caches the app shell, fonts, and model weights on first load.',
+                'Settings, alert history, and fingerprints persist locally in IndexedDB.',
+                'No origin server required — host the static `out/` folder on GitHub Pages, Netlify, or any CDN.',
+                'Optional API server is just that: optional. Only needed for SMS/Telegram fan-out or Ollama LLM bridging.',
+              ]}
+            />
+
+            <DeepLearningCard
+              icon={IconDatabase}
+              title="Your data never leaves"
+              tag="IndexedDB · No telemetry"
+              size="100% local"
+              summary="Frames are analyzed in-place and discarded. Settings, alert metadata, and reference photos stay in your browser's storage."
+              details={[
+                'Rolling video buffer trimmed to 5–10 minutes; older frames overwritten.',
+                'No analytics, no third-party trackers, no model-improvement uploads.',
+                'Blurred / anonymized previews for any optional human-review handoff.',
+                'All optional integrations (Twilio SMS, Telegram, Ollama) are opt-in and run server-side only when you choose to deploy them.',
+              ]}
+            />
+          </div>
+
+          <div className="mt-6 text-center">
+            <p className="text-xs text-[var(--color-steel-400)]">
+              Verified by reading the source —{' '}
+              <a
+                href="https://github.com/framersai/safeos/tree/master/apps/guardian-ui/src/lib"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline"
+              >
+                see the client-side inference pipeline on GitHub →
+              </a>
+            </p>
+          </div>
+        </section>
+
         {/* Server Setup Info Box */}
-        <div className="mt-12 max-w-3xl mx-auto w-full">
-          <div className="p-5 bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 rounded-xl">
+        <div className="mt-16 max-w-3xl mx-auto w-full">
+          <div className="p-5 bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-xl">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 flex items-center justify-center bg-emerald-500/10 rounded-lg flex-shrink-0">
-                <IconShield size={24} className="text-emerald-500" />
+              <div className="w-12 h-12 flex items-center justify-center bg-emerald-500/15 rounded-lg flex-shrink-0">
+                <IconShield size={24} className="text-emerald-400" />
               </div>
               <div className="flex-1">
-                <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-2
-                               font-[family-name:var(--font-space-grotesk)]">
-                  Works 100% Offline — Server Optional
+                <h3 className="text-lg font-semibold text-[var(--color-steel-100)] mb-2">
+                  Works 100% offline — server is optional
                 </h3>
-                <p className="text-sm text-[var(--color-steel-400)] leading-relaxed mb-3">
-                  <strong className="text-emerald-400">Full functionality without any server setup.</strong>{' '}
-                  All AI detection, local audio alerts, browser notifications, and data storage work
+                <p className="text-sm text-[var(--color-steel-200)] leading-relaxed mb-3">
+                  <strong className="text-emerald-400">Full functionality with no server setup.</strong>{' '}
+                  All AI detection, local audio alerts, browser notifications, and data storage run
                   entirely in your browser. Your data never leaves your device.
                 </p>
-                <div className="p-3 bg-slate-800/50 border border-slate-700/30 rounded-lg mb-3">
-                  <p className="text-xs text-[var(--color-steel-500)] mb-2">
-                    <strong className="text-blue-400">Optional API Server</strong> — Only needed for:
+                <div className="p-3 bg-slate-900/60 border border-slate-700 rounded-lg mb-3">
+                  <p className="text-xs text-[var(--color-steel-300)] mb-2">
+                    <strong className="text-blue-300">Optional API server</strong> — only needed for:
                   </p>
-                  <ul className="text-xs text-[var(--color-steel-500)] space-y-1 ml-4 list-disc">
+                  <ul className="text-xs text-[var(--color-steel-300)] space-y-1 ml-4 list-disc">
                     <li>SMS alerts via Twilio</li>
                     <li>Telegram bot notifications</li>
                     <li>Multi-device sync</li>
@@ -303,30 +412,30 @@ function LandingPage() {
 
         {/* Abuse Prevention Notice */}
         <div className="mt-12 max-w-3xl mx-auto w-full">
-          <div className="p-4 bg-[var(--color-steel-900)] border border-[var(--color-steel-700)] rounded-lg">
+          <div className="p-4 bg-[var(--color-steel-900)] border border-[var(--color-steel-800)] rounded-lg">
             <div className="flex items-start gap-3">
-              <IconInfo size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+              <IconInfo size={20} className="text-blue-300 flex-shrink-0 mt-0.5" />
               <div className="text-left">
-                <p className="text-sm text-[var(--color-steel-300)] font-medium mb-2">
-                  Abuse Prevention & Rate Limiting
+                <p className="text-sm text-[var(--color-steel-100)] font-semibold mb-2">
+                  Abuse prevention &amp; rate limiting
                 </p>
-                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed mb-2">
+                <p className="text-xs text-[var(--color-steel-300)] leading-relaxed mb-2">
                   We actively monitor for misuse patterns and inappropriate behavior. Users who
                   attempt to abuse this service or use it in ways it&apos;s not intended will receive
-                  <strong className="text-[var(--color-steel-400)]"> rate limitation warnings</strong> and
+                  <strong className="text-[var(--color-steel-100)]"> rate-limitation warnings</strong> and
                   may be restricted from access.
                 </p>
-                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed mb-2">
-                  <strong className="text-amber-400">Note:</strong> This service may be temporarily
-                  taken offline at times while we develop better safeguards. We are committed to
+                <p className="text-xs text-[var(--color-steel-300)] leading-relaxed mb-2">
+                  <strong className="text-amber-300">Note:</strong> This service may be temporarily
+                  taken offline while we develop better safeguards. We are committed to
                   responsible deployment and will not rush features that could enable harm.
                 </p>
-                <p className="text-xs text-[var(--color-steel-500)] leading-relaxed">
-                  <strong className="text-blue-400">Future Optional Service:</strong> We may offer an
+                <p className="text-xs text-[var(--color-steel-300)] leading-relaxed">
+                  <strong className="text-blue-300">Future optional service:</strong> we may offer an
                   administrative service with higher-level alerts, manual operator controls, and
                   enhanced AI/LLM integrations for users who choose to opt in. This service would be
-                  <strong className="text-[var(--color-steel-400)]"> entirely optional</strong> and may
-                  involve usage-based costs. This is <strong className="text-amber-400">not live yet</strong> and
+                  <strong className="text-[var(--color-steel-100)]"> entirely optional</strong> and may
+                  involve usage-based costs. This is <strong className="text-amber-300">not live yet</strong> and
                   will only be developed if community demand warrants it.
                 </p>
               </div>
@@ -349,11 +458,10 @@ function LandingPage() {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-1
-                               font-[family-name:var(--font-space-grotesk)]">
-                  Join the <span className="text-[#5865F2]">Rabbit Hole Inc</span> Discord
+                <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-1">
+                  Join the <span className="text-[#7C8BFC]">Rabbit Hole Inc</span> Discord
                 </h3>
-                <p className="text-xs text-[var(--color-steel-400)] leading-relaxed">
+                <p className="text-sm text-[var(--color-steel-200)] leading-relaxed">
                   We post the latest AI news, tools, research, and updates.
                   Connect with builders and the SafeOS community.
                 </p>
@@ -380,8 +488,8 @@ function LandingPage() {
             </span>
           </div>
           
-          <p className="text-xs text-[var(--color-steel-500)] text-center max-w-md">
-            <strong className="text-emerald-400">SafeOS Guardian will always be free.</strong> We will never 
+          <p className="text-sm text-[var(--color-steel-300)] text-center max-w-md">
+            <strong className="text-emerald-400">SafeOS Guardian will always be free.</strong> We will never
             charge for this humanitarian service. Ever.
           </p>
         </div>
@@ -402,20 +510,83 @@ interface FeatureCardProps {
 
 function FeatureCard({ icon: Icon, title, description }: FeatureCardProps) {
   return (
-    <div className="p-5 bg-[var(--color-steel-900)] border border-[var(--color-steel-800)] 
+    <div className="p-5 bg-[var(--color-steel-900)] border border-[var(--color-steel-800)]
                     rounded-lg hover:border-emerald-500/30 transition-colors">
-      <div className="w-10 h-10 flex items-center justify-center 
+      <div className="w-10 h-10 flex items-center justify-center
                       bg-emerald-500/10 rounded-lg mb-3">
         <Icon size={20} className="text-emerald-500" />
       </div>
-      <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-1
-                     font-[family-name:var(--font-space-grotesk)]">
+      <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-1">
         {title}
       </h3>
-      <p className="text-xs text-[var(--color-steel-400)] leading-relaxed">
+      <p className="text-sm text-[var(--color-steel-300)] leading-relaxed">
         {description}
       </p>
     </div>
+  );
+}
+
+// =============================================================================
+// Deep Learning Card (Expandable) - native <details> for zero-JS expand
+// =============================================================================
+
+interface DeepLearningCardProps {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  tag: string;
+  size: string;
+  summary: string;
+  details: string[];
+}
+
+function DeepLearningCard({ icon: Icon, title, tag, size, summary, details }: DeepLearningCardProps) {
+  return (
+    <details className="group p-5 bg-[var(--color-steel-900)] border border-[var(--color-steel-800)]
+                        rounded-xl hover:border-emerald-500/40 transition-colors
+                        [&_summary::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none flex items-start gap-4">
+        <div className="w-11 h-11 flex items-center justify-center bg-emerald-500/10 rounded-lg flex-shrink-0
+                        group-hover:bg-emerald-500/15 transition-colors">
+          <Icon size={22} className="text-emerald-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <h3 className="text-base font-semibold text-[var(--color-steel-100)] leading-tight">
+              {title}
+            </h3>
+            <IconChevronDown
+              size={18}
+              className="text-[var(--color-steel-400)] flex-shrink-0 mt-0.5
+                         transition-transform group-open:rotate-180"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="text-[10px] uppercase tracking-wider font-mono text-emerald-400/90
+                             bg-emerald-500/5 border border-emerald-500/20 px-2 py-0.5 rounded">
+              {tag}
+            </span>
+            <span className="text-[10px] uppercase tracking-wider font-mono text-[var(--color-steel-400)]
+                             bg-[var(--color-steel-800)]/50 border border-[var(--color-steel-800)] px-2 py-0.5 rounded">
+              {size}
+            </span>
+          </div>
+          <p className="text-sm text-[var(--color-steel-200)] leading-relaxed">
+            {summary}
+          </p>
+        </div>
+      </summary>
+
+      <div className="mt-4 ml-[60px] pt-4 border-t border-[var(--color-steel-800)]">
+        <ul className="space-y-2">
+          {details.map((detail, idx) => (
+            <li key={idx} className="text-sm text-[var(--color-steel-300)] leading-relaxed flex items-start gap-2">
+              <span className="text-emerald-400 mt-1.5 flex-shrink-0">▸</span>
+              <span>{detail}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
   );
 }
 
