@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useAuthStore } from '../../stores/auth-store';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { getApiUrl, isStaticMode } from '@/lib/env';
+import { IconLink } from '../../components/icons';
 
 // =============================================================================
 // Types
@@ -258,8 +259,8 @@ export default function WebhooksPage() {
           </div>
         ) : webhooks.length === 0 && !isCreating ? (
           <div className="text-center py-20">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
-              <span className="text-3xl">🔗</span>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400">
+              <IconLink size={28} />
             </div>
             <h2 className="text-xl font-semibold text-white mb-2">No webhooks configured</h2>
             <p className="text-slate-400 mb-6">

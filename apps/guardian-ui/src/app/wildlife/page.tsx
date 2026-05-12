@@ -22,6 +22,10 @@ import {
   IconVolumeX,
   IconBell,
   IconBellOff,
+  IconWildlife,
+  IconBear,
+  IconRodent,
+  IconActivity,
 } from '../../components/icons';
 import { useAnimalAlertStore, shouldAlert, sortByPriority } from '../../stores/animal-alert-store';
 import { 
@@ -349,7 +353,7 @@ export default function WildlifePage() {
                 <span className="hidden sm:inline">Back</span>
               </Link>
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🦁</span>
+                <IconWildlife size={22} className="text-emerald-400" />
                 <h1 className="text-xl font-bold text-white">Wildlife Detection</h1>
               </div>
             </div>
@@ -433,13 +437,13 @@ export default function WildlifePage() {
                 label="Large Animals"
                 value={getLargeAnimalCount()}
                 color="#f59e0b"
-                icon={<span>🦁</span>}
+                icon={<IconBear size={16} className="text-amber-400" />}
               />
               <StatsCard
                 label="Small Animals"
                 value={getSmallAnimalCount()}
                 color="#22c55e"
-                icon={<span>🐿️</span>}
+                icon={<IconRodent size={16} className="text-emerald-400" />}
               />
               <StatsCard
                 label="Dangerous"
@@ -451,7 +455,7 @@ export default function WildlifePage() {
                 label="Total"
                 value={detectionHistory.length}
                 color="#3b82f6"
-                icon={<span>📊</span>}
+                icon={<IconActivity size={16} className="text-blue-400" />}
               />
             </div>
 
@@ -462,7 +466,7 @@ export default function WildlifePage() {
                 description="Bears, deer, coyotes, wolves"
                 enabled={settings.largeAnimalAlertEnabled}
                 onChange={(enabled) => updateSettings({ largeAnimalAlertEnabled: enabled })}
-                icon={<span className="text-xl">🦁</span>}
+                icon={<IconBear size={20} className="text-amber-400" />}
                 color="#f59e0b"
               />
               <AlertToggle
@@ -470,7 +474,7 @@ export default function WildlifePage() {
                 description="Rodents, rabbits, squirrels"
                 enabled={settings.smallAnimalAlertEnabled}
                 onChange={(enabled) => updateSettings({ smallAnimalAlertEnabled: enabled })}
-                icon={<span className="text-xl">🐿️</span>}
+                icon={<IconRodent size={20} className="text-emerald-400" />}
                 color="#22c55e"
               />
             </div>

@@ -21,6 +21,8 @@ import {
   IconCamera,
   IconBell,
   IconDatabase,
+  IconWildlife,
+  IconBookOpen,
 } from '../../components/icons';
 
 // =============================================================================
@@ -269,7 +271,7 @@ const TUTORIALS: TutorialSection[] = [
   {
     id: 'wildlife',
     title: 'Wildlife Detection',
-    icon: <span className="text-2xl">🦁</span>,
+    icon: <IconWildlife size={20} className="text-emerald-400" />,
     description: 'Detect and categorize animals with size and danger level classification.',
     steps: [
       {
@@ -471,8 +473,8 @@ export default function TutorialsPage() {
                 <span className="hidden sm:inline">Back</span>
               </Link>
               <div className="flex items-center gap-2">
-                <span className="text-2xl">📚</span>
-                <h1 className="text-xl font-bold text-white">Tutorials & Guides</h1>
+                <IconBookOpen size={22} className="text-emerald-400" />
+                <h1 className="text-xl font-bold text-white">Tutorials &amp; Guides</h1>
               </div>
             </div>
           </div>

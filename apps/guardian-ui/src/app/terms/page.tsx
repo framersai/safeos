@@ -57,8 +57,9 @@ const termsSections: TermSection[] = [
     content: (
       <div className="space-y-3">
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
-          <p className="text-amber-300 font-medium">
-            ⚠️ This service is provided &quot;as is&quot; without warranty of any kind.
+          <p className="text-amber-300 font-medium flex items-center gap-2">
+            <IconAlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
+            This service is provided &quot;as is&quot; without warranty of any kind.
           </p>
         </div>
         <p>

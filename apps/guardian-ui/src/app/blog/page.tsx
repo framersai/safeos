@@ -13,6 +13,7 @@ import {
   IconChevronRight,
   IconClock,
   IconUser,
+  IconFileText,
 } from '../../components/icons';
 
 export const metadata: Metadata = {
@@ -136,7 +137,7 @@ export default function BlogPage() {
                 <span className="hidden sm:inline">Back</span>
               </Link>
               <div className="flex items-center gap-2">
-                <span className="text-2xl">📝</span>
+                <IconFileText size={22} className="text-emerald-400" />
                 <h1 className="text-xl font-bold text-white">Blog</h1>
               </div>
             </div>

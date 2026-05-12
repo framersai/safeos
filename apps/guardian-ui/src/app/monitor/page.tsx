@@ -848,8 +848,12 @@ export default function MonitorPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <Link href="/" className="text-2xl hover:scale-110 transition-transform">
-                🛡️
+              <Link
+                href="/"
+                aria-label="SafeOS home"
+                className="text-emerald-400 hover:text-emerald-300 hover:scale-110 transition-all"
+              >
+                <IconShield size={28} />
               </Link>
               <h1 className="text-xl font-bold text-white">Live Monitor</h1>
             </div>

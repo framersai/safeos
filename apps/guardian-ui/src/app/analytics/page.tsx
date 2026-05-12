@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { AreaChart, BarChart, PieChart, LineChart } from '../../components/charts';
 import { showToast } from '../../components/Toast';
 import { useBackendStatus } from '@/contexts/BackendStatusContext';
+import { IconDownload, IconActivity } from '../../components/icons';
 
 // =============================================================================
 // Types
@@ -366,14 +367,16 @@ export default function AnalyticsPage() {
               }}
               className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors flex items-center gap-2"
             >
-              <span>📥</span>
+              <IconDownload size={16} />
               Export JSON
             </button>
           </section>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-          <div className="text-6xl mb-4">📊</div>
+          <div className="mb-4 w-20 h-20 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+            <IconActivity size={36} />
+          </div>
           <h3 className="text-xl font-semibold text-white mb-2">
             {requiresMonitoringServer ? 'No Monitoring Server (API) Online' : 'No Analytics Data Yet'}
           </h3>

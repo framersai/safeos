@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { IconCamera, IconLock, IconCheck } from '../../components/icons';
 
 // =============================================================================
 // Types
@@ -399,8 +400,8 @@ function ReviewsTab({ flags, onAction }: { flags: ContentFlag[]; onAction: (id: 
 
         {pendingFlags.length === 0 ? (
           <div className="p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <span className="text-3xl">✓</span>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <IconCheck size={28} strokeWidth={2.5} />
             </div>
             <p className="text-slate-400">All caught up! No pending reviews.</p>
           </div>
@@ -412,8 +413,8 @@ function ReviewsTab({ flags, onAction }: { flags: ContentFlag[]; onAction: (id: 
                 <div key={flag.id} className="p-4 hover:bg-slate-700/30 transition-colors">
                   <div className="flex items-start gap-4">
                     {/* Thumbnail placeholder */}
-                    <div className="w-24 h-24 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl opacity-50">🔒</span>
+                    <div className="w-24 h-24 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 text-slate-400">
+                      <IconLock size={28} className="opacity-60" />
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -632,7 +633,7 @@ function StreamsTab() {
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
-                      <span>{scenarioIcons[stream.scenario] || '📹'}</span>
+                      <span>{scenarioIcons[stream.scenario] || <IconCamera size={16} className="inline" />}</span>
                       <span className="text-sm text-white capitalize">{stream.scenario}</span>
                     </div>
                   </td>
