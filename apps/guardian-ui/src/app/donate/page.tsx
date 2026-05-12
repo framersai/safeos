@@ -1,17 +1,37 @@
-'use client';
-
 /**
  * Donate Page
- * 
- * Stylized placeholder for future donation functionality.
- * Features animated SVG heart/shield and coming soon messaging.
- * 
+ *
+ * Sponsor SafeOS Guardian via GitHub Sponsors. All sponsorship goes through
+ * github.com/sponsors/manicinc (the parent agency for the framersai org).
+ *
  * @module app/donate/page
  */
 
-import { useState } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { IconChevronLeft } from '../../components/icons';
+import {
+  IconChevronLeft,
+  IconHeart,
+  IconShield,
+  IconZap,
+  IconGlobe,
+  IconCpu,
+  IconPhone,
+  IconExternalLink,
+} from '../../components/icons';
+
+export const metadata: Metadata = {
+  title: 'Support SafeOS',
+  description: 'Sponsor SafeOS Guardian via GitHub Sponsors. 10% of sponsorship goes to humanitarian organizations.',
+};
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const SPONSOR_URL = 'https://github.com/sponsors/manicinc';
+const GITHUB_REPO = 'https://github.com/framersai/safeos';
+const GITHUB_ISSUES = 'https://github.com/framersai/safeos/issues';
 
 // =============================================================================
 // Animated SVG Components
@@ -189,21 +209,9 @@ function AnimatedHeartShield() {
 // =============================================================================
 
 export default function DonatePage() {
-  const [email, setEmail] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
-      // In production, this would send to an API
-      console.log('Subscribed:', email);
-      setSubscribed(true);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Custom styles for animations */}
+      {/* Custom styles for the animated heart-shield */}
       <style jsx global>{`
         @keyframes ping-slow {
           0% { transform: scale(1); opacity: 0.8; }
@@ -214,12 +222,8 @@ export default function DonatePage() {
           0%, 100% { opacity: 0.5; }
           50% { opacity: 0.8; }
         }
-        .animate-ping-slow {
-          animation: ping-slow 4s ease-in-out infinite;
-        }
-        .animate-pulse-subtle {
-          animation: pulse-subtle 3s ease-in-out infinite;
-        }
+        .animate-ping-slow { animation: ping-slow 4s ease-in-out infinite; }
+        .animate-pulse-subtle { animation: pulse-subtle 3s ease-in-out infinite; }
       `}</style>
 
       {/* Header */}
@@ -235,7 +239,7 @@ export default function DonatePage() {
                 <span className="hidden sm:inline">Back</span>
               </Link>
               <div className="flex items-center gap-2">
-                <span className="text-2xl">💝</span>
+                <IconHeart size={22} className="text-pink-400" />
                 <h1 className="text-xl font-bold text-white">Support SafeOS</h1>
               </div>
             </div>
@@ -250,127 +254,158 @@ export default function DonatePage() {
           <div className="flex justify-center mb-8">
             <AnimatedHeartShield />
           </div>
-          
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Coming Soon
-          </h2>
-          
-          <p className="text-lg text-slate-400 mb-2">
-            We&apos;re working on donation options to support
-          </p>
-          <p className="text-lg text-slate-400">
-            SafeOS Guardian&apos;s humanitarian mission.
+
+          <h2 className="text-3xl font-bold text-white mb-4">Sponsor SafeOS Guardian</h2>
+
+          <p className="text-lg text-slate-300 max-w-xl mx-auto leading-relaxed">
+            SafeOS is open source and free forever. Sponsorship pays for development time,
+            model hosting, and the bandwidth that keeps the static site live.
           </p>
         </div>
 
-        {/* Promise */}
-        <div className="mb-12 p-6 bg-gradient-to-br from-emerald-500/10 to-pink-500/10 border border-emerald-500/30 rounded-2xl text-center">
-          <p className="text-white font-medium mb-2">
-            Our Promise
-          </p>
-          <p className="text-slate-300">
-            10% of all donations will go directly to humanitarian organizations
-            focused on child safety and missing persons recovery.
+        {/* Primary CTA — GitHub Sponsors */}
+        <div className="mb-12 p-6 bg-gradient-to-br from-pink-500/10 to-emerald-500/10 border border-pink-500/30 rounded-2xl">
+          <div className="text-center mb-5">
+            <h3 className="text-xl font-semibold text-white mb-2">Sponsor on GitHub</h3>
+            <p className="text-sm text-slate-300 max-w-md mx-auto">
+              Sponsorship runs through{' '}
+              <a
+                href={SPONSOR_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-pink-300 hover:text-pink-200 underline-offset-2 hover:underline font-medium"
+              >
+                manicinc
+              </a>
+              , the parent org behind SafeOS, AgentOS, Paracosm, and the rest of the Frame ecosystem.
+            </p>
+          </div>
+
+          <a
+            href={SPONSOR_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-xl transition-colors group"
+          >
+            <IconHeart size={20} className="text-white group-hover:scale-110 transition-transform" />
+            Sponsor manicinc on GitHub
+            <IconExternalLink size={16} className="opacity-70" />
+          </a>
+
+          <p className="mt-3 text-center text-xs text-slate-400">
+            One-time or recurring tiers. Anonymous sponsorship supported. No GitHub-side fees.
           </p>
         </div>
 
-        {/* Features preview */}
+        {/* Humanitarian commitment */}
+        <div className="mb-12 p-6 bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/30 rounded-2xl text-center">
+          <div className="inline-flex items-center gap-2 mb-2 px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full">
+            <IconShield size={14} className="text-emerald-300" />
+            <span className="text-xs uppercase tracking-wider font-semibold text-emerald-300">
+              10% for Humanity
+            </span>
+          </div>
+          <p className="text-slate-300 leading-relaxed">
+            Ten percent of every sponsorship is routed to humanitarian organizations focused on
+            child safety, elder care, and missing-persons recovery.
+          </p>
+        </div>
+
+        {/* What sponsorship funds */}
         <div className="mb-12 space-y-4">
           <h3 className="text-center text-sm font-medium text-slate-500 uppercase tracking-wider">
-            What Your Support Will Enable
+            What sponsorship funds
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { icon: '🚀', title: 'Faster Development', desc: 'More features, faster releases' },
-              { icon: '🌍', title: 'Global Translations', desc: 'Support for more languages' },
-              { icon: '🔬', title: 'Advanced AI', desc: 'Improved detection algorithms' },
-              { icon: '📱', title: 'Mobile Apps', desc: 'Native iOS and Android apps' },
-            ].map((item) => (
+            {(
+              [
+                { icon: <IconZap size={20} className="text-amber-400" />, title: 'Faster development', desc: 'More features, faster releases.' },
+                { icon: <IconGlobe size={20} className="text-blue-400" />, title: 'Global translations', desc: 'Adding non-English language support.' },
+                { icon: <IconCpu size={20} className="text-emerald-400" />, title: 'Better detection', desc: 'Tuning the in-browser deep-learning pipeline.' },
+                { icon: <IconPhone size={20} className="text-purple-400" />, title: 'Mobile apps', desc: 'Native iOS and Android wrappers via Capacitor.' },
+              ] as const
+            ).map((item) => (
               <div
                 key={item.title}
                 className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg text-center"
               >
-                <span className="text-2xl mb-2 block">{item.icon}</span>
+                <div className="mb-2 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-900/60 border border-slate-700">
+                  {item.icon}
+                </div>
                 <h4 className="font-medium text-white mb-1">{item.title}</h4>
-                <p className="text-xs text-slate-400">{item.desc}</p>
+                <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Email Signup */}
-        <div className="mb-12 p-6 bg-slate-900 border border-slate-700 rounded-xl">
-          <h3 className="text-center font-semibold text-white mb-4">
-            Get Notified When Donations Open
-          </h3>
-          
-          {subscribed ? (
-            <div className="text-center">
-              <span className="text-4xl mb-2 block">✉️</span>
-              <p className="text-emerald-400 font-medium">Thank you!</p>
-              <p className="text-sm text-slate-400">We&apos;ll notify you when donations are available.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="flex-1 px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                required
-              />
-              <button
-                type="submit"
-                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-medium rounded-lg hover:from-emerald-600 hover:to-blue-600 transition-all"
-              >
-                Notify Me
-              </button>
-            </form>
-          )}
-        </div>
-
-        {/* Current ways to help */}
+        {/* Other ways to help */}
         <div className="text-center">
           <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-4">
-            Ways to Help Right Now
+            Other ways to help
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-3 text-left">
             <a
-              href="https://github.com/framersai/safeos"
+              href={GITHUB_REPO}
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 hover:border-emerald-500/40 transition-colors"
             >
-              <span className="text-xl mr-2">⭐</span>
-              <span className="text-white">Star us on GitHub</span>
+              <span className="w-9 h-9 rounded-md bg-amber-500/15 flex items-center justify-center text-amber-300 flex-shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-white text-sm font-medium">Star the repo on GitHub</span>
+                <span className="block text-xs text-slate-400">framersai/safeos</span>
+              </span>
+              <IconExternalLink size={14} className="text-slate-500 flex-shrink-0" />
             </a>
             <a
-              href="https://github.com/framersai/safeos/issues"
+              href={GITHUB_ISSUES}
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 hover:border-emerald-500/40 transition-colors"
             >
-              <span className="text-xl mr-2">🐛</span>
-              <span className="text-white">Report bugs & request features</span>
+              <span className="w-9 h-9 rounded-md bg-rose-500/15 flex items-center justify-center text-rose-300 flex-shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-white text-sm font-medium">Report bugs &amp; request features</span>
+                <span className="block text-xs text-slate-400">github.com/framersai/safeos/issues</span>
+              </span>
+              <IconExternalLink size={14} className="text-slate-500 flex-shrink-0" />
             </a>
-            <div className="block p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
-              <span className="text-xl mr-2">📢</span>
-              <span className="text-white">Share SafeOS with friends & family</span>
+            <div className="flex items-center gap-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+              <span className="w-9 h-9 rounded-md bg-blue-500/15 flex items-center justify-center text-blue-300 flex-shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+              </span>
+              <span className="block text-white text-sm">Share SafeOS with anyone who could use a backup pair of eyes.</span>
             </div>
           </div>
         </div>
 
         {/* Footer note */}
         <div className="mt-12 text-center">
-          <p className="text-sm text-slate-500">
-            SafeOS Guardian is and will always remain free for essential features.
+          <p className="text-sm text-slate-400">
+            SafeOS Guardian is and will always remain free.
             <br />
-            Your support helps us go further, faster.
+            Sponsorship helps us go further, faster.
           </p>
         </div>
 
-        {/* Links */}
+        {/* Secondary links */}
         <div className="mt-8 flex justify-center gap-4">
           <Link
             href="/about"
