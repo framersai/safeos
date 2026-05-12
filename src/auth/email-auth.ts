@@ -10,6 +10,7 @@
 import { randomBytes, scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import { getSafeOSDatabase, generateId, now } from '../db/index.js';
+import { sendVerificationEmail, sendPasswordResetEmail, isResendConfigured } from '../lib/alerts/email.js';
 
 const scryptAsync = promisify(scrypt);
 
@@ -85,6 +86,18 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
  */
 function generateToken(): string {
   return randomBytes(32).toString('hex');
+}
+
+/**
+ * Build a fully-qualified URL into the PWA for transactional emails.
+ * Prefers SAFEOS_PUBLIC_URL, falls back to NEXT_PUBLIC_SITE_URL, then safeos.sh.
+ */
+function buildAppUrl(path: string): string {
+  const base =
+    process.env['SAFEOS_PUBLIC_URL'] ??
+    process.env['NEXT_PUBLIC_SITE_URL'] ??
+    'https://safeos.sh';
+  return `${base.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 // =============================================================================
@@ -205,8 +218,18 @@ export class EmailAuthService {
       return { success: false, error: 'Failed to create user' };
     }
 
-    // TODO: Send verification email
-    // Token is stored in DB and should be sent via email
+    // Send verification email (best-effort — registration still succeeds if email fails).
+    // Operators without Resend configured can re-issue verification later.
+    if (isResendConfigured()) {
+      try {
+        const verificationUrl = buildAppUrl(`/verify-email?token=${encodeURIComponent(verificationToken)}`);
+        await sendVerificationEmail(user.email, verificationUrl, user.displayName);
+      } catch (error) {
+        console.error('[EmailAuth] Failed to send verification email:', error);
+      }
+    } else {
+      console.warn('[EmailAuth] RESEND_API_KEY not set — verification email not sent.');
+    }
 
     return {
       success: true,
@@ -340,8 +363,19 @@ export class EmailAuthService {
       [resetToken, resetTokenExpires, now(), row.id]
     );
 
-    // TODO: Send password reset email
-    // Token is stored in DB and should be sent via email
+    // Send password reset email. Always returns success to caller to prevent
+    // email enumeration — failures here are logged only.
+    if (isResendConfigured()) {
+      try {
+        const user = await this.getUserById(row.id);
+        const resetUrl = buildAppUrl(`/reset-password?token=${encodeURIComponent(resetToken)}`);
+        await sendPasswordResetEmail(email.toLowerCase(), resetUrl, user?.displayName);
+      } catch (error) {
+        console.error('[EmailAuth] Failed to send password reset email:', error);
+      }
+    } else {
+      console.warn('[EmailAuth] RESEND_API_KEY not set — password reset email not sent.');
+    }
 
     return { success: true };
   }

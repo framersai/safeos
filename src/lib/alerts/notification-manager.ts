@@ -9,6 +9,7 @@
 import { TelegramBotService } from './telegram';
 import { sendTwilioSms } from './twilio';
 import { sendBrowserPushNotification } from './browser-push';
+import { sendAlertEmail, isResendConfigured, type EmailConfig } from './email';
 import { getPushSubscriptions, getTelegramChatIds } from '../../api/routes/notifications';
 
 // =============================================================================
@@ -29,8 +30,14 @@ export interface NotificationConfig {
   browserPush: boolean;
   sms: boolean;
   telegram: boolean;
+  email: boolean;
   smsNumber?: string;
   telegramChatId?: string;
+  emailRecipient?: string;
+  /** Optional per-user override (BYO Resend API key). Falls back to server env. */
+  emailOverride?: Partial<EmailConfig>;
+  /** Optional per-user "From" address override. */
+  emailFromOverride?: string;
 }
 
 export interface NotificationResult {
@@ -46,9 +53,9 @@ export interface NotificationResult {
 const SEVERITY_CHANNELS: Record<string, string[]> = {
   info: ['browser'],
   low: ['browser'],
-  medium: ['browser', 'telegram'],
-  high: ['browser', 'telegram', 'sms'],
-  critical: ['browser', 'telegram', 'sms'],
+  medium: ['browser', 'telegram', 'email'],
+  high: ['browser', 'telegram', 'sms', 'email'],
+  critical: ['browser', 'telegram', 'sms', 'email'],
 };
 
 // =============================================================================
@@ -64,8 +71,12 @@ export class NotificationManager {
       browserPush: config.browserPush ?? true,
       sms: config.sms ?? false,
       telegram: config.telegram ?? false,
+      email: config.email ?? false,
       smsNumber: config.smsNumber,
       telegramChatId: config.telegramChatId,
+      emailRecipient: config.emailRecipient,
+      emailOverride: config.emailOverride,
+      emailFromOverride: config.emailFromOverride,
     };
 
     if (this.config.telegram && process.env['TELEGRAM_BOT_TOKEN']) {
@@ -118,9 +129,46 @@ export class NotificationManager {
       case 'sms':
         await this.sendSms(payload);
         break;
+      case 'email':
+        await this.sendEmail(payload);
+        break;
       default:
         console.warn(`Unknown notification channel: ${channel}`);
     }
+  }
+
+  /**
+   * Send email alert via Resend.
+   *
+   * Fires only when:
+   *  1. `email` flag is true (user opted in)
+   *  2. `emailRecipient` is set (we know where to send)
+   *  3. Either a server `RESEND_API_KEY` exists OR the user has supplied
+   *     `emailOverride.apiKey` (BYO key path).
+   */
+  private async sendEmail(payload: NotificationPayload): Promise<void> {
+    if (!this.config.email || !this.config.emailRecipient) return;
+
+    const hasUserKey = !!this.config.emailOverride?.apiKey;
+    if (!hasUserKey && !isResendConfigured()) {
+      console.warn('[NotificationManager] email channel skipped: no Resend key configured');
+      return;
+    }
+
+    await sendAlertEmail(
+      this.config.emailRecipient,
+      payload.severity,
+      payload.title,
+      payload.message,
+      {
+        override: this.config.emailOverride,
+        fromOverride: this.config.emailFromOverride,
+        streamId: payload.streamId,
+        alertId: payload.alertId,
+        thumbnailUrl: payload.thumbnailUrl,
+        timestamp: payload.timestamp,
+      },
+    );
   }
 
   /**
@@ -212,6 +260,10 @@ export class NotificationManager {
 
     if (process.env['TELEGRAM_BOT_TOKEN']) {
       channels.push('telegram');
+    }
+
+    if (isResendConfigured()) {
+      channels.push('email');
     }
 
     return channels;

@@ -1,441 +1,286 @@
 # SafeOS Guardian
 
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="apps/guardian-ui/public/logo.svg">
-    <source media="(prefers-color-scheme: light)" srcset="apps/guardian-ui/public/logo.svg">
-    <img alt="SafeOS Guardian Logo" src="apps/guardian-ui/public/logo.svg" width="200" height="200">
-  </picture>
+  <img alt="SafeOS Guardian Logo" src="apps/guardian-ui/public/logo.svg" width="160" height="160">
 
-  <h3>Free AI-Powered Monitoring for Pets, Babies, and Elderly Care</h3>
-  <p><strong>Part of Frame's Humanitarian Initiative</strong></p>
+  <p><strong>Deep-learning monitoring for pets, babies, and elderly care — running entirely in your browser.</strong></p>
 
   <p>
-    <a href="https://frame.dev">frame.dev</a> |
-    <a href="https://safeos.sh">safeos.sh</a> |
-    <a href="mailto:team@frame.dev">team@frame.dev</a>
+    <a href="https://safeos.sh">safeos.sh</a> ·
+    <a href="https://frame.dev">frame.dev</a> ·
+    <a href="https://discord.gg/KxF9b6HY6h">Discord</a>
   </p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
   [![codecov](https://codecov.io/gh/framersai/safeos/branch/master/graph/badge.svg)](https://codecov.io/gh/framersai/safeos)
+  [![PWA](https://img.shields.io/badge/PWA-installable-emerald.svg)](https://web.dev/articles/progressive-web-apps)
   [![Frame](https://img.shields.io/badge/By-Frame-emerald.svg)](https://frame.dev)
 </div>
 
 ---
 
-## CRITICAL DISCLAIMER
+## ⚠️ Not a replacement for human supervision
 
-**SafeOS Guardian is NOT a replacement for:**
-- Parental or caregiver supervision
-- Medical monitoring equipment
-- Professional elderly care
-- Veterinary monitoring systems
-
-This is a **FREE SUPPLEMENTARY TOOL** designed to assist caregivers, not replace them.
-
-**NEVER leave dependents unattended with only this system.**
+SafeOS Guardian is a **supplemental experimental tool**. It does not replace caregivers, medical monitoring equipment, or veterinary monitoring. Technology fails. Maintain direct supervision of children, pets, and elderly family members at all times.
 
 ---
 
-## Features
+## What it is
 
-### 100% Offline PWA
+A Progressive Web App that loads [TensorFlow.js](https://www.tensorflow.org/js) and [Transformers.js](https://huggingface.co/docs/transformers.js) into your browser, points them at a standard webcam and microphone, and raises alerts when something looks wrong. Every model runs on-device. No frames are uploaded. No telemetry is collected.
 
-The Guardian UI is a **standalone Progressive Web App** that works entirely offline:
-
-- **No server required** — install it, open it, done
-- **Deployable to GitHub Pages** — static files only
-- **Works offline** — all AI runs in your browser
-- **PWA installable** — add to home screen on any device
-
-The backend server is **completely optional** and only needed for advanced features (SMS/Telegram alerts, multi-device sync, cloud LLM fallback).
-
-### Client-Side AI Models
-
-All core detection runs **in-browser** using these models:
-
-| Model | Framework | Size | Purpose |
-|-------|-----------|------|---------|
-| **COCO-SSD + MobileNetV2** | TensorFlow.js | ~5MB | Real-time person/animal detection |
-| **Xenova/vit-base-patch16-224** | Transformers.js | ~89MB | Scene classification fallback |
-
-**No internet. No server. No data leaves your device.**
-
-### Optional: Local LLM Enhancement (Ollama)
-
-For smarter scene understanding, optionally run Ollama locally:
-
-| Model | Size | Speed | Purpose |
-|-------|------|-------|---------|
-| **moondream** | ~1.7GB | ~500ms | Fast triage |
-| **llava:7b** | ~4GB | ~2-5s | Detailed analysis |
-| **llama3.2-vision:11b** | ~7GB | ~5-10s | Complex reasoning |
-
-### Optional: Cloud LLM Fallback
-
-If local models are uncertain, fallback to cloud (requires API keys):
-
-- **gemini-flash-1.5** (OpenRouter) — fast, cheap
-- **gpt-4o-mini** (OpenAI) — reliable
-- **claude-3-haiku** (Anthropic) — last resort
-
-### Tech Stack (One Line)
-
-**TensorFlow.js (COCO-SSD/MobileNetV2), Transformers.js (ViT), Ollama (moondream/llava), WebRTC, cloud fallback (Gemini/GPT-4o/Claude)**
-
-### Lost & Found Detection
-
-SafeOS includes a powerful lost pet/person detection system that runs entirely in your browser:
-
-1. **Upload Reference Photos**: Add 1-5 clear photos from different angles
-2. **Visual Fingerprinting**: The system extracts:
-   - Color histograms (32 buckets)
-   - Dominant colors (top 5)
-   - Edge signatures (8x8 grid)
-   - Size ratio estimates
-3. **Real-Time Matching**: Every camera frame is compared against stored fingerprints
-4. **Configurable Sensitivity**: Adjust color sensitivity and alert thresholds
-5. **Instant Alerts**: Sound and browser notifications when a match is detected
-
-All processing happens client-side - your photos and fingerprints never leave your device.
-
-### Monitoring Scenarios
-
-| Scenario | What It Watches For |
-|----------|---------------------|
-| **Pets** | Eating, bathroom, distress, illness, unusual stillness |
-| **Baby/Toddler** | Crying, movement, breathing patterns, safety hazards |
-| **Elderly** | Falls, confusion, distress, prolonged inactivity |
-
-### Privacy-First Design
-
-- **Rolling Buffer**: Only keeps 5-10 minutes of footage
-- **Local Processing**: All deep learning runs on your machine
-- **No Cloud Storage**: Frames analyzed and discarded
-- **Anonymization**: Blurred content for any human review
-
-### Smart Alerting
-
-- **Volume-Ramping Escalation**: Starts quiet, gets louder
-- **Multi-Channel**: Browser Push (PWA), SMS/Telegram (requires server)
-- **Acknowledge to Silence**: One tap to confirm you're aware
-
----
-
-## Quick Start
-
-### Option A: PWA Only (Recommended)
-
-No server needed. Just the UI.
-
-```bash
-cd packages/safeos/apps/guardian-ui
-pnpm install
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000). That's it.
-
-**To deploy as static site:**
-```bash
-pnpm build
-# Deploy 'out' folder to GitHub Pages, Vercel, Netlify, etc.
-```
-
-### Option B: Full Stack (Advanced)
-
-Only if you need SMS/Telegram alerts or Ollama LLM:
-
-```bash
-cd packages/safeos
-
-# Install everything
-pnpm install
-
-# Start API + UI together
-pnpm dev
-
-# Or separately:
-pnpm run api  # Port 3001
-pnpm run ui   # Port 3000
-```
-
-### Optional: Ollama (Local LLM)
-
-For smarter scene analysis (not required):
-
-```bash
-# macOS
-brew install ollama
-ollama serve
-
-# Pull models
-ollama pull moondream    # Fast triage (~1.7GB)
-ollama pull llava:7b     # Detailed analysis (~4GB)
-```
-
----
+Built for parents and caregivers who want a backup pair of eyes without renting space in someone else's cloud.
 
 ## Architecture
 
-### Mode 1: Standalone PWA (No Server)
-
 ```
-+------------------------------------------------------------------+
-|                    Guardian UI (Static PWA)                       |
-|                                                                   |
-|  +------------------+  +------------------+  +------------------+ |
-|  |   Camera Feed    |  |  Audio Monitor   |  |   Alert Panel    | |
-|  |  (MediaStream)   |  |   (Web Audio)    |  |  (Local Notif)   | |
-|  +--------+---------+  +--------+---------+  +------------------+ |
-|           |                     |                                 |
-|  +--------v---------------------v--------------------------------+|
-|  |                    Browser AI Engine                          ||
-|  |  +------------------+  +------------------------------------+ ||
-|  |  | TensorFlow.js    |  | Transformers.js                    | ||
-|  |  | COCO-SSD         |  | ViT (fallback)                     | ||
-|  |  | (detection)      |  | (classification)                   | ||
-|  |  +------------------+  +------------------------------------+ ||
-|  +---------------------------------------------------------------+|
-|                                                                   |
-|  +---------------------------------------------------------------+|
-|  |                    IndexedDB Storage                          ||
-|  |  - Settings        - Alert history       - Fingerprints       ||
-|  +---------------------------------------------------------------+|
-+------------------------------------------------------------------+
+┌──────────────────────────────────────────────────────────────────┐
+│                  Guardian UI (Static PWA, Next.js)               │
+│                                                                  │
+│  Camera ─┐    Microphone ─┐    Reference photos ─┐               │
+│          ▼                ▼                       ▼              │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              Browser Inference Pipeline                  │    │
+│  │                                                          │    │
+│  │  COCO-SSD (TF.js)  →  ViT-base (Transformers.js)         │    │
+│  │       │                       │                          │    │
+│  │       ▼                       ▼                          │    │
+│  │   Bounding boxes        Scene classification             │    │
+│  │   + confidence          (tie-breaker pass)               │    │
+│  │                                                          │    │
+│  │  Web Audio FFT  →  Distress / cry / silence detection    │    │
+│  │  Color + edge fingerprint  →  Lost & Found matching      │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  IndexedDB ── settings · alert history · fingerprints            │
+│  Service worker ── caches app shell + model weights              │
+└──────────────────────────────────────────────────────────────────┘
 
-Deploy to: GitHub Pages, Vercel, Netlify, any static host
-Works: 100% offline after first load
+Deploy: GitHub Pages, Vercel, Netlify — any static host.
+Runtime: Offline after first load.
 ```
 
-### Mode 2: Full Stack (Optional Server)
+The optional API server (`src/`) only ships when you need server-side fan-out — Twilio SMS, Telegram bots, multi-device WebSocket sync, or a bridge to a local [Ollama](https://ollama.com) install for richer scene reasoning.
 
-Add the server only if you need SMS/Telegram alerts, multi-device sync, or Ollama LLM:
+## Models
 
-```
-+------------------+          +------------------+          +------------------+
-|   Guardian UI    |  <--->   |   SafeOS API     |  <--->   |     Ollama       |
-|   (PWA)          |    WS    |   (Express)      |          |   (Optional)     |
-+------------------+          +------------------+          +------------------+
-                                      |
-                    +-----------------+-----------------+
-                    |                 |                 |
-              +-----v-----+     +-----v-----+     +-----v-----+
-              |  Twilio   |     | Telegram  |     |  Cloud    |
-              |   SMS     |     |    Bot    |     | Fallback  |
-              +-----------+     +-----------+     +-----------+
-```
+Every model runs client-side. Sizes are quantized model weights served from a CDN and cached by the service worker on first load.
 
----
+| Job | Model | Framework | Size | Source |
+|---|---|---|---|---|
+| Object detection (10–30 FPS) | COCO-SSD (MobileNetV2 backbone) | [TensorFlow.js Models](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd) | ~5 MB | tfjs-models |
+| Scene classification fallback | `Xenova/vit-base-patch16-224` | [Transformers.js](https://github.com/huggingface/transformers.js) | ~89 MB | [Hugging Face](https://huggingface.co/Xenova/vit-base-patch16-224) |
+| Audio analysis | FFT bins via [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) | native | 0 KB | MDN |
+| Visual fingerprinting | Color histograms + Sobel edges | hand-rolled | < 1 KB / photo | [`apps/guardian-ui/src/lib/visual-fingerprint.ts`](apps/guardian-ui/src/lib/visual-fingerprint.ts) |
 
-## Project Structure
+### Optional: local LLM for harder scenes
 
-```
-packages/safeos/
-├── src/                          # Backend source
-│   ├── api/                      # Express API server
-│   │   ├── server.ts             # Main server setup
-│   │   └── routes/               # API route handlers
-│   ├── db/                       # Database layer
-│   │   └── index.ts              # sql-storage-adapter setup
-│   ├── lib/                      # Core libraries
-│   │   ├── analysis/             # Vision analysis
-│   │   │   ├── frame-analyzer.ts # Main analyzer
-│   │   │   ├── cloud-fallback.ts # Cloud LLM fallback
-│   │   │   └── profiles/         # Scenario-specific prompts
-│   │   ├── alerts/               # Alert system
-│   │   │   ├── escalation.ts     # Volume ramping
-│   │   │   ├── notification-manager.ts
-│   │   │   ├── browser-push.ts
-│   │   │   ├── twilio.ts
-│   │   │   └── telegram.ts
-│   │   ├── audio/                # Audio analysis
-│   │   │   └── analyzer.ts       # Cry/distress detection
-│   │   ├── ollama/               # Ollama client (optional)
-│   │   │   └── client.ts
-│   │   ├── safety/               # Content moderation
-│   │   │   ├── content-filter.ts
-│   │   │   └── disclaimers.ts
-│   │   ├── streams/              # Stream management
-│   │   │   └── manager.ts
-│   │   ├── review/               # Human review system
-│   │   │   └── human-review.ts
-│   │   └── webrtc/               # WebRTC signaling
-│   │       └── signaling.ts
-│   ├── queues/                   # Job queues
-│   │   ├── analysis-queue.ts
-│   │   └── review-queue.ts
-│   ├── types/                    # TypeScript types
-│   │   └── index.ts
-│   └── index.ts                  # Entry point
-│
-├── apps/guardian-ui/             # Frontend (Next.js)
-│   ├── src/
-│   │   ├── app/                  # Next.js pages
-│   │   │   ├── page.tsx          # Dashboard
-│   │   │   ├── monitor/          # Live monitoring
-│   │   │   ├── setup/            # Onboarding
-│   │   │   ├── settings/         # User settings
-│   │   │   ├── history/          # Alert history
-│   │   │   └── profiles/         # Profile management
-│   │   ├── components/           # React components
-│   │   │   ├── CameraFeed.tsx
-│   │   │   ├── AlertPanel.tsx
-│   │   │   ├── Dashboard.tsx
-│   │   │   ├── LostFoundSetup.tsx
-│   │   │   └── ...
-│   │   ├── lib/                  # Client utilities
-│   │   │   ├── visual-fingerprint.ts  # Lost & Found matching
-│   │   │   ├── motion-detection.ts
-│   │   │   ├── audio-levels.ts
-│   │   │   ├── websocket.ts
-│   │   │   └── webrtc-client.ts
-│   │   └── stores/               # Zustand stores
-│   │       ├── monitoring-store.ts
-│   │       ├── lost-found-store.ts
-│   │       └── onboarding-store.ts
-│   └── ...config files
-│
-├── tests/                        # Test suites
-│   ├── unit/                     # Unit tests
-│   └── integration/              # Integration tests
-│
-├── package.json
-├── tsconfig.json
-├── vitest.config.ts
-└── README.md
+When detection is ambiguous, you can route the frame to a local [Ollama](https://ollama.com) install on the same network. Nothing leaves your LAN.
+
+| Model | Size | Latency | Use |
+|---|---|---|---|
+| [`moondream`](https://ollama.com/library/moondream) | ~1.7 GB | ~500 ms | Fast triage |
+| [`llava:7b`](https://ollama.com/library/llava) | ~4 GB | 2–5 s | Detailed analysis |
+| [`llama3.2-vision:11b`](https://ollama.com/library/llama3.2-vision) | ~7 GB | 5–10 s | Complex reasoning |
+
+### Optional: cloud fallback
+
+When local resources are exhausted (e.g. on a low-end phone with no Ollama box on the LAN), you can configure cloud fallback through your own API keys. Each provider receives only the frames that local models couldn't classify with confidence.
+
+- [`gemini-flash-1.5`](https://ai.google.dev/gemini-api/docs/models/gemini#gemini-1.5-flash) via [OpenRouter](https://openrouter.ai)
+- [`gpt-4o-mini`](https://platform.openai.com/docs/models/gpt-4o-mini) via OpenAI
+- [`claude-3-haiku`](https://docs.anthropic.com/en/docs/about-claude/models) via Anthropic
+
+## Notification channels
+
+SafeOS Guardian fans out alerts across four channels, routed by severity:
+
+| Severity | Browser push | Email (Resend) | SMS (Twilio) | Telegram |
+|---|:---:|:---:|:---:|:---:|
+| info / low | ✓ | — | — | — |
+| medium | ✓ | ✓ | — | ✓ |
+| high | ✓ | ✓ | ✓ | ✓ |
+| critical | ✓ | ✓ | ✓ | ✓ |
+
+Browser push is the only channel that works without the API server. The other three require [Resend](https://resend.com), [Twilio](https://www.twilio.com), and a [Telegram bot](https://core.telegram.org/bots) respectively — all opt-in.
+
+### Email alerts via Resend
+
+[Resend](https://resend.com) handles account verification, password reset, and severity-routed alert email. Free tier covers 3,000 emails/month.
+
+Two ways to wire it up:
+
+1. **Server-wide key (operator pays).** Set `RESEND_API_KEY`, `EMAIL_FROM`, and `EMAIL_REPLY_TO` in the API server's `.env`. Every user of that deployment can opt in to email alerts without bringing their own key. Transactional auth email (verification + reset) requires this path.
+2. **Bring your own key (per user).** In the app, go to **Settings → Notifications**, toggle on email alerts, and enable **Use my own Resend account**. Paste a Resend API key + a verified sender. The key stays in your browser's local storage and is only sent to the API server when an alert dispatches.
+
+Email only fires when the toggle is **on** AND a recipient address is set. See [`apps/guardian-ui/src/app/help/integrations/resend`](apps/guardian-ui/src/app/help/integrations/resend) for the full setup walkthrough or read [`src/lib/alerts/email.ts`](src/lib/alerts/email.ts) for the implementation.
+
+## Detection modes
+
+| Scenario | What it watches for |
+|---|---|
+| **Pets** | Eating, bathroom, distress vocalizations, prolonged stillness |
+| **Baby / Toddler** | Crying, movement, breathing patterns, safety hazards in frame |
+| **Elderly** | Falls, confusion, distress, prolonged inactivity |
+| **Lost & Found** | Visual match against 1–5 reference photos via color + edge fingerprints |
+
+Each scenario has its own thresholds in [`apps/guardian-ui/src/lib`](apps/guardian-ui/src/lib) and on-device profile configuration.
+
+## Privacy guarantees
+
+- **Rolling buffer.** Camera frames live in memory for 5–10 minutes, then overwrite.
+- **No cloud uploads** in PWA-only mode. Period.
+- **No telemetry.** No analytics SDK, no model-improvement uploads, no Sentry beacon.
+- **IndexedDB only.** Settings, alert history, and reference photos stay in [browser-local storage](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API).
+- **Optional integrations are opt-in.** Twilio, Telegram, Ollama, and cloud fallback fire only when you configure them.
+
+## Quick start
+
+### PWA only (recommended)
+
+```bash
+cd apps/guardian-ui
+pnpm install
+pnpm dev
 ```
 
----
+Open <http://localhost:3000>. Models download on first use, then cache offline.
+
+To deploy as a static site:
+
+```bash
+pnpm build      # writes ./out
+# deploy out/ to GitHub Pages, Vercel, Netlify, Cloudflare Pages, any CDN
+```
+
+### Full stack (only if you need server-side fan-out)
+
+```bash
+pnpm install
+pnpm dev        # API + UI together
+# or:
+pnpm run api    # port 3001
+pnpm run ui     # port 3000
+```
+
+### Local LLM (optional)
+
+```bash
+brew install ollama         # macOS; see ollama.com for other platforms
+ollama serve
+ollama pull moondream
+ollama pull llava:7b
+```
+
+Point `OLLAMA_HOST` at your Ollama instance in `.env`.
 
 ## Configuration
 
-### Environment Variables
-
-Create a `.env` file:
+Copy [`.env.example`](.env.example) to `.env`. Every variable is optional unless you deploy the API server.
 
 ```env
-# Ollama (optional - for LLM-enhanced analysis)
+# Local LLM
 OLLAMA_HOST=http://localhost:11434
 
-# Cloud Fallback (optional)
+# Cloud fallback (only configure what you want to use)
 OPENROUTER_API_KEY=sk-or-...
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Notifications (optional)
+# Server-side notifications
 TWILIO_ACCOUNT_SID=AC...
 TWILIO_AUTH_TOKEN=...
 TWILIO_FROM_NUMBER=+1...
-
 TELEGRAM_BOT_TOKEN=...
 
-# Browser Push (optional)
+# Email (Resend) — also used for account verification + password reset
+RESEND_API_KEY=re_...
+EMAIL_FROM="SafeOS Guardian <alerts@yourdomain.com>"
+EMAIL_REPLY_TO="team@yourdomain.com"
+
+# Browser push (requires the API server to sign payloads)
 VAPID_PUBLIC_KEY=...
 VAPID_PRIVATE_KEY=...
 ```
 
-### Analysis Thresholds
+Sensitivity thresholds live in [`src/lib/analysis/profiles/`](src/lib/analysis/profiles/). Each scenario has its own profile.
 
-Customize in `src/lib/analysis/profiles/`:
+## Project layout
 
-```typescript
-// Example: Increase sensitivity for elderly monitoring
-export const elderlyProfile = {
-  motionThreshold: 0.2,        // Lower = more sensitive
-  audioThreshold: 0.3,
-  inactivityAlertMinutes: 30,  // Alert after 30 min no motion
-  // ...
-};
 ```
-
----
+packages/safeos/
+├── apps/guardian-ui/        # Next.js PWA — runs the models in your browser
+│   └── src/
+│       ├── app/             # Routes (dashboard, monitor, history, settings)
+│       ├── components/      # CameraFeed, AlertPanel, LostFoundSetup, …
+│       ├── lib/             # visual-fingerprint, motion-detection, websocket
+│       └── stores/          # Zustand stores (monitoring, lost-found, onboarding)
+│
+├── src/                     # Optional Express API
+│   ├── api/                 # HTTP + WebSocket routes
+│   ├── lib/
+│   │   ├── analysis/        # Frame analyzer + cloud fallback
+│   │   ├── alerts/          # Escalation, Twilio, Telegram, browser push
+│   │   ├── audio/           # Distress / cry detection
+│   │   ├── ollama/          # Local LLM client
+│   │   └── webrtc/          # Signaling
+│   └── queues/              # Job queues (analysis, human review)
+│
+├── tests/                   # vitest — unit + integration
+├── docker-compose.yml       # API server + Postgres
+└── Dockerfile               # API server image
+```
 
 ## Testing
 
 ```bash
-# Run all tests
-pnpm test
-
-# Run with coverage
-pnpm test:coverage
-
-# Run specific test file
-pnpm test tests/unit/frame-analyzer.test.ts
-
-# Watch mode
-pnpm test:watch
+pnpm test            # all tests
+pnpm test:coverage   # with coverage
+pnpm test:watch      # watch mode
 ```
-
----
 
 ## Deployment
 
-### Static PWA (Recommended)
+The PWA is a static export. Deploy `apps/guardian-ui/out` to any CDN — GitHub Pages, Vercel, Netlify, Cloudflare Pages. No server is required.
 
-Deploy to any static host — no server needed:
-
-```bash
-cd apps/guardian-ui
-pnpm build
-```
-
-Deploy the `out` folder to:
-- **GitHub Pages** — free, automatic HTTPS
-- **Vercel** — zero config
-- **Netlify** — drag and drop
-- **Any CDN** — it's just static files
-
-### Full Stack (Docker)
-
-Only if you need the server for SMS/Telegram/Ollama:
+The API server ships as a Docker image:
 
 ```bash
 docker build -t safeos .
-docker run -p 3001:3001 safeos
+docker run -p 3001:3001 --env-file .env safeos
 ```
 
-Or with PM2:
+Or run it under PM2:
+
 ```bash
 pnpm build
 pm2 start dist/index.js --name safeos-api
 ```
 
----
-
 ## Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md). The four ground rules:
 
-### Key Principles
-
-1. **Privacy First**: Never store more data than necessary
-2. **Fail Safe**: Default to alerting if uncertain
-3. **Offline First**: Core features must work without internet
-4. **Accessibility**: Design for all users
-
----
+1. **Privacy first.** Never persist more than the task requires.
+2. **Fail safe.** Default to alerting when uncertain.
+3. **Offline first.** Core features must work without internet.
+4. **Accessibility.** WCAG AA contrast, keyboard navigation, screen-reader-friendly labels.
 
 ## License
 
-MIT License - Part of Frame's humanitarian mission.
-
----
+MIT. Part of [Frame](https://frame.dev)'s 10% for Humanity initiative — this service stays free, forever.
 
 ## Acknowledgments
 
-- **Frame Team**: For dedicating 10% to humanity
-- **Ollama**: For making local AI accessible
-- **Open Source Community**: For the tools that make this possible
+- [TensorFlow.js](https://www.tensorflow.org/js) and the [`tfjs-models`](https://github.com/tensorflow/tfjs-models) team for the COCO-SSD port.
+- [Hugging Face](https://huggingface.co) and [Xenova](https://huggingface.co/Xenova) for Transformers.js and the quantized ViT weights.
+- [Ollama](https://ollama.com) for making local vision models trivial to run.
+- [Resend](https://resend.com) for transactional + alert email with a generous free tier.
+- The Frame team and the people on Discord who keep stress-testing this thing.
 
 ---
 
 <div align="center">
-  <p>
-    <strong>Remember:</strong> This tool supplements, never replaces, human care.
-  </p>
-  <p>
-    Built by Frame for humanity's most vulnerable.
-  </p>
+  <p><strong>Remember:</strong> this tool supplements, never replaces, human care.</p>
 </div>

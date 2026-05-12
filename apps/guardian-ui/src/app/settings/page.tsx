@@ -415,7 +415,7 @@ export default function SettingsPage() {
             <ul className="flex md:flex-col gap-2 md:gap-1 overflow-x-auto md:overflow-x-visible pb-4 md:pb-0 scrollbar-hide snap-x snap-mandatory md:snap-none">
               {sections.map((section) => (
                 <li key={section.id} className="snap-start flex-shrink-0">
-                  {['ai-models', 'detection-zones', 'escalation', 'detection', 'appearance', 'schedule', 'sounds'].includes(section.id) ? (
+                  {['ai-models', 'detection-zones', 'escalation', 'detection', 'appearance', 'schedule', 'sounds', 'notifications'].includes(section.id) ? (
                     <Link
                       href={
                         section.id === 'ai-models' ? '/settings/models' :
@@ -424,7 +424,8 @@ export default function SettingsPage() {
                               section.id === 'appearance' ? '/settings/appearance' :
                                 section.id === 'schedule' ? '/settings/schedule' :
                                   section.id === 'sounds' ? '/settings/sounds' :
-                                    '/settings/escalation'
+                                    section.id === 'notifications' ? '/settings/notifications' :
+                                      '/settings/escalation'
                       }
                       className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-full md:rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-800 whitespace-nowrap text-sm md:text-base bg-slate-800/50 md:bg-transparent border border-slate-700 md:border-transparent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                     >

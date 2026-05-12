@@ -320,6 +320,30 @@ export default function HelpPage() {
                   </div>
                 </div>
 
+                {/* Integrations CTA */}
+                <Link
+                  href="/help/integrations"
+                  className="block bg-slate-800/50 rounded-xl border border-emerald-500/30 hover:border-emerald-500/60 p-6 transition-colors group"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-white mb-1">Integrations &amp; setup guides</h3>
+                      <p className="text-sm text-slate-300 leading-relaxed">
+                        Step-by-step walkthroughs for Resend email, Twilio SMS, Telegram, browser push, and Ollama.
+                        Everything is optional — pick whichever channels you want.
+                      </p>
+                    </div>
+                    <svg className="w-5 h-5 text-slate-500 group-hover:text-emerald-300 transition-colors flex-shrink-0 mt-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </Link>
+
                 {/* Video Tutorial Embed */}
                 <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
                   <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">

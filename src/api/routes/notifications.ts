@@ -15,6 +15,7 @@ import {
   TelegramUnregisterSchema,
   TestNotificationSchema,
 } from '../schemas/index.js';
+import { sendTestEmail, isResendConfigured } from '../../lib/alerts/email.js';
 
 // =============================================================================
 // Router
@@ -100,7 +101,8 @@ notificationRoutes.delete('/telegram/register', validate(TelegramUnregisterSchem
 });
 
 /**
- * GET /api/notifications/status - Get notification status
+ * GET /api/notifications/status - Report which server-side notification
+ * channels are configured. UI uses this to show "configured: yes/no" rows.
  */
 notificationRoutes.get('/status', async (_req: Request, res: Response) => {
   try {
@@ -110,6 +112,7 @@ notificationRoutes.get('/status', async (_req: Request, res: Response) => {
         telegramChats: telegramChatIds.size,
         smsEnabled: !!process.env['TWILIO_ACCOUNT_SID'],
         telegramEnabled: !!process.env['TELEGRAM_BOT_TOKEN'],
+        emailEnabled: isResendConfigured(),
       },
     });
   } catch (error) {
@@ -119,13 +122,12 @@ notificationRoutes.get('/status', async (_req: Request, res: Response) => {
 });
 
 /**
- * POST /api/notifications/test - Send test notification
+ * POST /api/notifications/test - Send test notification (channel-agnostic stub).
  */
 notificationRoutes.post('/test', validate(TestNotificationSchema), async (req: Request, res: Response) => {
   try {
     const { channel, target } = req.body;
 
-    // Simulate sending a test notification
     const testMessage = 'This is a test notification from SafeOS Guardian';
 
     res.json({
@@ -137,6 +139,58 @@ notificationRoutes.post('/test', validate(TestNotificationSchema), async (req: R
   } catch (error) {
     console.error('Failed to send test notification:', error);
     res.status(500).json({ error: 'Failed to send test notification' });
+  }
+});
+
+/**
+ * POST /api/notifications/test-email - Send a real Resend email to verify
+ * the user's email configuration. Accepts an optional BYO Resend key + From
+ * override; falls back to server `RESEND_API_KEY` and `EMAIL_FROM`.
+ *
+ * Body:
+ *   { to: string,                    // recipient
+ *     resendApiKey?: string,         // optional BYO key
+ *     fromOverride?: string,         // optional sender override (must be a
+ *                                    // domain verified in your Resend account)
+ *     replyTo?: string }
+ */
+notificationRoutes.post('/test-email', async (req: Request, res: Response) => {
+  try {
+    const { to, resendApiKey, fromOverride, replyTo } = req.body ?? {};
+
+    if (!to || typeof to !== 'string') {
+      return res.status(400).json({ error: 'Recipient email is required' });
+    }
+
+    // Reject if neither server nor user has a key set — saves a confusing
+    // 500 from the Resend SDK.
+    if (!resendApiKey && !isResendConfigured()) {
+      return res.status(400).json({
+        error: 'Email not configured',
+        message:
+          'No Resend API key was supplied and the server has no RESEND_API_KEY set. Add a key in Settings → Notifications or set one on the server.',
+      });
+    }
+
+    const override = resendApiKey
+      ? { apiKey: resendApiKey as string, ...(replyTo ? { replyTo: replyTo as string } : {}) }
+      : undefined;
+
+    const result = await sendTestEmail(to, {
+      override,
+      fromOverride: typeof fromOverride === 'string' && fromOverride ? fromOverride : undefined,
+    });
+
+    return res.json({
+      success: true,
+      messageId: result.id,
+      to: result.to,
+      from: result.from,
+    });
+  } catch (error) {
+    console.error('Failed to send test email:', error);
+    const message = error instanceof Error ? error.message : 'Failed to send test email';
+    return res.status(500).json({ error: 'Failed to send test email', message });
   }
 });
 
