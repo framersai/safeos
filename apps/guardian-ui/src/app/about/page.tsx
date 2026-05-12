@@ -16,6 +16,11 @@ import {
   IconGlobe,
   IconDatabase,
   IconExternalLink,
+  IconCamera,
+  IconCpu,
+  IconBell,
+  IconWifiOff,
+  IconWarning,
 } from '../../components/icons';
 
 export const metadata: Metadata = {
@@ -100,7 +105,7 @@ function ArchitectureStep({
   description,
 }: {
   step: number;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
 }) {
@@ -111,7 +116,9 @@ function ArchitectureStep({
       </div>
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xl">{icon}</span>
+          <span className="w-7 h-7 rounded-md bg-emerald-500/10 flex items-center justify-center text-emerald-300">
+            {icon}
+          </span>
           <h4 className="font-medium text-white">{title}</h4>
         </div>
         <p className="text-sm text-slate-400">{description}</p>
@@ -140,7 +147,7 @@ export default function AboutPage() {
                 <span className="hidden sm:inline">Back</span>
               </Link>
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🛡️</span>
+                <IconShield size={22} className="text-emerald-400" />
                 <h1 className="text-xl font-bold text-white">About SafeOS</h1>
               </div>
             </div>
@@ -322,31 +329,31 @@ export default function AboutPage() {
             <div className="space-y-6">
               <ArchitectureStep
                 step={1}
-                icon="📹"
+                icon={<IconCamera size={16} />}
                 title="Camera & Microphone Access"
                 description="Your browser requests permission to access your device's camera and microphone. Video and audio streams never leave your device."
               />
               <ArchitectureStep
                 step={2}
-                icon="🧠"
+                icon={<IconCpu size={16} />}
                 title="Local AI Processing"
                 description="TensorFlow.js analyzes frames in real-time directly in your browser. Motion detection, cry analysis, and pixel monitoring all happen on your device."
               />
               <ArchitectureStep
                 step={3}
-                icon="🔔"
+                icon={<IconBell size={16} />}
                 title="Instant Alerts"
                 description="When motion or sound is detected, you receive immediate browser notifications and audio alerts. No server round-trip delay."
               />
               <ArchitectureStep
                 step={4}
-                icon="💾"
+                icon={<IconDatabase size={16} />}
                 title="Local Storage"
                 description="All settings, alert history, and preferences are stored in IndexedDB on your device. Nothing is sent to remote servers."
               />
               <ArchitectureStep
                 step={5}
-                icon="☁️"
+                icon={<IconWifiOff size={16} />}
                 title="Optional Cloud Sync"
                 description="If enabled, only encrypted metadata syncs across your devices. Video and audio data always stays local."
               />
@@ -372,15 +379,15 @@ export default function AboutPage() {
             </p>
             <ul className="space-y-2 text-slate-400 mb-4">
               <li className="flex items-start gap-2">
-                <span className="text-red-400 mt-1">⚠</span>
+                <IconWarning size={16} className="text-red-400 mt-1 flex-shrink-0" />
                 <span>Surveillance without consent is illegal in most jurisdictions</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-400 mt-1">⚠</span>
+                <IconWarning size={16} className="text-red-400 mt-1 flex-shrink-0" />
                 <span>Rate limitations and warnings are implemented to prevent misuse</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-400 mt-1">⚠</span>
+                <IconWarning size={16} className="text-red-400 mt-1 flex-shrink-0" />
                 <span>We reserve the right to take down the service if abuse is detected</span>
               </li>
             </ul>

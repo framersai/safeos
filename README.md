@@ -28,40 +28,98 @@ SafeOS Guardian is a **supplemental experimental tool**. It does not replace car
 
 ## What it is
 
-A Progressive Web App that loads [TensorFlow.js](https://www.tensorflow.org/js) and [Transformers.js](https://huggingface.co/docs/transformers.js) into your browser, points them at a standard webcam and microphone, and raises alerts when something looks wrong. Every model runs on-device. No frames are uploaded. No telemetry is collected.
+SafeOS Guardian is a Progressive Web App that turns any device with a camera and microphone into a deep-learning monitoring station. It loads [TensorFlow.js](https://www.tensorflow.org/js) and [Transformers.js](https://huggingface.co/docs/transformers.js) into the browser, runs every model on-device, and raises severity-tiered alerts when something matches. No frames leave the device. No telemetry. No account required for the local-only flow.
 
-Built for parents and caregivers who want a backup pair of eyes without renting space in someone else's cloud.
+Once the models have cached after first load, the entire detection pipeline runs offline.
+
+## Use cases
+
+| Scenario | What SafeOS Guardian does |
+|---|---|
+| **Pet monitoring** | Eating, bathroom, distress vocalizations, prolonged stillness, intrusion into off-limits rooms. |
+| **Baby & toddler monitoring** | Crying, sustained motion, breathing pattern anomalies, fall-from-bed events, in-frame hazards. |
+| **Elder care** | Falls, confusion, prolonged inactivity, distress vocalizations, wandering out of frame. |
+| **Lost & Found** | Match a missing pet or person against 1–5 reference photos using a perceptual fingerprint (color histograms + edge signatures). Runs continuously against the live camera. |
+| **Wildlife & outdoor** | Backyard trail-cam, livestock checks, predator detection. Runs on cheap hardware with no internet. |
+| **Authority / emergency response** | Temporary deployment over an at-risk area or shelter; severity-routed alerts to email / SMS / Telegram via the optional server. |
+| **Small-business security** | Perimeter watch, after-hours intrusion detection, customer-traffic counting. Triggers escalating audio + push notifications. |
+| **Personal safety** | Lone-worker check-ins, accessibility aid (e.g. doorbell detection for d/Deaf households), live-in caregiving environments. |
+
+SafeOS is a **supplemental** tool. It augments human attention; it does not replace it. Privacy laws around recording vary by jurisdiction — only deploy on premises and people you have authority to monitor.
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                  Guardian UI (Static PWA, Next.js)               │
-│                                                                  │
-│  Camera ─┐    Microphone ─┐    Reference photos ─┐               │
-│          ▼                ▼                       ▼              │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              Browser Inference Pipeline                  │    │
-│  │                                                          │    │
-│  │  COCO-SSD (TF.js)  →  ViT-base (Transformers.js)         │    │
-│  │       │                       │                          │    │
-│  │       ▼                       ▼                          │    │
-│  │   Bounding boxes        Scene classification             │    │
-│  │   + confidence          (tie-breaker pass)               │    │
-│  │                                                          │    │
-│  │  Web Audio FFT  →  Distress / cry / silence detection    │    │
-│  │  Color + edge fingerprint  →  Lost & Found matching      │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-│  IndexedDB ── settings · alert history · fingerprints            │
-│  Service worker ── caches app shell + model weights              │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Browser["Guardian UI · Static PWA"]
+        direction TB
+        Cam(("📷 Camera"))
+        Mic(("🎙 Microphone"))
+        Photos(("Reference photos"))
 
-Deploy: GitHub Pages, Vercel, Netlify — any static host.
-Runtime: Offline after first load.
+        subgraph Pipeline["Browser Inference Pipeline"]
+            direction LR
+            CocoSSD["COCO-SSD<br/><sub>TensorFlow.js · ~5 MB</sub>"]
+            ViT["ViT-base patch16-224<br/><sub>Transformers.js · ~89 MB</sub>"]
+            Audio["Web Audio FFT<br/><sub>native · 0 KB</sub>"]
+            Fingerprint["Visual fingerprint<br/><sub>color hist + Sobel</sub>"]
+
+            CocoSSD -- "low confidence" --> ViT
+        end
+
+        Cam --> CocoSSD
+        Mic --> Audio
+        Photos --> Fingerprint
+        Cam --> Fingerprint
+
+        CocoSSD --> Alerts
+        ViT --> Alerts
+        Audio --> Alerts
+        Fingerprint --> Alerts
+
+        Alerts["Alert Engine<br/><sub>severity routing + escalation</sub>"]
+        Storage[("IndexedDB<br/>settings · history<br/>fingerprints")]
+        SW[/"Service Worker<br/>app shell + model weights cache"/]
+
+        Alerts --> Storage
+        Pipeline -.cache miss.-> SW
+    end
+
+    Server{{"Optional API server<br/><sub>fan-out · auth · LLM bridge</sub>"}}
+    Resend["Resend"]
+    Twilio["Twilio"]
+    Telegram["Telegram"]
+    Ollama["Ollama LAN"]
+    Cloud["OpenRouter / OpenAI / Anthropic<br/><sub>uncertain frames only</sub>"]
+
+    Alerts -. opt-in .- Server
+    Server --> Resend
+    Server --> Twilio
+    Server --> Telegram
+    Server --> Ollama
+    Server --> Cloud
+
+    classDef offline fill:#0c1419,stroke:#10b981,color:#d4d8de
+    classDef optional fill:#161b22,stroke:#475569,color:#94a3b8,stroke-dasharray: 5 5
+    class Browser,Pipeline,Alerts,Storage,SW,Cam,Mic,Photos,CocoSSD,ViT,Audio,Fingerprint offline
+    class Server,Resend,Twilio,Telegram,Ollama,Cloud optional
 ```
 
-The optional API server (`src/`) only ships when you need server-side fan-out — Twilio SMS, Telegram bots, multi-device WebSocket sync, or a bridge to a local [Ollama](https://ollama.com) install for richer scene reasoning.
+The solid path runs entirely in the browser, offline, after first load. The dashed path engages only when you deploy the API server and opt into individual integrations.
+
+## How the deep learning runs in your browser
+
+1. **First load.** The Next.js app shell loads from any static host (GitHub Pages, Vercel, Netlify, Cloudflare Pages). The service worker registers and starts caching the shell, fonts, and JS chunks.
+2. **Model fetch.** When you open the monitor view, TensorFlow.js downloads the COCO-SSD weights (~5 MB, quantized) from the [`tfjs-models` CDN](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd). The service worker intercepts the response and stores it in the Cache Storage API. Subsequent loads serve the weights from the cache — no network needed.
+3. **Backend selection.** TF.js auto-selects the fastest available backend: [WebGPU](https://www.w3.org/TR/webgpu/) where the browser supports it, [WebGL](https://www.khronos.org/webgl/) otherwise, falling back to WASM SIMD on older devices. A modern laptop runs COCO-SSD at 20–30 FPS on WebGL; mobile devices typically land at 10–15 FPS.
+4. **Inference loop.** [`apps/guardian-ui/src/lib`](apps/guardian-ui/src/lib) pulls frames off the `<video>` element via `requestAnimationFrame`, resizes to the model's input dimensions, and feeds the tensor to `model.detect()`. Bounding boxes + class labels + confidence scores come back synchronously.
+5. **Tie-breaker pass.** When COCO-SSD's top prediction is below the per-scenario confidence threshold, the frame is routed to a quantized ViT-base (~89 MB, [Xenova/vit-base-patch16-224](https://huggingface.co/Xenova/vit-base-patch16-224)) running under Transformers.js. ViT is heavier but better at fine-grained scene labeling. It's used as a secondary check, not the primary path.
+6. **Audio parallel path.** The Web Audio API exposes a [`AnalyserNode`](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode) over the microphone. FFT bins are sampled every ~50 ms; thresholds detect cry/distress, glass break, sustained silence, and other audible events. No model needed.
+7. **Lost & Found fingerprinting.** Reference photos are reduced to a 32-bin color histogram + top-5 dominant colors (k-means) + an 8×8 Sobel edge grid. Every incoming frame is fingerprinted the same way and compared by cosine similarity. Under 1 KB per reference photo. Code: [`apps/guardian-ui/src/lib/visual-fingerprint.ts`](apps/guardian-ui/src/lib/visual-fingerprint.ts).
+8. **Alert engine.** Matches feed into a severity router (info / low / medium / high / critical). Each severity has its own escalation curve — volume-ramping local audio, browser push, and optional fan-out to email / SMS / Telegram via the API server.
+9. **Storage stays local.** Settings, alert history, and visual fingerprints are persisted in [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) on your device. The rolling video buffer keeps only the last 5–10 minutes in memory; older frames are overwritten.
+
+The optional API server (`src/`) only enters the picture when you opt into fan-out channels (Resend, Twilio, Telegram), multi-device WebSocket sync, or a bridge to a local [Ollama](https://ollama.com) install for richer scene reasoning.
 
 ## Models
 

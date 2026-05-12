@@ -7,6 +7,7 @@
  * @module app/page
  */
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   IconShield,
   IconCamera,
@@ -443,7 +444,7 @@ function LandingPage() {
           </div>
         </div>
 
-        {/* Discord Community CTA */}
+        {/* Discord Community CTA — Wilds.ai community */}
         <div className="mt-12 max-w-3xl mx-auto w-full">
           <a
             href="https://wilds.ai/discord"
@@ -452,21 +453,27 @@ function LandingPage() {
             className="block p-5 bg-gradient-to-br from-[#5865F2]/10 to-slate-900 border border-[#5865F2]/25 rounded-xl hover:border-[#5865F2]/40 hover:shadow-[0_0_24px_rgba(88,101,242,0.12)] transition-all group"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 flex items-center justify-center bg-[#5865F2]/15 rounded-lg flex-shrink-0 group-hover:bg-[#5865F2]/25 transition-colors">
-                <svg className="w-6 h-6 text-[#5865F2]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286z" />
-                </svg>
+              <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-900 ring-1 ring-[#5865F2]/30 flex-shrink-0">
+                <Image
+                  src="/logos/wilds-ai.svg"
+                  alt="Wilds.ai"
+                  width={48}
+                  height={48}
+                  className="object-contain"
+                />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-1">
-                  Join the <span className="text-[#7C8BFC]">Rabbit Hole Inc</span> Discord
+                <h3 className="text-base font-semibold text-[var(--color-steel-100)] mb-1 flex items-center gap-2">
+                  Join the <span className="text-emerald-400">Wilds.ai</span> Discord
+                  <svg className="w-4 h-4 text-[#7C8BFC]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286z" />
+                  </svg>
                 </h3>
                 <p className="text-sm text-[var(--color-steel-200)] leading-relaxed">
-                  We post the latest AI news, tools, research, and updates.
-                  Connect with builders and the SafeOS community.
+                  AI research, tooling, and SafeOS updates. Builders and operators welcome.
                 </p>
               </div>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 bg-[#5865F2]/15 border border-[#5865F2]/30 rounded-lg text-sm font-medium text-[#5865F2] group-hover:bg-[#5865F2]/25 transition-colors flex-shrink-0">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 bg-[#5865F2]/15 border border-[#5865F2]/30 rounded-lg text-sm font-medium text-[#7C8BFC] group-hover:bg-[#5865F2]/25 transition-colors flex-shrink-0">
                 Join
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12" />

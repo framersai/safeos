@@ -1,0 +1,10 @@
+<svg width="340" height="80" viewBox="0 0 340 80" xmlns="http://www.w3.org/2000/svg">
+  <defs><clipPath id="mc"><rect x="0" y="0" width="80" height="58"/></clipPath></defs>
+  <g transform="translate(6, 8)">
+    <path d="M2,58 L28,22 L34,30 L40,22 L66,58 L54,58 L40,36 L34,44 L28,36 L14,58 Z" fill="#1a3358" clip-path="url(#mc)"/>
+    <path d="M2,58 L24,28 L34,42 L44,28 L66,58 L54,58 L44,42 L34,54 L24,42 L14,58 Z" fill="#2d6bc9"/>
+    <circle cx="34" cy="14" r="5" fill="#4a8fe8"/>
+  </g>
+  <text x="90" y="41" font-family="Manrope, sans-serif" font-weight="700" font-size="28" letter-spacing="-0.02em" fill="#b0bdd4">wilds.ai</text>
+  <text x="91" y="57" font-family="Manrope, sans-serif" font-weight="500" font-size="8.5" letter-spacing="0.03em" fill="#6878a0">build any game. tell any story.</text>
+</svg>
