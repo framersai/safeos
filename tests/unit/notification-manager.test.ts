@@ -6,8 +6,8 @@
  * @module tests/unit/notification-manager
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NotificationManager } from '../../src/lib/alerts/notification-manager.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { NotificationManager, getNotificationManager } from '../../src/lib/alerts/notification-manager.js';
 
 // Mock external services
 vi.mock('../../src/lib/alerts/browser-push.js', () => ({
@@ -24,6 +24,11 @@ vi.mock('../../src/lib/alerts/telegram.js', () => ({
   TelegramBotService: vi.fn().mockImplementation(() => ({
     sendAlert: vi.fn().mockResolvedValue({ success: true }),
   })),
+}));
+
+vi.mock('../../src/lib/alerts/email.js', () => ({
+  sendAlertEmail: vi.fn().mockResolvedValue({ id: 'msg_test', to: 'a@a', from: 'b@b' }),
+  isResendConfigured: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock('../../src/api/routes/notifications.js', () => ({
@@ -54,6 +59,7 @@ describe('NotificationManager', () => {
       expect(config.browserPush).toBe(true);
       expect(config.sms).toBe(false);
       expect(config.telegram).toBe(false);
+      expect(config.email).toBe(false);
     });
 
     it('should accept custom config', () => {
@@ -61,12 +67,29 @@ describe('NotificationManager', () => {
         browserPush: false,
         sms: true,
         smsNumber: '+1234567890',
+        email: true,
+        emailRecipient: 'alerts@example.com',
       });
 
       const config = customManager.getConfig();
       expect(config.browserPush).toBe(false);
       expect(config.sms).toBe(true);
       expect(config.smsNumber).toBe('+1234567890');
+      expect(config.email).toBe(true);
+      expect(config.emailRecipient).toBe('alerts@example.com');
+    });
+
+    it('should accept BYO email override', () => {
+      const customManager = new NotificationManager({
+        email: true,
+        emailRecipient: 'alerts@example.com',
+        emailOverride: { apiKey: 're_byo' },
+        emailFromOverride: 'BYO <byo@user.test>',
+      });
+
+      const config = customManager.getConfig();
+      expect(config.emailOverride).toEqual({ apiKey: 're_byo' });
+      expect(config.emailFromOverride).toBe('BYO <byo@user.test>');
     });
   });
 
@@ -205,6 +228,273 @@ describe('NotificationManager', () => {
       channels.forEach((channel) => {
         expect(typeof channel).toBe('string');
       });
+    });
+
+    it('should include email when Resend is configured server-side', async () => {
+      const { isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValueOnce(true);
+
+      const channels = manager.getAvailableChannels();
+      expect(channels).toContain('email');
+    });
+
+    it('should NOT include email when Resend is not configured', async () => {
+      const { isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValueOnce(false);
+
+      const channels = manager.getAvailableChannels();
+      expect(channels).not.toContain('email');
+    });
+
+    it('should include sms when TWILIO_ACCOUNT_SID is set', () => {
+      const prev = process.env['TWILIO_ACCOUNT_SID'];
+      process.env['TWILIO_ACCOUNT_SID'] = 'AC_test';
+      try {
+        const channels = manager.getAvailableChannels();
+        expect(channels).toContain('sms');
+      } finally {
+        if (prev === undefined) delete process.env['TWILIO_ACCOUNT_SID'];
+        else process.env['TWILIO_ACCOUNT_SID'] = prev;
+      }
+    });
+
+    it('should include telegram when TELEGRAM_BOT_TOKEN is set', () => {
+      const prev = process.env['TELEGRAM_BOT_TOKEN'];
+      process.env['TELEGRAM_BOT_TOKEN'] = 'bot:token';
+      try {
+        const channels = manager.getAvailableChannels();
+        expect(channels).toContain('telegram');
+      } finally {
+        if (prev === undefined) delete process.env['TELEGRAM_BOT_TOKEN'];
+        else process.env['TELEGRAM_BOT_TOKEN'] = prev;
+      }
+    });
+  });
+
+  // ===========================================================================
+  // Singleton Tests
+  // ===========================================================================
+
+  describe('getNotificationManager (singleton)', () => {
+    it('returns the same instance on repeat calls', () => {
+      const a = getNotificationManager();
+      const b = getNotificationManager();
+      expect(a).toBe(b);
+    });
+
+    it('returns a NotificationManager instance', () => {
+      const instance = getNotificationManager();
+      expect(instance).toBeInstanceOf(NotificationManager);
+    });
+  });
+
+  // ===========================================================================
+  // Email Channel Tests
+  // ===========================================================================
+
+  describe('email channel', () => {
+    const baseEmailManager = () =>
+      new NotificationManager({
+        email: true,
+        emailRecipient: 'alerts@example.com',
+      });
+
+    it('skips email when toggle is off, even at critical severity', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(true);
+
+      const m = new NotificationManager({ email: false, emailRecipient: 'a@a.test' });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'critical',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertEmail).not.toHaveBeenCalled();
+    });
+
+    it('skips email when recipient is empty, even when enabled', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(true);
+
+      const m = new NotificationManager({ email: true });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'high',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertEmail).not.toHaveBeenCalled();
+    });
+
+    it('skips email when neither server key nor BYO key is available', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(false);
+
+      const m = baseEmailManager();
+
+      const results = await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'high',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertEmail).not.toHaveBeenCalled();
+      // Channel attempted; skip is silent (success-shaped to avoid false failures)
+      const emailResult = results.find((r) => r.channel === 'email');
+      expect(emailResult?.success).toBe(true);
+    });
+
+    it('sends email when enabled + recipient set + server Resend configured', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(true);
+
+      const m = baseEmailManager();
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'alert-1',
+        severity: 'medium',
+        title: 'Motion',
+        message: 'Detected',
+        timestamp: '2026-05-12T00:00:00Z',
+      });
+
+      expect(sendAlertEmail).toHaveBeenCalledWith(
+        'alerts@example.com',
+        'medium',
+        'Motion',
+        'Detected',
+        expect.objectContaining({
+          streamId: 's',
+          alertId: 'alert-1',
+          timestamp: '2026-05-12T00:00:00Z',
+        }),
+      );
+    });
+
+    it('uses BYO key path even when server Resend is not configured', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(false);
+
+      const m = new NotificationManager({
+        email: true,
+        emailRecipient: 'alerts@example.com',
+        emailOverride: { apiKey: 're_byo' },
+      });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'high',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertEmail).toHaveBeenCalledWith(
+        'alerts@example.com',
+        'high',
+        'T',
+        'M',
+        expect.objectContaining({ override: { apiKey: 're_byo' } }),
+      );
+    });
+
+    it('forwards fromOverride to sendAlertEmail', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(true);
+
+      const m = new NotificationManager({
+        email: true,
+        emailRecipient: 'alerts@example.com',
+        emailFromOverride: 'Custom <custom@test>',
+      });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'critical',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ fromOverride: 'Custom <custom@test>' }),
+      );
+    });
+
+    it('does NOT send email for low severity events', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(true);
+
+      const m = baseEmailManager();
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'low',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertEmail).not.toHaveBeenCalled();
+    });
+
+    it('does NOT send email for info severity events', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(true);
+
+      const m = baseEmailManager();
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'info',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertEmail).not.toHaveBeenCalled();
+    });
+
+    it('captures sendAlertEmail errors without throwing', async () => {
+      const { sendAlertEmail, isResendConfigured } = await import('../../src/lib/alerts/email.js');
+      vi.mocked(isResendConfigured).mockReturnValue(true);
+      vi.mocked(sendAlertEmail).mockRejectedValueOnce(new Error('Resend down'));
+
+      const m = baseEmailManager();
+
+      const results = await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'critical',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      const emailResult = results.find((r) => r.channel === 'email');
+      expect(emailResult?.success).toBe(false);
+      expect(emailResult?.error).toBe('Resend down');
     });
   });
 
