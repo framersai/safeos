@@ -29,7 +29,8 @@ export const metadata: Metadata = {
 // Constants
 // =============================================================================
 
-const SPONSOR_URL = 'https://github.com/sponsors/manicinc';
+const SPONSOR_FRAMERSAI_URL = 'https://github.com/sponsors/framersai';
+const SPONSOR_MANICINC_URL = 'https://github.com/sponsors/manicinc';
 const GITHUB_REPO = 'https://github.com/framersai/safeos';
 const GITHUB_ISSUES = 'https://github.com/framersai/safeos/issues';
 
@@ -268,31 +269,41 @@ export default function DonatePage() {
           <div className="text-center mb-5">
             <h3 className="text-xl font-semibold text-white mb-2">Sponsor on GitHub</h3>
             <p className="text-sm text-slate-300 max-w-md mx-auto">
-              Sponsorship runs through{' '}
+              Direct sponsorship goes to{' '}
               <a
-                href={SPONSOR_URL}
+                href={SPONSOR_FRAMERSAI_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-pink-300 hover:text-pink-200 underline-offset-2 hover:underline font-medium"
+                className="text-emerald-300 hover:text-emerald-200 underline-offset-2 hover:underline font-medium"
               >
-                manicinc
+                framersai
               </a>
-              , the parent org behind SafeOS, AgentOS, Paracosm, and the rest of the Frame ecosystem.
+              , the org behind SafeOS, AgentOS, Paracosm, and the rest of the Frame ecosystem.
             </p>
           </div>
 
           <a
-            href={SPONSOR_URL}
+            href={SPONSOR_FRAMERSAI_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-xl transition-colors group"
+            className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-colors group mb-3"
           >
             <IconHeart size={20} className="text-white group-hover:scale-110 transition-transform" />
-            Sponsor manicinc on GitHub
+            Sponsor framersai on GitHub
             <IconExternalLink size={16} className="opacity-70" />
           </a>
 
-          <p className="mt-3 text-center text-xs text-slate-400">
+          <a
+            href={SPONSOR_MANICINC_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-slate-800/60 hover:bg-slate-800 border border-pink-500/30 hover:border-pink-500/50 text-pink-200 text-sm font-medium rounded-lg transition-colors"
+          >
+            Or sponsor the parent agency — manicinc
+            <IconExternalLink size={14} className="opacity-70" />
+          </a>
+
+          <p className="mt-4 text-center text-xs text-slate-400">
             One-time or recurring tiers. Anonymous sponsorship supported. No GitHub-side fees.
           </p>
         </div>
