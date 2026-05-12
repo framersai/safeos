@@ -11,7 +11,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { BackendStatusProvider } from '@/contexts/BackendStatusContext';
-import { StatusBanner } from '@/components/StatusBanner';
 import { BackendSettings } from '@/components/BackendSettings';
 import { ToastProvider } from '@/components/Toast';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -56,10 +55,6 @@ export function Providers({ children }: ProvidersProps) {
     };
   }, []);
 
-  const handleConfigureClick = () => {
-    setShowBackendSettings(true);
-  };
-
   useEffect(() => {
     const handleOpen = () => setShowBackendSettings(true);
 
@@ -88,14 +83,13 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <ToastProvider>
       <BackendStatusProvider>
-        {/* Status Banner at top of page */}
-        <StatusBanner onConfigureClick={handleConfigureClick} />
-
         {showBackendSettings && (
           <BackendSettings isModal onClose={() => setShowBackendSettings(false)} />
         )}
 
-        {/* Main content */}
+        {/* StatusBanner is rendered by the root layout inside .app-content so it
+           sits *below* the fixed nav rather than behind it. The configure button
+           on the banner dispatches `safeos:open-backend-settings` (handled above). */}
         {children}
       </BackendStatusProvider>
     </ToastProvider>

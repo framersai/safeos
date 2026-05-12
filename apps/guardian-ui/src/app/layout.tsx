@@ -17,6 +17,7 @@ import { NotificationPermission } from '@/components/NotificationPermission';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { KeyboardShortcutsProvider } from '@/components/KeyboardShortcutsProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { StatusBanner } from '@/components/StatusBanner';
 import './globals.css';
 
 // =============================================================================
@@ -248,6 +249,9 @@ export default function RootLayout({
                 </a>
                 <Nav />
                 <div id="main-content" className="app-content">
+                  {/* Rendered here (not in Providers) so it sits *below* the
+                      fixed nav, not behind it. */}
+                  <StatusBanner />
                   {children}
                 </div>
                 <Footer />

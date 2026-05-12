@@ -268,6 +268,38 @@ a:focus-visible {
   }
 }
 
+/* Animated heart/shield on the /donate hero. Pulled out of <style jsx>
+   so the donate page can stay a server component (needs the metadata export). */
+@keyframes ping-slow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.4;
+  }
+}
+
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-ping-slow {
+  animation: ping-slow 4s ease-in-out infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
 /* =============================================================================
    Responsive Typography
    ============================================================================= */

@@ -212,20 +212,6 @@ function AnimatedHeartShield() {
 export default function DonatePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Custom styles for the animated heart-shield */}
-      <style jsx global>{`
-        @keyframes ping-slow {
-          0% { transform: scale(1); opacity: 0.8; }
-          50% { transform: scale(1.1); opacity: 0.4; }
-          100% { transform: scale(1); opacity: 0.8; }
-        }
-        @keyframes pulse-subtle {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 0.8; }
-        }
-        .animate-ping-slow { animation: ping-slow 4s ease-in-out infinite; }
-        .animate-pulse-subtle { animation: pulse-subtle 3s ease-in-out infinite; }
-      `}</style>
 
       {/* Header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-30">

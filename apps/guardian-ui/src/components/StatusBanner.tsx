@@ -56,6 +56,11 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
     setIsDismissed(false);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('safeos_status_banner_dismissed');
+      // Fall through to the global handler when no callback was passed —
+      // Providers listens for this event and opens the BackendSettings modal.
+      if (!onConfigureClick) {
+        window.dispatchEvent(new Event('safeos:open-backend-settings'));
+      }
     }
     onConfigureClick?.();
   };
@@ -70,10 +75,10 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
     const isOllamaOnline = status.ollama === 'connected';
 
     return (
-      <div className="bg-amber-500/10 border-b border-amber-500/20 backdrop-blur-sm">
+      <div className="bg-amber-900/80 border-b-2 border-amber-500/50 backdrop-blur-sm relative z-50">
         <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* Offline/Local Icon */}
               <div className="flex-shrink-0">
                 <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,15 +87,15 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
               </div>
 
               {/* Message */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                <span className="text-sm font-medium text-white">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
+                <span className="text-sm font-semibold text-amber-100">
                   {!isMonitoringApiOnline
                     ? 'No Monitoring Server (API) Online'
                     : !isOllamaOnline
                     ? 'Monitoring Server Online, Ollama Offline'
                     : 'Running Locally'}
                 </span>
-                <span className="text-xs text-slate-300">
+                <span className="text-xs text-amber-200/90 hidden sm:inline">
                   {!isMonitoringApiOnline ? (
                     <>
                       SafeOS is running fully local/offline AI on this device. Remote channels and integrations work when a monitoring server is available.
@@ -107,19 +112,17 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
-              {onConfigureClick && (
-                <button
-                  onClick={handleConfigure}
-                  className="px-3 py-1.5 text-xs font-medium text-amber-300 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 rounded-lg transition-colors"
-                >
-                  Monitoring Server Settings
-                </button>
-              )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleConfigure}
+                className="px-3 py-1.5 text-xs font-medium text-amber-900 hover:text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors whitespace-nowrap"
+              >
+                Settings
+              </button>
               {!!config.apiUrl && (
                 <button
                   onClick={retry}
-                  className="px-3 py-1.5 text-xs font-medium text-amber-300 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-amber-200 hover:text-white bg-amber-700/50 hover:bg-amber-600/50 rounded-lg transition-colors"
                 >
                   Retry
                 </button>
@@ -127,7 +130,7 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
               {dismissible && (
                 <button
                   onClick={handleDismiss}
-                  className="p-1.5 text-amber-400 hover:text-amber-300 transition-colors"
+                  className="p-1.5 text-amber-300 hover:text-amber-100 transition-colors"
                   aria-label="Dismiss"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
