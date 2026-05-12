@@ -8,7 +8,7 @@
   <p>
     <a href="https://safeos.sh">safeos.sh</a> ·
     <a href="https://frame.dev">frame.dev</a> ·
-    <a href="https://discord.gg/KxF9b6HY6h">Discord</a>
+    <a href="https://wilds.ai/discord">Discord</a>
   </p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)

@@ -446,7 +446,7 @@ function LandingPage() {
         {/* Discord Community CTA */}
         <div className="mt-12 max-w-3xl mx-auto w-full">
           <a
-            href="https://discord.gg/KxF9b6HY6h"
+            href="https://wilds.ai/discord"
             target="_blank"
             rel="noopener noreferrer"
             className="block p-5 bg-gradient-to-br from-[#5865F2]/10 to-slate-900 border border-[#5865F2]/25 rounded-xl hover:border-[#5865F2]/40 hover:shadow-[0_0_24px_rgba(88,101,242,0.12)] transition-all group"

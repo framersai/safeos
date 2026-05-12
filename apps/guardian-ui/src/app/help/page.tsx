@@ -485,7 +485,7 @@ export default function HelpPage() {
                   </a>
 
                   <a
-                    href="https://discord.gg/frame"
+                    href="https://wilds.ai/discord"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
