@@ -69,8 +69,14 @@ export function StatusBanner({ onConfigureClick, dismissible = true }: StatusBan
     return null;
   }
 
-  // Show local-only mode banner
-  if (isLocalOnly && !isDismissed) {
+  // For pure-PWA visitors who never configured a monitoring server, "local-only"
+  // is the expected steady state — don't pin a persistent banner about it. Only
+  // show the local-only banner when the user has actually tried to connect to
+  // a server (config.apiUrl present) and it's not online.
+  const shouldShowLocalOnlyBanner = isLocalOnly && !isDismissed && !!config.apiUrl;
+
+  // Show local-only mode banner (only when a server was expected)
+  if (shouldShowLocalOnlyBanner) {
     const isMonitoringApiOnline = status.api === 'connected';
     const isOllamaOnline = status.ollama === 'connected';
 
