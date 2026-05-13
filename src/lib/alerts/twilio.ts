@@ -106,7 +106,47 @@ export async function sendTwilioSms(
 }
 
 /**
- * Send a severity-tagged alert SMS, truncated to single-SMS length.
+ * GSM 03.38 default-alphabet character set (incl. the 9 extension-table chars).
+ * Anything outside this set forces Twilio to encode the SMS as UCS-2, which
+ * has a much smaller per-segment payload — single segment = 70 chars,
+ * multipart concatenation overhead = 67 chars/segment.
+ *
+ * Reference: https://en.wikipedia.org/wiki/GSM_03.38
+ */
+const GSM7_CHARSET = new Set(
+  // Base table (128 chars). Newline + carriage return are valid; tab/escape are control.
+  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡' +
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà' +
+    // Extension table (10 chars; technically 14 escaped sequences but the
+    // characters themselves each count as 2 GSM-7 bytes — we still consider
+    // them GSM-safe for truncation-length purposes).
+    '\f^{}\\[~]|€',
+);
+
+function isGsm7(input: string): boolean {
+  for (const ch of input) {
+    if (!GSM7_CHARSET.has(ch)) return false;
+  }
+  return true;
+}
+
+/**
+ * Truncate an alert body to fit a single concatenated-SMS segment without
+ * losing the severity tag at the start. GSM-7 gets ~153 chars/segment in a
+ * concatenated SMS; UCS-2 gets only ~67 chars/segment. Appends an ellipsis
+ * if truncation actually trims content.
+ *
+ * Exported for tests + reuse.
+ */
+export function truncateForSms(input: string): string {
+  const max = isGsm7(input) ? 153 : 67;
+  if (input.length <= max) return input;
+  return input.slice(0, Math.max(0, max - 3)) + '...';
+}
+
+/**
+ * Send a severity-tagged alert SMS, truncated to single concatenated-segment
+ * length for the detected encoding.
  */
 export async function sendAlertSms(
   to: string,
@@ -116,9 +156,7 @@ export async function sendAlertSms(
   options: SendSmsOptions = {},
 ): Promise<{ sid: string; to: string; from: string }> {
   const formattedMessage = `[SafeOS ${severity.toUpperCase()}] ${title}: ${message}`;
-  const truncated =
-    formattedMessage.length > 155 ? formattedMessage.slice(0, 152) + '...' : formattedMessage;
-  return sendTwilioSms(to, truncated, options);
+  return sendTwilioSms(to, truncateForSms(formattedMessage), options);
 }
 
 /**

@@ -16,7 +16,9 @@ vi.mock('../../src/lib/alerts/browser-push.js', () => ({
 }));
 
 vi.mock('../../src/lib/alerts/twilio.js', () => ({
-  sendTwilioSms: vi.fn().mockResolvedValue({ success: true, sid: 'test-sid' }),
+  sendTwilioSms: vi.fn().mockResolvedValue({ sid: 'test-sid', to: '+15551234567', from: '+15550000000' }),
+  sendAlertSms: vi.fn().mockResolvedValue({ sid: 'alert-sid', to: '+15551234567', from: '+15550000000' }),
+  sendTestSms: vi.fn().mockResolvedValue({ sid: 'test-sid', to: '+15551234567', from: '+15550000000' }),
   isTwilioConfigured: vi.fn().mockReturnValue(false),
 }));
 
@@ -268,6 +270,197 @@ describe('NotificationManager', () => {
         if (prev === undefined) delete process.env['TELEGRAM_BOT_TOKEN'];
         else process.env['TELEGRAM_BOT_TOKEN'] = prev;
       }
+    });
+  });
+
+  // ===========================================================================
+  // SMS Channel Tests (BYO Twilio)
+  // ===========================================================================
+
+  describe('sms channel', () => {
+    const baseSmsManager = () =>
+      new NotificationManager({
+        sms: true,
+        smsNumber: '+15551234567',
+      });
+
+    it('skips sms when toggle is off, even at critical severity', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(true);
+
+      const m = new NotificationManager({ sms: false, smsNumber: '+15551234567' });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'critical',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertSms).not.toHaveBeenCalled();
+    });
+
+    it('skips sms when number is empty, even when enabled', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(true);
+
+      const m = new NotificationManager({ sms: true });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'high',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertSms).not.toHaveBeenCalled();
+    });
+
+    it('skips sms when neither server creds nor complete BYO override is available', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(false);
+
+      const m = baseSmsManager();
+      const results = await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'critical',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertSms).not.toHaveBeenCalled();
+      const smsResult = results.find((r) => r.channel === 'sms');
+      expect(smsResult?.success).toBe(true); // skip is silent
+    });
+
+    it('skips sms when override is incomplete (missing fromNumber)', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(false);
+
+      const m = new NotificationManager({
+        sms: true,
+        smsNumber: '+15551234567',
+        smsOverride: { accountSid: 'AC_x', authToken: 'tok_x' }, // no fromNumber
+      });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'high',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertSms).not.toHaveBeenCalled();
+    });
+
+    it('sends sms via sendAlertSms when enabled + server Twilio configured', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(true);
+
+      const m = baseSmsManager();
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'alert-1',
+        severity: 'high',
+        title: 'Motion',
+        message: 'Detected',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertSms).toHaveBeenCalledWith(
+        '+15551234567',
+        'high',
+        'Motion',
+        'Detected',
+        expect.objectContaining({ override: undefined }),
+      );
+    });
+
+    it('uses BYO override path when override is complete (no server env needed)', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(false);
+
+      const m = new NotificationManager({
+        sms: true,
+        smsNumber: '+15551234567',
+        smsOverride: {
+          accountSid: 'AC_byo',
+          authToken: 'tok_byo',
+          fromNumber: '+15559998888',
+        },
+      });
+
+      await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'critical',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(sendAlertSms).toHaveBeenCalledWith(
+        '+15551234567',
+        'critical',
+        'T',
+        'M',
+        expect.objectContaining({
+          override: {
+            accountSid: 'AC_byo',
+            authToken: 'tok_byo',
+            fromNumber: '+15559998888',
+          },
+        }),
+      );
+    });
+
+    it('does NOT send sms for medium/low/info severities', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(true);
+
+      const m = baseSmsManager();
+
+      for (const severity of ['info', 'low', 'medium'] as const) {
+        vi.mocked(sendAlertSms).mockClear();
+        await m.notify({
+          streamId: 's',
+          alertId: 'a',
+          severity,
+          title: 'T',
+          message: 'M',
+          timestamp: new Date().toISOString(),
+        });
+        expect(sendAlertSms).not.toHaveBeenCalled();
+      }
+    });
+
+    it('captures sendAlertSms errors without throwing', async () => {
+      const { sendAlertSms, isTwilioConfigured } = await import('../../src/lib/alerts/twilio.js');
+      vi.mocked(isTwilioConfigured).mockReturnValue(true);
+      vi.mocked(sendAlertSms).mockRejectedValueOnce(new Error('Twilio 21211'));
+
+      const m = baseSmsManager();
+      const results = await m.notify({
+        streamId: 's',
+        alertId: 'a',
+        severity: 'critical',
+        title: 'T',
+        message: 'M',
+        timestamp: new Date().toISOString(),
+      });
+
+      const smsResult = results.find((r) => r.channel === 'sms');
+      expect(smsResult?.success).toBe(false);
+      expect(smsResult?.error).toBe('Twilio 21211');
     });
   });
 

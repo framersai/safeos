@@ -7,7 +7,7 @@
  */
 
 import { TelegramBotService } from './telegram';
-import { sendTwilioSms, isTwilioConfigured, type TwilioConfig } from './twilio';
+import { sendAlertSms, isTwilioConfigured, type TwilioConfig } from './twilio';
 import { sendBrowserPushNotification } from './browser-push';
 import { sendAlertEmail, isResendConfigured, type EmailConfig } from './email';
 import { getPushSubscriptions, getTelegramChatIds } from '../../api/routes/notifications';
@@ -241,8 +241,17 @@ export class NotificationManager {
       return;
     }
 
-    const message = `[SafeOS ${payload.severity.toUpperCase()}] ${payload.title}: ${payload.message}`;
-    await sendTwilioSms(this.config.smsNumber, message, { override });
+    // Delegate formatting + encoding-aware truncation to sendAlertSms so we
+    // don't duplicate the "[SafeOS …]" tag template here and so long messages
+    // get trimmed before they hit Twilio (155 char single-segment limit, or
+    // ~67 for UCS-2 content).
+    await sendAlertSms(
+      this.config.smsNumber,
+      payload.severity,
+      payload.title,
+      payload.message,
+      { override },
+    );
   }
 
   // ---------------------------------------------------------------------------

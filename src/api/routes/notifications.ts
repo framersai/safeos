@@ -17,6 +17,7 @@ import {
 } from '../schemas/index.js';
 import { sendTestEmail, isResendConfigured } from '../../lib/alerts/email.js';
 import { sendTestSms, isTwilioConfigured } from '../../lib/alerts/twilio.js';
+import { strictLimiter } from '../middleware/rate-limiter.js';
 
 // =============================================================================
 // Router
@@ -166,12 +167,19 @@ notificationRoutes.post('/test', validate(TestNotificationSchema), async (req: R
  *     twilioAuthToken?: string,         // optional BYO
  *     twilioFromNumber?: string }       // optional BYO (must be a Twilio-owned number)
  */
-notificationRoutes.post('/test-sms', async (req: Request, res: Response) => {
+notificationRoutes.post('/test-sms', strictLimiter, async (req: Request, res: Response) => {
   try {
     const { to, twilioAccountSid, twilioAuthToken, twilioFromNumber } = req.body ?? {};
 
     if (!to || typeof to !== 'string') {
       return res.status(400).json({ error: 'Recipient phone number is required' });
+    }
+    // E.164 sanity check — block obvious garbage before hitting Twilio.
+    if (!/^\+[1-9]\d{6,14}$/.test(to.trim())) {
+      return res.status(400).json({
+        error: 'Invalid phone number',
+        message: 'Use E.164 format with a leading + and country code (e.g. +15551234567).',
+      });
     }
 
     const overrideProvided = !!(twilioAccountSid && twilioAuthToken && twilioFromNumber);
@@ -185,13 +193,13 @@ notificationRoutes.post('/test-sms', async (req: Request, res: Response) => {
 
     const override = overrideProvided
       ? {
-          accountSid: twilioAccountSid as string,
-          authToken: twilioAuthToken as string,
-          fromNumber: twilioFromNumber as string,
+          accountSid: String(twilioAccountSid),
+          authToken: String(twilioAuthToken),
+          fromNumber: String(twilioFromNumber),
         }
       : undefined;
 
-    const result = await sendTestSms(to, { override });
+    const result = await sendTestSms(to.trim(), { override });
 
     return res.json({
       success: true,
@@ -200,18 +208,29 @@ notificationRoutes.post('/test-sms', async (req: Request, res: Response) => {
       from: result.from,
     });
   } catch (error) {
-    console.error('Failed to send test SMS:', error);
-    const message = error instanceof Error ? error.message : 'Failed to send test SMS';
-    return res.status(500).json({ error: 'Failed to send test SMS', message });
+    // Log the full error server-side but never echo Twilio internals (account
+    // SIDs, error codes, raw messages) back to the client — they could leak
+    // configuration details or enumerate valid endpoints.
+    console.error('[/test-sms] send failed:', error);
+    return res.status(500).json({
+      error: 'Failed to send test SMS',
+      message: 'The SMS could not be delivered. Double-check the recipient number and your Twilio credentials, then try again.',
+    });
   }
 });
 
-notificationRoutes.post('/test-email', async (req: Request, res: Response) => {
+notificationRoutes.post('/test-email', strictLimiter, async (req: Request, res: Response) => {
   try {
     const { to, resendApiKey, fromOverride, replyTo } = req.body ?? {};
 
     if (!to || typeof to !== 'string') {
       return res.status(400).json({ error: 'Recipient email is required' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.trim())) {
+      return res.status(400).json({
+        error: 'Invalid recipient',
+        message: 'That doesn’t look like a valid email address.',
+      });
     }
 
     // Reject if neither server nor user has a key set — saves a confusing
@@ -225,10 +244,10 @@ notificationRoutes.post('/test-email', async (req: Request, res: Response) => {
     }
 
     const override = resendApiKey
-      ? { apiKey: resendApiKey as string, ...(replyTo ? { replyTo: replyTo as string } : {}) }
+      ? { apiKey: String(resendApiKey), ...(replyTo ? { replyTo: String(replyTo) } : {}) }
       : undefined;
 
-    const result = await sendTestEmail(to, {
+    const result = await sendTestEmail(to.trim(), {
       override,
       fromOverride: typeof fromOverride === 'string' && fromOverride ? fromOverride : undefined,
     });
@@ -240,9 +259,13 @@ notificationRoutes.post('/test-email', async (req: Request, res: Response) => {
       from: result.from,
     });
   } catch (error) {
-    console.error('Failed to send test email:', error);
-    const message = error instanceof Error ? error.message : 'Failed to send test email';
-    return res.status(500).json({ error: 'Failed to send test email', message });
+    // Log full server-side, sanitize the client response so we don't leak
+    // Resend internals (raw error keys, account context) into a 500 body.
+    console.error('[/test-email] send failed:', error);
+    return res.status(500).json({
+      error: 'Failed to send test email',
+      message: 'The email could not be delivered. Double-check the recipient address and your Resend credentials, then try again.',
+    });
   }
 });
 

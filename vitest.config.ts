@@ -31,8 +31,8 @@ export default defineConfig({
         'src/auth/**',        // Auth - require integration tests
         'src/lib/review/**',  // Human review - require external services
         'src/lib/alerts/telegram.ts',    // Telegram API - external service
-        'src/lib/alerts/twilio.ts',      // Twilio API - external service
         'src/lib/alerts/browser-push.ts', // Browser push - requires browser
+        // twilio.ts is now mocked + unit-tested in tests/unit/twilio.test.ts
         'src/lib/safety/disclaimers.ts', // Static disclaimer content
         'src/lib/ollama/models.ts',      // Static model definitions
         'src/types/**',       // Type definitions only
