@@ -36,14 +36,14 @@ Once the models have cached after first load, the entire detection pipeline runs
 
 | Scenario | What SafeOS Guardian does |
 |---|---|
-| **Pet monitoring** | Eating, bathroom, distress vocalizations, prolonged stillness, intrusion into off-limits rooms. |
-| **Baby & toddler monitoring** | Crying, sustained motion, breathing pattern anomalies, fall-from-bed events, in-frame hazards. |
-| **Elder care** | Falls, confusion, prolonged inactivity, distress vocalizations, wandering out of frame. |
-| **Lost & Found** | Match a missing pet or person against 1–5 reference photos using a perceptual fingerprint (color histograms + edge signatures). Runs continuously against the live camera. |
-| **Wildlife & outdoor** | Backyard trail-cam, livestock checks, predator detection. Runs on cheap hardware with no internet. |
-| **Authority / emergency response** | Temporary deployment over an at-risk area or shelter; severity-routed alerts to email / SMS / Telegram via the optional server. |
-| **Small-business security** | Perimeter watch, after-hours intrusion detection, customer-traffic counting. Triggers escalating audio + push notifications. |
-| **Personal safety** | Lone-worker check-ins, accessibility aid (e.g. doorbell detection for d/Deaf households), live-in caregiving environments. |
+| **Pet monitoring** | Eating, bathroom, distress, prolonged stillness, off-limits intrusion. |
+| **Baby & toddler** | Crying, sustained motion, breathing anomalies, falls, in-frame hazards. |
+| **Elder care** | Falls, confusion, prolonged inactivity, distress, wandering out of frame. |
+| **Lost & Found** | Match a missing pet or person against 1–5 reference photos via color + edge fingerprints. |
+| **Wildlife & outdoor** | Backyard trail-cam, livestock, predator detection. Runs offline on cheap hardware. |
+| **Authority / emergency** | At-risk areas or shelters; severity-routed alerts via the optional server. |
+| **Small-business security** | Perimeter watch, after-hours intrusion, customer-traffic counts. Escalating push + audio. |
+| **Personal safety** | Lone-worker check-ins; doorbell detection for d/Deaf households; live-in caregiving. |
 
 SafeOS is a **supplemental** tool. It augments human attention; it does not replace it. Privacy laws around recording vary by jurisdiction — only deploy on premises and people you have authority to monitor.
 
@@ -55,16 +55,16 @@ The solid path runs entirely in the browser, offline, after first load. The dash
 
 ## How the deep learning runs in your browser
 
-1. **First load.** The Next.js app shell loads from any static host (GitHub Pages, Vercel, Netlify, Cloudflare Pages). The service worker registers and starts caching the shell, fonts, and JS chunks.
-2. **Model fetch.** When you open the monitor view, TensorFlow.js downloads the COCO-SSD weights (~5 MB, quantized) from the [`tfjs-models` CDN](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd). The service worker intercepts the response and stores it in the Cache Storage API. Subsequent loads serve the weights from the cache — no network needed.
-3. **Backend selection.** TF.js auto-selects the fastest available backend: [WebGPU](https://www.w3.org/TR/webgpu/) where the browser supports it, [WebGL](https://www.khronos.org/webgl/) otherwise, falling back to WASM SIMD on older devices. A modern laptop runs COCO-SSD at 20–30 FPS on WebGL; mobile devices typically land at 10–15 FPS.
-4. **Per-frame screening.** A `setInterval` loop at 200 ms samples the `<video>` element into a hidden `<canvas>`, runs pixel-diff motion detection and an FFT pass over the Web Audio `AnalyserNode`, and tracks pixel-change counts. This layer is cheap enough to run continuously without spinning up a GPU context. Code: [`apps/guardian-ui/src/components/CameraFeed.tsx`](apps/guardian-ui/src/components/CameraFeed.tsx).
-5. **Gated inference.** When motion, audio, or pixel-change crosses the per-scenario threshold, the gated frame is handed to TF.js. COCO-SSD's `model.detect()` returns bounding boxes, class labels, and confidence scores. The model itself is capable of 10–30 FPS on WebGL/WebGPU, but the pipeline only invokes it on triggered frames: typically a fraction of a Hz, except during sustained activity. The motion gate lives in [`apps/guardian-ui/src/lib/person-detection.ts`](apps/guardian-ui/src/lib/person-detection.ts).
-6. **Tie-breaker pass.** When COCO-SSD's top prediction is below the per-scenario confidence threshold, the frame is routed to a quantized ViT-base (~89 MB, [Xenova/vit-base-patch16-224](https://huggingface.co/Xenova/vit-base-patch16-224)) running under Transformers.js. ViT is heavier but better at fine-grained scene labeling. It's used as a secondary check, not the primary path.
-7. **Audio parallel path.** The Web Audio API exposes a [`AnalyserNode`](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode) over the microphone. FFT bins are sampled every ~100 ms; thresholds detect cry/distress, glass break, sustained silence, and other audible events. No model needed.
-8. **Lost & Found fingerprinting.** Reference photos are reduced to a 32-bin color histogram + top-5 dominant colors (k-means) + an 8×8 Sobel edge grid. The matcher samples the live feed at 1–2 FPS and compares each candidate frame by cosine similarity. Under 1 KB per reference photo. Code: [`apps/guardian-ui/src/lib/visual-fingerprint.ts`](apps/guardian-ui/src/lib/visual-fingerprint.ts).
-9. **Alert engine.** Matches feed into a severity router (info / low / medium / high / critical). Each severity has its own escalation curve: volume-ramping local audio, browser push, and optional fan-out to email / SMS / Telegram via the API server.
-10. **Storage stays local.** Settings, alert history, and visual fingerprints are persisted in [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) on your device. The rolling video buffer keeps only the last 5–10 minutes in memory; older frames are overwritten.
+1. **First load.** The Next.js app shell loads from any static host (GitHub Pages, Vercel, Netlify, Cloudflare Pages). The service worker caches the shell, fonts, and JS chunks on first visit.
+2. **Model fetch.** TensorFlow.js downloads the COCO-SSD weights (~5 MB, quantized) from the [`tfjs-models` CDN](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd) when you open the monitor view. The service worker caches the response via the Cache Storage API; subsequent loads serve from cache.
+3. **Backend selection.** TF.js auto-selects the fastest available backend: [WebGPU](https://www.w3.org/TR/webgpu/) where supported, [WebGL](https://www.khronos.org/webgl/) otherwise, WASM SIMD as a fallback. Laptops hit 20–30 FPS on WebGL; mobile lands at 10–15 FPS.
+4. **Per-frame screening.** A `setInterval` loop at 200 ms samples the `<video>` element into a hidden `<canvas>`, runs pixel-diff motion detection and an FFT pass over the Web Audio `AnalyserNode`, and tracks pixel-change counts. Cheap enough to run continuously without a GPU context. Code: [`apps/guardian-ui/src/components/CameraFeed.tsx`](apps/guardian-ui/src/components/CameraFeed.tsx).
+5. **Gated inference.** When motion, audio, or pixel-change crosses the per-scenario threshold, the frame is handed to TF.js. COCO-SSD's `model.detect()` returns bounding boxes, class labels, and confidence. The model can sustain 10–30 FPS, but the pipeline only invokes it on triggered frames: typically a fraction of a Hz outside sustained activity. Gate: [`apps/guardian-ui/src/lib/person-detection.ts`](apps/guardian-ui/src/lib/person-detection.ts).
+6. **Tie-breaker pass.** When COCO-SSD's top prediction sits below threshold, the frame routes to a quantized ViT-base (~89 MB, [Xenova/vit-base-patch16-224](https://huggingface.co/Xenova/vit-base-patch16-224)) under Transformers.js. Heavier, but better at fine-grained scene labeling. Secondary check, not primary path.
+7. **Audio parallel path.** The Web Audio API's [`AnalyserNode`](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode) samples FFT bins from the microphone every ~100 ms; thresholds detect cry/distress, glass break, sustained silence. No model needed.
+8. **Lost & Found fingerprinting.** Reference photos reduce to a 32-bin color histogram, top-5 dominant colors (k-means), and an 8×8 Sobel edge grid. The matcher samples the live feed at 1–2 FPS and compares by cosine similarity. Under 1 KB per photo. Code: [`apps/guardian-ui/src/lib/visual-fingerprint.ts`](apps/guardian-ui/src/lib/visual-fingerprint.ts).
+9. **Alert engine.** Matches feed a severity router (info / low / medium / high / critical). Each severity has its own escalation: volume-ramping local audio, browser push, optional fan-out to email / SMS / Telegram via the API server.
+10. **Storage stays local.** Settings, alert history, and fingerprints persist in [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API). The rolling video buffer keeps only the last 5–10 minutes in memory; older frames overwrite.
 
 The optional API server (`src/`) only enters the picture when you opt into fan-out channels (Resend, Twilio, Telegram), multi-device WebSocket sync, or a bridge to a local [Ollama](https://ollama.com) install for richer scene reasoning.
 
