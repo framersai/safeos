@@ -128,11 +128,31 @@ function LandingPage() {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
     name: 'SafeOS Guardian',
+    alternateName: ['SafeOS', 'SafeOS Guardian PWA'],
     url: SITE_URL,
+    sameAs: [
+      'https://github.com/framersai/safeos',
+      'https://frame.dev',
+      'https://agentos.sh',
+    ],
     applicationCategory: 'SecurityApplication',
-    operatingSystem: 'Web',
+    applicationSubCategory: 'BabyMonitor',
+    operatingSystem: 'Web (Progressive Web App)',
+    browserRequirements: 'Requires JavaScript and a modern browser with WebGL or WebGPU',
+    softwareVersion: '1.0',
+    license: 'https://opensource.org/license/mit/',
+    keywords: 'free baby monitor, open source baby monitor, AI pet camera no subscription, browser AI monitoring, tensorflow.js webcam, on-device computer vision PWA, non-cloud baby monitor, elderly fall detection',
     description:
-      'Offline-first, privacy-preserving monitoring for pets, babies, elderly care, and home safety. Runs locally in your browser with optional monitoring server integrations.',
+      'Free open-source AI monitor for babies, pets, and elder care. Runs entirely in your browser via TensorFlow.js and Transformers.js. No frames uploaded, no telemetry, no subscription. Built by Frame, the team behind AgentOS.',
+    featureList: [
+      'Browser-based AI object detection (COCO-SSD)',
+      'Browser-based scene classification (ViT)',
+      'Cry / distress / silence audio detection (Web Audio FFT)',
+      'Lost & Found visual fingerprinting',
+      'Severity-tiered alert escalation',
+      'Optional Twilio SMS / Telegram / Resend email fan-out',
+      'Optional Ollama LAN bridge for richer scene reasoning',
+    ],
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -140,9 +160,53 @@ function LandingPage() {
     },
     publisher: {
       '@type': 'Organization',
+      '@id': 'https://frame.dev/#organization',
       name: 'Frame',
       url: 'https://frame.dev',
+      sameAs: [
+        'https://frame.dev',
+        'https://agentos.sh',
+        'https://paracosm.agentos.sh',
+        'https://github.com/framersai',
+        'https://github.com/framersai/safeos',
+        'https://github.com/framersai/agentos',
+        'https://twitter.com/framedev',
+      ],
     },
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'SafeOS Guardian',
+      url: SITE_URL,
+    },
+  };
+
+  const orgJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': 'https://frame.dev/#organization',
+    name: 'Frame',
+    alternateName: ['Frame Dev', 'framersai'],
+    url: 'https://frame.dev',
+    description:
+      'Frame builds local-first, open-source AI runtimes. SafeOS Guardian is the consumer-facing browser monitor. AgentOS is the agent runtime with cognitive memory.',
+    sameAs: [
+      'https://frame.dev',
+      'https://agentos.sh',
+      'https://paracosm.agentos.sh',
+      'https://github.com/framersai',
+      'https://github.com/framersai/safeos',
+      'https://github.com/framersai/agentos',
+      'https://twitter.com/framedev',
+    ],
+    knowsAbout: [
+      'TensorFlow.js',
+      'Transformers.js',
+      'on-device AI',
+      'local-first software',
+      'agent runtimes',
+      'cognitive memory',
+      'browser-based machine learning',
+    ],
   };
 
   return (
@@ -150,6 +214,10 @@ function LandingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
       />
       {/* Hero Section */}
       <main className="flex flex-col items-center px-6 py-12 md:py-16">
@@ -222,6 +290,38 @@ function LandingPage() {
               <span className="text-xs text-slate-400 border-l border-slate-600 pl-3">MIT License</span>
             </a>
           </div>
+
+          {/* Ecosystem attribution — keeps Frame + AgentOS visible above the fold for SEO + brand authority */}
+          <p className="mt-6 text-xs text-[var(--color-steel-400)] text-center max-w-2xl mx-auto leading-relaxed">
+            Built by{' '}
+            <a
+              href="https://frame.dev"
+              target="_blank"
+              rel="noopener"
+              className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline font-medium"
+            >
+              Frame
+            </a>
+            {' '}— the team behind{' '}
+            <a
+              href="https://agentos.sh"
+              target="_blank"
+              rel="noopener"
+              className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline font-medium"
+            >
+              AgentOS
+            </a>
+            , the open-source agent runtime with cognitive memory, and{' '}
+            <a
+              href="https://paracosm.agentos.sh"
+              target="_blank"
+              rel="noopener"
+              className="text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline font-medium"
+            >
+              Paracosm
+            </a>
+            , an agent swarm simulation engine. Same local-first philosophy.
+          </p>
         </div>
 
         {/* Features Grid */}

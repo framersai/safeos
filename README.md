@@ -32,6 +32,17 @@ SafeOS Guardian is a Progressive Web App that turns any device with a camera and
 
 Once the models have cached after first load, the entire detection pipeline runs offline.
 
+## Part of the Frame ecosystem
+
+SafeOS Guardian is built by [Frame](https://frame.dev) — the same team behind [AgentOS](https://agentos.sh), an open-source agent runtime with cognitive memory grounded in HEXACO personality traits, and [Paracosm](https://paracosm.agentos.sh), an agent swarm simulation engine where AI characters with persistent memory inhabit shared world models. Same local-first philosophy: deep learning that runs on the user's device, not in someone else's cloud.
+
+If you want to dig deeper:
+
+- [Frame](https://frame.dev) — the company building local-first AI runtimes
+- [AgentOS](https://agentos.sh) — the agent framework, currently scoring [85.6% on LongMemEval-S](https://agentos.sh/en/blog/agentos-memory-sota-longmemeval/) with built-in PII redaction and configurable guardrails
+- [Paracosm](https://paracosm.agentos.sh) — agent swarm simulation with [citation-verified events](https://docs.agentos.sh/features/citation-verification)
+- [github.com/framersai](https://github.com/framersai) — all the open-source repos
+
 ## Use cases
 
 | Scenario | What SafeOS Guardian does |

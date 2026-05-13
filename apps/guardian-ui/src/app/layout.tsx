@@ -49,22 +49,36 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://safeos.sh'),
   title: {
-    default: 'SafeOS Guardian - Humanitarian AI Monitoring',
+    default: 'SafeOS Guardian: Free Open-Source AI Baby & Pet Monitor',
     template: '%s | SafeOS Guardian',
   },
   description:
-    'Free AI-powered monitoring service for pets, babies, and elderly care. Local-first, privacy-preserving. By Frame.',
+    'Free open-source AI monitor for babies, pets, and elder care. Runs in your browser via TensorFlow.js. No cloud, no subscription, no account. By Frame, the team behind AgentOS.',
   keywords: [
-    'baby monitor',
-    'pet monitor',
-    'elderly care',
-    'AI monitoring',
-    'free monitoring',
-    'humanitarian',
-    'local AI',
-    'privacy-first',
+    // Primary consumer-intent
+    'free baby monitor app',
+    'open source baby monitor',
+    'AI baby monitor no subscription',
+    'AI pet camera no subscription',
+    'non-cloud baby monitor',
+    'baby monitor no WiFi',
+    'privacy first baby monitor',
+    'elderly fall detection',
+    // Primary dev-intent
+    'browser AI monitoring',
+    'tensorflow.js webcam',
+    'transformers.js',
+    'on-device computer vision PWA',
+    'COCO-SSD browser',
+    'local-first ML',
+    'self-hosted baby monitor',
+    // Product + ecosystem
+    'SafeOS Guardian',
+    'Frame',
+    'AgentOS',
     'Ollama',
-    'home security',
+    'home security PWA',
+    'humanitarian',
   ],
   authors: [{ name: 'Frame', url: 'https://frame.dev' }],
   creator: 'Frame',
@@ -94,24 +108,24 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://safeos.sh',
     siteName: 'SafeOS Guardian',
-    title: 'SafeOS Guardian - Humanitarian AI Monitoring',
-    description: 'Free AI-powered monitoring for pets, babies, and elderly care. Local-first, privacy-preserving.',
+    title: 'SafeOS Guardian: Free Open-Source AI Baby & Pet Monitor',
+    description: 'Open-source AI monitor for babies, pets, and elder care. Runs entirely in your browser via TensorFlow.js — no cloud, no subscription. Built by Frame, the team behind AgentOS.',
     images: [
       {
         url: '/og-image.svg',
         width: 1200,
         height: 630,
-        alt: 'SafeOS Guardian - Humanitarian AI Monitoring',
+        alt: 'SafeOS Guardian — free open-source browser-based AI monitor by Frame',
         type: 'image/svg+xml',
       },
     ],
   },
-  
+
   // Twitter Card
   twitter: {
     card: 'summary_large_image',
-    title: 'SafeOS Guardian - Humanitarian AI Monitoring',
-    description: 'Free AI-powered monitoring for pets, babies, and elderly care.',
+    title: 'SafeOS Guardian: Free Open-Source AI Baby & Pet Monitor',
+    description: 'Browser-based AI monitor. TensorFlow.js + Transformers.js, no cloud, no subscription. Open source by Frame.',
     images: ['/og-image.svg'],
     creator: '@framersai',
   },

@@ -31,7 +31,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
   ];
 
-  const blogSlugs = ['why-we-built-safeos-guardian', 'how-safeos-guardian-works'];
+  const blogSlugs = [
+    'why-we-built-safeos-guardian',
+    'how-safeos-guardian-works',
+    'inside-the-motion-gated-cv-pipeline',
+  ];
 
   return [
     ...staticPages.map((p) => ({

@@ -42,24 +42,34 @@ interface BlogPost {
 
 const blogPosts: BlogPost[] = [
   {
-    slug: 'why-we-built-safeos-guardian',
-    title: 'Why We Built SafeOS Guardian',
+    slug: 'inside-the-motion-gated-cv-pipeline',
+    title: 'The lie on my landing page: how SafeOS actually gates CV inference',
     excerpt:
-      'The story behind SafeOS Guardian—why we created a free, privacy-first monitoring tool and our commitment to making AI accessible to everyone.',
-    date: 'January 8, 2026',
-    author: 'Frame.dev Team',
-    readTime: '5 min read',
-    tags: ['announcement', 'mission', 'privacy'],
+      'SafeOS used to claim every frame goes through CV models. It doesn\'t. The motion gate is two lines of code and the most important design decision in the whole codebase.',
+    date: 'May 13, 2026',
+    author: 'Johnny Dunn',
+    readTime: '6 min read',
+    tags: ['technical', 'motion-gating', 'tensorflow.js', 'on-device-ai', 'lessons-learned'],
   },
   {
     slug: 'how-safeos-guardian-works',
-    title: 'How SafeOS Guardian Works: A Technical Deep Dive',
+    title: 'How SafeOS Guardian works: motion-gated browser AI that doesn\'t burn your laptop',
     excerpt:
-      'A behind-the-scenes look at the technology powering SafeOS Guardian—from TensorFlow.js to local-first architecture.',
+      'Walking through the safeos.sh pipeline file by file. 200ms screening, gated COCO-SSD + ViT inference, Lost & Found fingerprinting. TensorFlow.js + Transformers.js running in a browser, by design.',
     date: 'January 10, 2026',
-    author: 'Frame.dev Team',
-    readTime: '8 min read',
-    tags: ['technical', 'architecture', 'tensorflow'],
+    author: 'Johnny Dunn',
+    readTime: '9 min read',
+    tags: ['technical', 'architecture', 'tensorflow.js', 'transformers.js', 'on-device-ai'],
+  },
+  {
+    slug: 'why-we-built-safeos-guardian',
+    title: 'I built SafeOS Guardian because the baby monitor market made me angry',
+    excerpt:
+      'Why I shipped a free, open-source AI baby/pet/elder monitor that runs in the browser instead of paying $300 for a Nanit and trusting a stranger\'s servers with my family\'s video.',
+    date: 'January 8, 2026',
+    author: 'Johnny Dunn',
+    readTime: '6 min read',
+    tags: ['open-source', 'baby-monitor', 'privacy', 'mission'],
   },
 ];
 
@@ -153,16 +163,26 @@ export default function BlogPage() {
             SafeOS Guardian Blog
           </h2>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-            Updates, insights, and technical deep dives from the{' '}
+            First-person field notes on browser-based AI, on-device computer vision, and
+            shipping monitoring tools that actually respect the user. By Johnny Dunn at{' '}
             <a
               href="https://frame.dev"
               target="_blank"
               rel="noopener noreferrer"
               className="text-emerald-400 hover:text-emerald-300"
             >
-              Frame.dev
-            </a>{' '}
-            team
+              Frame
+            </a>
+            , the team also behind{' '}
+            <a
+              href="https://agentos.sh"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:text-emerald-300"
+            >
+              AgentOS
+            </a>
+            .
           </p>
         </div>
 

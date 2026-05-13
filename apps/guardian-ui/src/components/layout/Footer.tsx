@@ -45,12 +45,14 @@ const footerSections: FooterSection[] = [
     ],
   },
   {
-    title: 'Frame',
+    title: 'Ecosystem',
     links: [
-      { href: 'https://frame.dev', label: 'frame.dev', external: true },
+      { href: 'https://frame.dev', label: 'Frame (frame.dev)', external: true },
+      { href: 'https://agentos.sh', label: 'AgentOS', external: true },
+      { href: 'https://paracosm.agentos.sh', label: 'Paracosm', external: true },
+      { href: 'https://github.com/framersai/safeos', label: 'SafeOS on GitHub', external: true },
+      { href: 'https://github.com/framersai', label: 'framersai org', external: true },
       { href: 'mailto:team@frame.dev', label: 'team@frame.dev', external: true },
-      { href: 'https://github.com/framersai/safeos', label: 'GitHub', external: true },
-      { href: 'https://twitter.com/framedev', label: 'Twitter', external: true },
     ],
   },
 ];
