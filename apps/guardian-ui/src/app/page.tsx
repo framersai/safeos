@@ -26,6 +26,7 @@ import {
 } from '../components/icons';
 import { UseCaseShowcase } from '../components/UseCaseShowcase';
 import { HomeCTA } from '@/components/home/HomeCTA';
+import { DiagramZoomable } from '@/components/DiagramZoomable';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://safeos.sh').replace(/\/+$/, '');
 
@@ -259,6 +260,20 @@ function LandingPage() {
               <span className="text-emerald-400 font-medium">your device</span>. No uploads.
               No cloud round-trips. Tap any card to see the architecture underneath.
             </p>
+          </div>
+
+          {/* Architecture diagram — click to zoom */}
+          <div className="mb-10">
+            <DiagramZoomable
+              src="/diagrams/how-it-works.svg"
+              alt="SafeOS Guardian architecture — browser inference pipeline plus optional API server"
+              caption={
+                <>
+                  The solid path runs entirely in your browser, offline after first load.
+                  The dashed path engages only when you deploy the optional API server.
+                </>
+              }
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

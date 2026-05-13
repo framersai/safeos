@@ -49,63 +49,9 @@ SafeOS is a **supplemental** tool. It augments human attention; it does not repl
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    subgraph Browser["Guardian UI · Static PWA"]
-        direction TB
-        Cam(("📷 Camera"))
-        Mic(("🎙 Microphone"))
-        Photos(("Reference photos"))
+![SafeOS Guardian architecture — browser inference pipeline plus optional API server](https://raw.githubusercontent.com/framersai/safeos/master/apps/guardian-ui/public/diagrams/how-it-works.svg)
 
-        subgraph Pipeline["Browser Inference Pipeline"]
-            direction LR
-            CocoSSD["COCO-SSD<br/><sub>TensorFlow.js · ~5 MB</sub>"]
-            ViT["ViT-base patch16-224<br/><sub>Transformers.js · ~89 MB</sub>"]
-            Audio["Web Audio FFT<br/><sub>native · 0 KB</sub>"]
-            Fingerprint["Visual fingerprint<br/><sub>color hist + Sobel</sub>"]
-
-            CocoSSD -- "low confidence" --> ViT
-        end
-
-        Cam --> CocoSSD
-        Mic --> Audio
-        Photos --> Fingerprint
-        Cam --> Fingerprint
-
-        CocoSSD --> Alerts
-        ViT --> Alerts
-        Audio --> Alerts
-        Fingerprint --> Alerts
-
-        Alerts["Alert Engine<br/><sub>severity routing + escalation</sub>"]
-        Storage[("IndexedDB<br/>settings · history<br/>fingerprints")]
-        SW[/"Service Worker<br/>app shell + model weights cache"/]
-
-        Alerts --> Storage
-        Pipeline -.cache miss.-> SW
-    end
-
-    Server{{"Optional API server<br/><sub>fan-out · auth · LLM bridge</sub>"}}
-    Resend["Resend"]
-    Twilio["Twilio"]
-    Telegram["Telegram"]
-    Ollama["Ollama LAN"]
-    Cloud["OpenRouter / OpenAI / Anthropic<br/><sub>uncertain frames only</sub>"]
-
-    Alerts -. opt-in .- Server
-    Server --> Resend
-    Server --> Twilio
-    Server --> Telegram
-    Server --> Ollama
-    Server --> Cloud
-
-    classDef offline fill:#0c1419,stroke:#10b981,color:#d4d8de
-    classDef optional fill:#161b22,stroke:#475569,color:#94a3b8,stroke-dasharray: 5 5
-    class Browser,Pipeline,Alerts,Storage,SW,Cam,Mic,Photos,CocoSSD,ViT,Audio,Fingerprint offline
-    class Server,Resend,Twilio,Telegram,Ollama,Cloud optional
-```
-
-The solid path runs entirely in the browser, offline, after first load. The dashed path engages only when you deploy the API server and opt into individual integrations.
+The solid path runs entirely in the browser, offline, after first load. The dashed path engages only when you deploy the optional API server and opt into individual integrations.
 
 ## How the deep learning runs in your browser
 
@@ -165,7 +111,7 @@ Browser push is the only channel that works without the API server. The other th
 
 ### Email alerts via Resend
 
-[Resend](https://resend.com) handles account verification, password reset, and severity-routed alert email. Free tier covers 3,000 emails/month.
+[Resend](https://resend.com) sends severity-routed alert email when something matches. Free tier covers 3,000 emails/month.
 
 Two ways to wire it up:
 
@@ -252,7 +198,7 @@ TWILIO_AUTH_TOKEN=...
 TWILIO_FROM_NUMBER=+1...
 TELEGRAM_BOT_TOKEN=...
 
-# Email (Resend) — also used for account verification + password reset
+# Email alerts via Resend (optional, recommended)
 RESEND_API_KEY=re_...
 EMAIL_FROM="SafeOS Guardian <alerts@yourdomain.com>"
 EMAIL_REPLY_TO="team@yourdomain.com"

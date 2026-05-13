@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="diag-title diag-desc" preserveAspectRatio="xMidYMid meet">
+  <title id="diag-title">SafeOS Guardian — how it all works</title>
+  <desc id="diag-desc">A two-zone architecture diagram. The browser zone runs entirely on the user's device: camera and microphone feeds plus reference photos flow into a four-model inference pipeline (COCO-SSD via TensorFlow.js, ViT-base via Transformers.js, Web Audio FFT, and a perceptual color-plus-edge fingerprint). Detections pass to a severity-tiered alert engine, with IndexedDB and a service worker providing local storage and caching. A second, opt-in zone below shows an optional API server fanning alerts out to Resend email, Twilio SMS, Telegram, an Ollama LAN install, or cloud LLM fallback.</desc>
+
+  <defs>
+    <!-- Page background gradient -->
+    <radialGradient id="bg-glow" cx="50%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.06"/>
+      <stop offset="60%" stop-color="#10b981" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#0a0c0f" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Subtle inner glow under the inference pipeline -->
+    <linearGradient id="pipeline-glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(16,185,129,0.10)"/>
+      <stop offset="100%" stop-color="rgba(16,185,129,0.02)"/>
+    </linearGradient>
+
+    <!-- Card background -->
+    <linearGradient id="card-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#11161b"/>
+      <stop offset="100%" stop-color="#0d1115"/>
+    </linearGradient>
+
+    <linearGradient id="server-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e1217"/>
+      <stop offset="100%" stop-color="#0a0d11"/>
+    </linearGradient>
+
+    <!-- Arrow markers -->
+    <marker id="arrow-emerald" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#10b981"/>
+    </marker>
+    <marker id="arrow-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <!-- Page background -->
+  <rect width="1200" height="760" fill="#0a0c0f"/>
+  <rect width="1200" height="760" fill="url(#bg-glow)"/>
+
+  <!-- ─────── BROWSER ZONE ─────── -->
+  <g id="browser-zone">
+    <!-- Zone container -->
+    <rect x="40" y="40" width="1120" height="520" rx="18"
+          fill="url(#card-bg)" stroke="#10b981" stroke-opacity="0.35" stroke-width="1.5"/>
+
+    <!-- Zone label badge -->
+    <g transform="translate(60, 64)">
+      <rect x="0" y="0" width="22" height="22" rx="6" fill="#10b981" fill-opacity="0.15" stroke="#10b981" stroke-opacity="0.5" stroke-width="1"/>
+      <!-- shield icon -->
+      <path d="M11 5 L17 7.5 V12 C17 15.5 14.5 17.5 11 18.5 C7.5 17.5 5 15.5 5 12 V7.5 Z"
+            fill="none" stroke="#10b981" stroke-width="1.4" stroke-linejoin="round"/>
+      <text x="34" y="11" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700"
+            fill="#10b981" letter-spacing="2">GUARDIAN UI</text>
+      <text x="34" y="24" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="#94a3b8" letter-spacing="0.6">
+        STATIC PWA · RUNS ENTIRELY IN YOUR BROWSER · OFFLINE-READY
+      </text>
+    </g>
+
+    <!-- Inputs row -->
+    <g id="inputs" transform="translate(0, 110)">
+      <!-- Camera -->
+      <g transform="translate(140, 0)">
+        <rect x="0" y="0" width="180" height="80" rx="12"
+              fill="#0f1419" stroke="#1f2937" stroke-width="1"/>
+        <g transform="translate(20, 20)">
+          <!-- camera icon -->
+          <path d="M0 12 v18 a4 4 0 0 0 4 4 h24 a4 4 0 0 0 4 -4 v-18 a4 4 0 0 0 -4 -4 h-4 l-3 -5 h-10 l-3 5 h-4 a4 4 0 0 0 -4 4 z"
+                fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round"/>
+          <circle cx="16" cy="22" r="7" fill="none" stroke="#34d399" stroke-width="1.6"/>
+        </g>
+        <text x="68" y="38" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="600" fill="#f3f4f6">Camera</text>
+        <text x="68" y="56" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">MediaStream API</text>
+      </g>
+
+      <!-- Microphone -->
+      <g transform="translate(510, 0)">
+        <rect x="0" y="0" width="180" height="80" rx="12"
+              fill="#0f1419" stroke="#1f2937" stroke-width="1"/>
+        <g transform="translate(20, 18)">
+          <!-- mic icon -->
+          <rect x="10" y="0" width="14" height="22" rx="7" fill="none" stroke="#34d399" stroke-width="1.6"/>
+          <path d="M3 18 V22 a14 14 0 0 0 28 0 V18" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="17" y1="36" x2="17" y2="42" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="10" y1="42" x2="24" y2="42" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"/>
+        </g>
+        <text x="68" y="38" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="600" fill="#f3f4f6">Microphone</text>
+        <text x="68" y="56" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">Web Audio API</text>
+      </g>
+
+      <!-- Reference photos -->
+      <g transform="translate(880, 0)">
+        <rect x="0" y="0" width="180" height="80" rx="12"
+              fill="#0f1419" stroke="#1f2937" stroke-width="1"/>
+        <g transform="translate(18, 18)">
+          <!-- gallery icon -->
+          <rect x="2" y="6" width="32" height="32" rx="3" fill="none" stroke="#34d399" stroke-width="1.6"/>
+          <circle cx="11" cy="16" r="2.5" fill="#34d399"/>
+          <path d="M2 30 L12 22 L22 30 L30 24 L34 28" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round"/>
+        </g>
+        <text x="68" y="32" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="600" fill="#f3f4f6">Reference</text>
+        <text x="68" y="48" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="600" fill="#f3f4f6">photos</text>
+        <text x="68" y="64" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">Lost &amp; Found subjects</text>
+      </g>
+
+      <!-- Arrows down to pipeline -->
+      <line x1="230" y1="80" x2="230" y2="110" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
+      <line x1="600" y1="80" x2="600" y2="110" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
+      <line x1="970" y1="80" x2="970" y2="110" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
+    </g>
+
+    <!-- Inference pipeline panel -->
+    <g id="pipeline" transform="translate(80, 240)">
+      <rect x="0" y="0" width="1040" height="170" rx="14" fill="url(#pipeline-glow)"
+            stroke="#10b981" stroke-opacity="0.45" stroke-width="1.2"/>
+      <text x="20" y="26" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700"
+            fill="#10b981" letter-spacing="2.5">BROWSER INFERENCE PIPELINE · ON-DEVICE</text>
+
+      <!-- Model: COCO-SSD -->
+      <g transform="translate(20, 50)">
+        <rect x="0" y="0" width="230" height="100" rx="10" fill="#0d1318" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.2"/>
+        <g transform="translate(14, 14)">
+          <!-- radar/box icon -->
+          <circle cx="11" cy="11" r="10" fill="none" stroke="#34d399" stroke-width="1.4"/>
+          <circle cx="11" cy="11" r="5" fill="none" stroke="#34d399" stroke-width="1.4"/>
+          <line x1="11" y1="2" x2="11" y2="20" stroke="#34d399" stroke-width="1.2" stroke-dasharray="2 2"/>
+        </g>
+        <text x="48" y="22" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#f3f4f6">COCO-SSD</text>
+        <text x="48" y="38" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#94a3b8">TensorFlow.js · ~5 MB</text>
+        <text x="14" y="62" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#cbd5e1">Object detection</text>
+        <text x="14" y="78" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#10b981" font-weight="600">10–30 FPS</text>
+        <text x="14" y="92" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="#64748b">WebGPU / WebGL</text>
+      </g>
+
+      <!-- Model: ViT -->
+      <g transform="translate(270, 50)">
+        <rect x="0" y="0" width="230" height="100" rx="10" fill="#0d1318" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.2"/>
+        <g transform="translate(14, 14)">
+          <!-- eye icon -->
+          <path d="M0 11 C3 4 8 1 11 1 C14 1 19 4 22 11 C19 18 14 21 11 21 C8 21 3 18 0 11 Z"
+                fill="none" stroke="#34d399" stroke-width="1.4" stroke-linejoin="round"/>
+          <circle cx="11" cy="11" r="3.5" fill="#34d399"/>
+        </g>
+        <text x="48" y="22" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#f3f4f6">ViT-base</text>
+        <text x="48" y="38" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#94a3b8">Transformers.js · ~89 MB</text>
+        <text x="14" y="62" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#cbd5e1">Scene fallback</text>
+        <text x="14" y="78" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#10b981" font-weight="600">Tie-breaker pass</text>
+        <text x="14" y="92" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="#64748b">xenova/vit-base-patch16-224</text>
+      </g>
+
+      <!-- Audio -->
+      <g transform="translate(520, 50)">
+        <rect x="0" y="0" width="230" height="100" rx="10" fill="#0d1318" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.2"/>
+        <g transform="translate(14, 14)">
+          <!-- audio waves -->
+          <line x1="2" y1="11" x2="2" y2="11" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+          <line x1="6" y1="6" x2="6" y2="16" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+          <line x1="10" y1="3" x2="10" y2="19" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+          <line x1="14" y1="0" x2="14" y2="22" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+          <line x1="18" y1="6" x2="18" y2="16" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+          <line x1="22" y1="11" x2="22" y2="11" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <text x="48" y="22" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#f3f4f6">Web Audio FFT</text>
+        <text x="48" y="38" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#94a3b8">native · 0 KB</text>
+        <text x="14" y="62" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#cbd5e1">Cry / distress / silence</text>
+        <text x="14" y="78" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#10b981" font-weight="600">~50 ms windows</text>
+        <text x="14" y="92" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="#64748b">AnalyserNode · spectral bins</text>
+      </g>
+
+      <!-- Fingerprint -->
+      <g transform="translate(770, 50)">
+        <rect x="0" y="0" width="230" height="100" rx="10" fill="#0d1318" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.2"/>
+        <g transform="translate(14, 14)">
+          <!-- fingerprint icon -->
+          <path d="M3 14 C3 7 7 3 11 3 C15 3 19 7 19 14" fill="none" stroke="#34d399" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M6 14 C6 9 8 6 11 6 C14 6 16 9 16 14 V18" fill="none" stroke="#34d399" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M9 14 C9 11 10 9 11 9 C12 9 13 11 13 14 V20" fill="none" stroke="#34d399" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M11 14 V22" stroke="#34d399" stroke-width="1.4" stroke-linecap="round"/>
+        </g>
+        <text x="48" y="22" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#f3f4f6">Fingerprint</text>
+        <text x="48" y="38" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#94a3b8">Color hist + Sobel edges</text>
+        <text x="14" y="62" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#cbd5e1">Lost &amp; Found match</text>
+        <text x="14" y="78" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#10b981" font-weight="600">&lt; 1 KB / photo</text>
+        <text x="14" y="92" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="#64748b">32-bin · 8×8 grid · cosine sim</text>
+      </g>
+
+      <!-- Low-confidence routing arrow COCO-SSD → ViT -->
+      <path d="M 250 88 Q 260 70 270 88" fill="none" stroke="#10b981" stroke-width="1.4" stroke-opacity="0.6" marker-end="url(#arrow-emerald)"/>
+      <text x="260" y="62" font-family="Inter, system-ui, sans-serif" font-size="9" fill="#10b981" text-anchor="middle" opacity="0.8">low-conf</text>
+    </g>
+
+    <!-- Pipeline → Alert engine -->
+    <line x1="600" y1="410" x2="600" y2="450" stroke="#10b981" stroke-width="2" marker-end="url(#arrow-emerald)"/>
+
+    <!-- Alert engine box -->
+    <g id="alert-engine" transform="translate(360, 450)">
+      <rect x="0" y="0" width="480" height="64" rx="12" fill="#0d1318"
+            stroke="#10b981" stroke-opacity="0.6" stroke-width="1.4"/>
+      <g transform="translate(20, 18)">
+        <!-- siren icon -->
+        <path d="M0 14 V20 a3 3 0 0 0 3 3 h24 a3 3 0 0 0 3 -3 V14 a15 15 0 0 0 -30 0 z"
+              fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-linejoin="round"/>
+        <line x1="15" y1="-2" x2="15" y2="2" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+      <text x="64" y="28" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="700" fill="#f3f4f6">Alert engine</text>
+      <text x="64" y="46" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">
+        info · low · medium · high · critical — severity-tiered routing &amp; escalation
+      </text>
+    </g>
+
+    <!-- Storage row -->
+    <g id="storage" transform="translate(80, 530)">
+      <!-- IndexedDB -->
+      <g>
+        <rect x="0" y="0" width="280" height="42" rx="10" fill="#0d1318" stroke="#1f2937" stroke-width="1"/>
+        <g transform="translate(14, 11)">
+          <!-- database icon -->
+          <ellipse cx="11" cy="3" rx="9" ry="2.4" fill="none" stroke="#94a3b8" stroke-width="1.3"/>
+          <path d="M2 3 V11 C2 12.3 6 13.4 11 13.4 C16 13.4 20 12.3 20 11 V3" fill="none" stroke="#94a3b8" stroke-width="1.3"/>
+          <path d="M2 11 V19 C2 20.3 6 21.4 11 21.4 C16 21.4 20 20.3 20 19 V11" fill="none" stroke="#94a3b8" stroke-width="1.3"/>
+        </g>
+        <text x="46" y="20" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="600" fill="#e5e7eb">IndexedDB</text>
+        <text x="46" y="34" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#94a3b8">settings · alert history · fingerprints</text>
+      </g>
+
+      <!-- Service Worker -->
+      <g transform="translate(380, 0)">
+        <rect x="0" y="0" width="280" height="42" rx="10" fill="#0d1318" stroke="#1f2937" stroke-width="1"/>
+        <g transform="translate(14, 11)">
+          <!-- gear icon -->
+          <circle cx="11" cy="11" r="3.5" fill="none" stroke="#94a3b8" stroke-width="1.3"/>
+          <path d="M11 3 V0 M11 22 V19 M19 11 H22 M0 11 H3 M16.6 5.4 L18.7 3.3 M3.3 18.7 L5.4 16.6 M16.6 16.6 L18.7 18.7 M3.3 3.3 L5.4 5.4"
+                stroke="#94a3b8" stroke-width="1.3" stroke-linecap="round"/>
+        </g>
+        <text x="46" y="20" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="600" fill="#e5e7eb">Service worker</text>
+        <text x="46" y="34" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#94a3b8">caches app shell + model weights</text>
+      </g>
+
+      <!-- Privacy stamp -->
+      <g transform="translate(740, 0)">
+        <rect x="0" y="0" width="280" height="42" rx="10" fill="#0d1318" stroke="#10b981" stroke-opacity="0.4" stroke-width="1"/>
+        <text x="20" y="18" font-family="Inter, system-ui, sans-serif" font-size="10" font-weight="700" fill="#10b981" letter-spacing="1">PRIVACY GUARANTEE</text>
+        <text x="20" y="34" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="#cbd5e1">No frames uploaded. No telemetry.</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ─────── BRIDGE (browser → server, dashed, opt-in) ─────── -->
+  <line x1="600" y1="560" x2="600" y2="610" stroke="#475569" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrow-slate)"/>
+  <text x="614" y="588" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#64748b" letter-spacing="0.5">opt-in only</text>
+
+  <!-- ─────── OPTIONAL SERVER ZONE ─────── -->
+  <g id="server-zone">
+    <rect x="120" y="610" width="960" height="120" rx="16"
+          fill="url(#server-bg)" stroke="#475569" stroke-opacity="0.55" stroke-width="1.4" stroke-dasharray="6 5"/>
+
+    <!-- Zone label -->
+    <g transform="translate(140, 632)">
+      <rect x="0" y="0" width="22" height="22" rx="6" fill="#1e293b" stroke="#475569" stroke-opacity="0.6" stroke-width="1"/>
+      <!-- server icon -->
+      <rect x="4" y="5" width="14" height="5" rx="1" fill="none" stroke="#94a3b8" stroke-width="1.3"/>
+      <rect x="4" y="12" width="14" height="5" rx="1" fill="none" stroke="#94a3b8" stroke-width="1.3"/>
+      <circle cx="14" cy="7.5" r="0.8" fill="#94a3b8"/>
+      <circle cx="14" cy="14.5" r="0.8" fill="#94a3b8"/>
+      <text x="34" y="11" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700"
+            fill="#cbd5e1" letter-spacing="2">OPTIONAL API SERVER</text>
+      <text x="34" y="24" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="#64748b" letter-spacing="0.6">
+        YOUR INFRASTRUCTURE · ENABLES FAN-OUT CHANNELS &amp; LLM BRIDGES
+      </text>
+    </g>
+
+    <!-- Channel pills -->
+    <g transform="translate(140, 680)">
+      <g>
+        <rect x="0" y="0" width="170" height="34" rx="8" fill="#11161b" stroke="#475569" stroke-opacity="0.4" stroke-width="1"/>
+        <circle cx="16" cy="17" r="3" fill="#a78bfa"/>
+        <text x="30" y="21" font-family="Inter, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#e5e7eb">Resend email</text>
+      </g>
+      <g transform="translate(185, 0)">
+        <rect x="0" y="0" width="160" height="34" rx="8" fill="#11161b" stroke="#475569" stroke-opacity="0.4" stroke-width="1"/>
+        <circle cx="16" cy="17" r="3" fill="#f87171"/>
+        <text x="30" y="21" font-family="Inter, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#e5e7eb">Twilio SMS</text>
+      </g>
+      <g transform="translate(355, 0)">
+        <rect x="0" y="0" width="160" height="34" rx="8" fill="#11161b" stroke="#475569" stroke-opacity="0.4" stroke-width="1"/>
+        <circle cx="16" cy="17" r="3" fill="#60a5fa"/>
+        <text x="30" y="21" font-family="Inter, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#e5e7eb">Telegram bot</text>
+      </g>
+      <g transform="translate(525, 0)">
+        <rect x="0" y="0" width="175" height="34" rx="8" fill="#11161b" stroke="#475569" stroke-opacity="0.4" stroke-width="1"/>
+        <circle cx="16" cy="17" r="3" fill="#34d399"/>
+        <text x="30" y="21" font-family="Inter, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#e5e7eb">Ollama LAN</text>
+      </g>
+      <g transform="translate(710, 0)">
+        <rect x="0" y="0" width="210" height="34" rx="8" fill="#11161b" stroke="#475569" stroke-opacity="0.4" stroke-width="1"/>
+        <circle cx="16" cy="17" r="3" fill="#fbbf24"/>
+        <text x="30" y="21" font-family="Inter, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#e5e7eb">Cloud LLM fallback</text>
+      </g>
+    </g>
+  </g>
+</svg>
