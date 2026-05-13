@@ -18,7 +18,7 @@ import { IconMail, IconExternalLink, IconWarning, IconCheck, IconShield } from '
 
 export const metadata: Metadata = {
   title: 'Resend email setup',
-  description: 'Configure Resend in SafeOS Guardian for account verification, password reset, and alert email.',
+  description: 'Configure Resend in SafeOS Guardian for severity-routed alert email.',
 };
 
 export default function ResendHelpPage() {
@@ -43,9 +43,8 @@ export default function ResendHelpPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Resend email setup</h1>
           </div>
           <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-            Resend handles three things in SafeOS Guardian: account verification emails, password
-            reset, and severity-routed alert emails (medium / high / critical). Free tier gives you
-            3,000 emails a month — plenty for personal monitoring.
+            Resend sends severity-routed alert emails (medium / high / critical) to any address you
+            configure. Free tier gives you 3,000 emails a month — plenty for personal monitoring.
           </p>
         </header>
 
@@ -102,7 +101,6 @@ export default function ResendHelpPage() {
               <p className="text-sm text-slate-300 leading-relaxed mb-3">
                 Set these three values on your API server&apos;s <code>.env</code> file. Every user
                 of the deployment can then opt in to email alerts without supplying their own key.
-                Account verification + password reset also work.
               </p>
               <pre className="text-xs bg-slate-950 border border-slate-800 rounded p-3 overflow-x-auto text-slate-300">
 {`RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
@@ -134,10 +132,10 @@ EMAIL_REPLY_TO="team@yourdomain.com"`}
                 The key is stored in this browser&apos;s local storage and only sent to the API server
                 when an alert fires.
               </p>
-              <Callout tone="warning">
-                BYO keys are only used for <strong>alert emails</strong>. Account verification +
-                password reset still require an operator-level <code>RESEND_API_KEY</code> on the
-                server — you can&apos;t verify your own account with a key you haven&apos;t entered yet.
+              <Callout tone="info">
+                Your key stays in <strong>this browser&apos;s local storage</strong> and is only sent
+                to the API server when an alert fires. You can remove it any time from{' '}
+                Settings → Notifications.
               </Callout>
             </div>
           </div>

@@ -37,7 +37,7 @@ const INTEGRATIONS: Integration[] = [
   {
     href: '/help/integrations/resend',
     title: 'Resend email',
-    one_liner: 'Email alerts + account verification + password reset. Free 3,000 emails/month.',
+    one_liner: 'Severity-routed email alerts to any address you configure. Free 3,000 emails/month.',
     icon: <IconMail size={20} />,
     status: 'free-tier',
   },
