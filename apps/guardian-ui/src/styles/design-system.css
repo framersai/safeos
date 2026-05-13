@@ -1319,6 +1319,57 @@ html.large-text .input {
   padding: var(--space-3) var(--space-4);
 }
 
+/* =============================================================================
+   Light Mode — Callout & Banner Text/BG Overrides
+   ============================================================================= */
+
+/* Amber callout text: variants used in StatusBanner top bar + "NOT a replacement"
+   supervision warning. Default tokens (amber-100, amber-200/90, amber-300) are
+   designed for dark backgrounds and become invisible on light-mode amber-tinted
+   surfaces; flip to darker amber shades for readable contrast. */
+html.light .text-amber-100,
+html.light .text-amber-100\/90,
+html.light .text-amber-100\/80 {
+  color: #78350f !important; /* amber-900 */
+}
+
+html.light .text-amber-200\/90 {
+  color: #92400e !important; /* amber-800 */
+}
+
+html.light .text-amber-300 {
+  color: #b45309 !important; /* amber-700 */
+}
+
+/* Emerald 300: used by "Privacy by Design" callout (about page) and the
+   "On-device inference" badge in the landing hero. */
+html.light .text-emerald-300 {
+  color: #047857 !important; /* emerald-700 */
+}
+
+/* Blue 300: heading text inside the "Optional API server" inner box on the
+   landing page Server Setup callout. */
+html.light .text-blue-300 {
+  color: #1d4ed8 !important; /* blue-700 */
+}
+
+/* Mid-opacity slate-900 backgrounds: e.g. the Optional API server inner box
+   (`bg-slate-900/60`). Without this, the inner panel stays medium-gray and
+   bullet items become unreadable on the gradient parent. */
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/40,
+html.light .bg-slate-900\/30 {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Gradient end-stop slate-800 (paired with from-slate-900 — the Server Setup
+   card uses `bg-gradient-to-br from-slate-900 to-slate-800`). The from-slate-900
+   override already exists; the to-slate-800 stop was missing, leaving the
+   gradient ending dark. */
+html.light .to-slate-800 {
+  --tw-gradient-to: var(--color-steel-950) !important;
+}
+
 
 
 

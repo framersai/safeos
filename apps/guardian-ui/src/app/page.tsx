@@ -256,8 +256,10 @@ function LandingPage() {
               Deep learning, in your browser.
             </h2>
             <p className="text-base md:text-lg text-[var(--color-steel-200)] max-w-2xl mx-auto leading-relaxed">
-              Every frame is analyzed by computer vision models running locally on{' '}
-              <span className="text-emerald-400 font-medium">your device</span>. No uploads.
+              Every frame is screened by motion, audio, and pixel-change detectors running{' '}
+              <span className="text-emerald-400 font-medium">locally</span>. When motion
+              is detected, the frame is routed to on-device computer vision models: COCO-SSD
+              spots objects, a Vision Transformer cross-checks ambiguous scenes. No uploads.
               No cloud round-trips. Tap any card to see the architecture underneath.
             </p>
           </div>
@@ -282,7 +284,7 @@ function LandingPage() {
               title="Real-time object detection"
               tag="COCO-SSD · TensorFlow.js"
               size="~5 MB"
-              summary="Spots people, pets, and 80+ object classes in every camera frame at 10–30 FPS on consumer hardware."
+              summary="Motion-gated object detection. When the per-frame pixel-diff detects movement, COCO-SSD spots people, pets, and 80+ object classes at 10–30 FPS on consumer hardware. Idle GPU when nothing's moving."
               details={[
                 'Runs on TensorFlow.js with WebGL acceleration (WebGPU on supported browsers).',
                 'Bounding-box localization plus confidence scoring per class.',
@@ -310,7 +312,7 @@ function LandingPage() {
               title="Visual fingerprinting for Lost & Found"
               tag="Color + edge signatures"
               size="< 1 KB / photo"
-              summary="Upload 1–5 reference photos of a missing pet or person. The browser builds a perceptual fingerprint and matches every incoming frame against it."
+              summary="Upload 1–5 reference photos of a missing pet or person. The browser builds a perceptual fingerprint and samples the live feed at 1–2 FPS, matching each candidate frame by cosine similarity."
               details={[
                 '32-bucket color histogram per reference photo.',
                 'Top-5 dominant colors via k-means clustering.',
