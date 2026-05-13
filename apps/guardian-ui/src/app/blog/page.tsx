@@ -42,16 +42,6 @@ interface BlogPost {
 
 const blogPosts: BlogPost[] = [
   {
-    slug: 'inside-the-motion-gated-cv-pipeline',
-    title: 'The lie on my landing page: how SafeOS actually gates CV inference',
-    excerpt:
-      'SafeOS used to claim every frame goes through CV models. It doesn\'t. The motion gate is two lines of code and the most important design decision in the whole codebase.',
-    date: 'May 13, 2026',
-    author: 'Johnny Dunn',
-    readTime: '6 min read',
-    tags: ['technical', 'motion-gating', 'tensorflow.js', 'on-device-ai', 'lessons-learned'],
-  },
-  {
     slug: 'how-safeos-guardian-works',
     title: 'How SafeOS Guardian works: motion-gated browser AI that doesn\'t burn your laptop',
     excerpt:
@@ -60,16 +50,6 @@ const blogPosts: BlogPost[] = [
     author: 'Johnny Dunn',
     readTime: '9 min read',
     tags: ['technical', 'architecture', 'tensorflow.js', 'transformers.js', 'on-device-ai'],
-  },
-  {
-    slug: 'why-we-built-safeos-guardian',
-    title: 'I built SafeOS Guardian because the baby monitor market made me angry',
-    excerpt:
-      'Why I shipped a free, open-source AI baby/pet/elder monitor that runs in the browser instead of paying $300 for a Nanit and trusting a stranger\'s servers with my family\'s video.',
-    date: 'January 8, 2026',
-    author: 'Johnny Dunn',
-    readTime: '6 min read',
-    tags: ['open-source', 'baby-monitor', 'privacy', 'mission'],
   },
 ];
 
