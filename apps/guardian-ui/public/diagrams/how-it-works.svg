@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="diag-title diag-desc" preserveAspectRatio="xMidYMid meet">
   <title id="diag-title">SafeOS Guardian — how it all works</title>
-  <desc id="diag-desc">A two-zone architecture diagram. The browser zone runs entirely on the user's device: camera and microphone feeds plus reference photos flow into a four-model inference pipeline (COCO-SSD via TensorFlow.js, ViT-base via Transformers.js, Web Audio FFT, and a perceptual color-plus-edge fingerprint). Detections pass to a severity-tiered alert engine, with IndexedDB and a service worker providing local storage and caching. A second, opt-in zone below shows an optional API server fanning alerts out to Resend email, Twilio SMS, Telegram, an Ollama LAN install, or cloud LLM fallback.</desc>
+  <desc id="diag-desc">A two-zone architecture diagram. The browser zone runs entirely on the user's device: camera and microphone feeds plus reference photos flow through a per-frame screening layer (pixel-diff motion detection, audio FFT, and pixel-change counting at roughly 5 to 10 Hz) that gates the four-model CV inference pipeline below (COCO-SSD via TensorFlow.js, ViT-base via Transformers.js, Web Audio FFT, and a perceptual color-plus-edge fingerprint). CV models only fire when the screening layer detects activity, keeping the GPU idle otherwise. Detections pass to a severity-tiered alert engine, with IndexedDB and a service worker providing local storage and caching. A second, opt-in zone below shows an optional API server fanning alerts out to Resend email, Twilio SMS, Telegram, an Ollama LAN install, or cloud LLM fallback.</desc>
 
   <defs>
     <!-- Page background gradient -->
@@ -106,10 +106,27 @@
         <text x="68" y="64" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">Lost &amp; Found subjects</text>
       </g>
 
-      <!-- Arrows down to pipeline -->
-      <line x1="230" y1="80" x2="230" y2="110" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
-      <line x1="600" y1="80" x2="600" y2="110" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
-      <line x1="970" y1="80" x2="970" y2="110" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
+      <!-- Arrows down to per-frame screening gate -->
+      <line x1="230" y1="80" x2="230" y2="95" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
+      <line x1="600" y1="80" x2="600" y2="95" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
+      <line x1="970" y1="80" x2="970" y2="95" stroke="#10b981" stroke-width="1.8" marker-end="url(#arrow-emerald)" stroke-opacity="0.7"/>
+    </g>
+
+    <!-- Per-frame screening gate (sits between inputs and CV pipeline) -->
+    <g id="screening-gate">
+      <rect x="140" y="210" width="920" height="26" rx="13"
+            fill="#1a1410" stroke="#fbbf24" stroke-opacity="0.55" stroke-width="1.2"/>
+      <!-- filter / funnel icon -->
+      <g transform="translate(158, 217)">
+        <path d="M0 0 H14 L9 6 V12 L5 11 V6 Z"
+              fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-linejoin="round"/>
+      </g>
+      <text x="184" y="221" font-family="Inter, system-ui, sans-serif" font-size="10.5"
+            font-weight="700" fill="#fbbf24" letter-spacing="2">PER-FRAME SCREENING</text>
+      <text x="184" y="232" font-family="Inter, system-ui, sans-serif" font-size="9.5"
+            fill="#cbd5e1">motion · pixel-diff · audio FFT · every frame (~5–10 Hz)</text>
+      <text x="1044" y="227" font-family="Inter, system-ui, sans-serif" font-size="9.5"
+            fill="#fbbf24" text-anchor="end" font-style="italic" opacity="0.85">gates CV inference below</text>
     </g>
 
     <!-- Inference pipeline panel -->
@@ -117,7 +134,7 @@
       <rect x="0" y="0" width="1040" height="170" rx="14" fill="url(#pipeline-glow)"
             stroke="#10b981" stroke-opacity="0.45" stroke-width="1.2"/>
       <text x="20" y="26" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700"
-            fill="#10b981" letter-spacing="2.5">BROWSER INFERENCE PIPELINE · ON-DEVICE</text>
+            fill="#10b981" letter-spacing="2.5">MOTION-GATED CV INFERENCE · ON-DEVICE</text>
 
       <!-- Model: COCO-SSD -->
       <g transform="translate(20, 50)">

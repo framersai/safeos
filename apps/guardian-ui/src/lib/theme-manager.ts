@@ -100,17 +100,25 @@ export const useThemeStore = create<ThemeState>()(
     {
       name: 'guardian-theme',
       storage: createJSONStorage(() => localStorage),
+      // Persist resolvedTheme alongside themeMode so it's correct on first
+      // render after reload. Without this, partialize would drop resolvedTheme
+      // and useTheme's effect would race the inline init script in layout.tsx,
+      // overwriting the correct class with the default 'dark' before
+      // onRehydrateStorage gets a chance to recalculate.
       partialize: (state) => ({
         themeMode: state.themeMode,
+        resolvedTheme: state.resolvedTheme,
         accessibility: state.accessibility,
       }),
       onRehydrateStorage: () => (state) => {
-        // Recalculate resolvedTheme from saved themeMode after hydration
-        if (state && typeof window !== 'undefined') {
-          const resolved = state.themeMode === 'system'
-            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-            : state.themeMode;
-          useThemeStore.setState({ resolvedTheme: resolved });
+        // For 'system' mode, the persisted resolvedTheme may be stale if the
+        // user's OS preference changed since last visit. Recalculate from the
+        // live media query in that case.
+        if (state && typeof window !== 'undefined' && state.themeMode === 'system') {
+          const resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          if (resolved !== state.resolvedTheme) {
+            useThemeStore.setState({ resolvedTheme: resolved });
+          }
         }
       },
     }
@@ -124,17 +132,16 @@ export const useThemeStore = create<ThemeState>()(
 export function useTheme() {
   const { themeMode, resolvedTheme, setThemeMode, toggleTheme, accessibility } = useThemeStore();
 
-  // Apply theme to document
+  // Apply theme to document. Guarded on persist rehydration so the inline
+  // init script in layout.tsx (which runs before React) isn't overwritten by
+  // a default state value before localStorage has been read.
   useEffect(() => {
     if (typeof document === 'undefined') return;
+    if (!useThemeStore.persist.hasHydrated()) return;
 
     const root = document.documentElement;
-
-    // Apply theme class
     root.classList.remove('light', 'dark');
     root.classList.add(resolvedTheme);
-
-    // Set color-scheme for native elements
     root.style.colorScheme = resolvedTheme;
   }, [resolvedTheme]);
 
