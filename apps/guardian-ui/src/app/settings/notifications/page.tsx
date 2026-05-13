@@ -25,6 +25,7 @@ import {
   IconExternalLink,
   IconShield,
 } from '@/components/icons';
+import { HelpTooltip } from '@/components/HelpTooltip';
 
 // =============================================================================
 // Types
@@ -40,8 +41,15 @@ interface NotificationsSettings {
   emailUseOwnKey: boolean;
   emailResendApiKey: string;
   emailSenderOverride: string;
-  /** SMS / Telegram are server-managed — no per-user keys. */
+  /** SMS alerts via Twilio. Fires only when enabled AND number set. */
   smsEnabled: boolean;
+  smsRecipient: string;
+  /** When true, the user supplies their own Twilio account SID + auth token + number. */
+  smsUseOwnKey: boolean;
+  smsAccountSid: string;
+  smsAuthToken: string;
+  smsFromNumber: string;
+  /** Telegram is server-managed — no per-user bot tokens. */
   telegramEnabled: boolean;
   /** Quiet hours (24h HH:MM). */
   quietHoursEnabled: boolean;
@@ -73,6 +81,11 @@ const DEFAULTS: NotificationsSettings = {
   emailResendApiKey: '',
   emailSenderOverride: '',
   smsEnabled: false,
+  smsRecipient: '',
+  smsUseOwnKey: false,
+  smsAccountSid: '',
+  smsAuthToken: '',
+  smsFromNumber: '',
   telegramEnabled: false,
   quietHoursEnabled: false,
   quietHoursStart: '22:00',
@@ -86,6 +99,11 @@ const DEFAULTS: NotificationsSettings = {
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+/** E.164 phone number — leading +, country code, 7–14 more digits. */
+function isValidPhone(value: string): boolean {
+  return /^\+[1-9]\d{6,14}$/.test(value.trim());
 }
 
 function loadFromStorage(): NotificationsSettings {
@@ -126,6 +144,10 @@ export default function NotificationsSettingsPage() {
 
   const [testEmailStatus, setTestEmailStatus] = useState<
     { type: 'idle' } | { type: 'sending' } | { type: 'success'; messageId: string } | { type: 'error'; message: string }
+  >({ type: 'idle' });
+
+  const [testSmsStatus, setTestSmsStatus] = useState<
+    { type: 'idle' } | { type: 'sending' } | { type: 'success'; sid: string } | { type: 'error'; message: string }
   >({ type: 'idle' });
 
   // ---------------------------------------------------------------------------
@@ -267,6 +289,59 @@ export default function NotificationsSettingsPage() {
   }, [canTestEmail, backendStatus.api, backendConfig.apiUrl, settings]);
 
   // ---------------------------------------------------------------------------
+  // Test SMS (Twilio)
+  // ---------------------------------------------------------------------------
+
+  const canTestSms = useMemo(() => {
+    if (!settings.smsEnabled) return false;
+    if (!isValidPhone(settings.smsRecipient)) return false;
+    if (settings.smsUseOwnKey) {
+      return (
+        settings.smsAccountSid.trim().length > 0 &&
+        settings.smsAuthToken.trim().length > 0 &&
+        isValidPhone(settings.smsFromNumber)
+      );
+    }
+    return serverStatus?.smsEnabled === true;
+  }, [settings, serverStatus]);
+
+  const handleTestSms = useCallback(async () => {
+    if (!canTestSms) return;
+    if (backendStatus.api !== 'connected') {
+      setTestSmsStatus({ type: 'error', message: 'Monitoring server is unreachable.' });
+      return;
+    }
+
+    setTestSmsStatus({ type: 'sending' });
+
+    try {
+      const body: Record<string, string> = { to: settings.smsRecipient.trim() };
+      if (settings.smsUseOwnKey) {
+        body.twilioAccountSid = settings.smsAccountSid.trim();
+        body.twilioAuthToken = settings.smsAuthToken.trim();
+        body.twilioFromNumber = settings.smsFromNumber.trim();
+      }
+
+      const res = await fetch(`${backendConfig.apiUrl}/api/notifications/test-sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message ?? data.error ?? `HTTP ${res.status}`);
+      }
+
+      setTestSmsStatus({ type: 'success', sid: data.sid });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      setTestSmsStatus({ type: 'error', message });
+    }
+  }, [canTestSms, backendStatus.api, backendConfig.apiUrl, settings]);
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -358,7 +433,19 @@ export default function NotificationsSettingsPage() {
 
           {settings.emailEnabled && (
             <div className="mt-4 space-y-4 border-t border-slate-700/50 pt-4">
-              <Field label="Recipient email" htmlFor="email-recipient">
+              <Field
+                label="Recipient email"
+                htmlFor="email-recipient"
+                tooltip={{
+                  label: 'Help: recipient email',
+                  body: (
+                    <>
+                      Where SafeOS sends alert emails. Use any address you check.
+                      Only fires for medium / high / critical severity events — info / low stay in-app.
+                    </>
+                  ),
+                }}
+              >
                 <input
                   id="email-recipient"
                   type="email"
@@ -376,14 +463,43 @@ export default function NotificationsSettingsPage() {
 
               <Toggle
                 label="Use my own Resend account"
-                description="Paste your Resend API key + verified sender. Required if the server has no Resend key. See the Resend setup guide for how to obtain one."
+                description={
+                  <>
+                    Paste your own Resend API key + verified sender so emails come from your domain.
+                    Required if the server has no Resend key.{' '}
+                    <Link href="/help/integrations/resend" className="text-emerald-300 underline-offset-2 hover:underline">
+                      How do I set up Resend?
+                    </Link>
+                  </>
+                }
                 checked={settings.emailUseOwnKey}
                 onChange={(v) => update('emailUseOwnKey', v)}
               />
 
               {settings.emailUseOwnKey && (
                 <div className="space-y-4 rounded-lg border border-slate-700/50 bg-slate-900/40 p-4">
-                  <Field label="Resend API key" htmlFor="resend-key">
+                  <Field
+                    label="Resend API key"
+                    htmlFor="resend-key"
+                    tooltip={{
+                      label: 'Help: Resend API key',
+                      body: (
+                        <>
+                          A long token starting with <code className="px-1 bg-slate-900 rounded">re_</code>. Create one at{' '}
+                          <a
+                            href="https://resend.com/api-keys"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-300 underline-offset-2 hover:underline"
+                          >
+                            resend.com/api-keys
+                          </a>{' '}
+                          (give it <strong>Sending access</strong>). Free tier covers 3,000 emails/month.
+                          Stored only in this browser&apos;s local storage.
+                        </>
+                      ),
+                    }}
+                  >
                     <input
                       id="resend-key"
                       type="password"
@@ -408,7 +524,20 @@ export default function NotificationsSettingsPage() {
                     </p>
                   </Field>
 
-                  <Field label="Sender address (From)" htmlFor="resend-sender">
+                  <Field
+                    label="Sender address (From)"
+                    htmlFor="resend-sender"
+                    tooltip={{
+                      label: 'Help: sender address',
+                      body: (
+                        <>
+                          The <code className="px-1 bg-slate-900 rounded">From:</code> address recipients see.
+                          Must be on a domain you&apos;ve <strong>verified in Resend</strong> (Domains tab — adds SPF + DKIM DNS).
+                          For testing, leave blank and the server falls back to its default.
+                        </>
+                      ),
+                    }}
+                  >
                     <input
                       id="resend-sender"
                       type="text"
@@ -473,24 +602,231 @@ export default function NotificationsSettingsPage() {
         {/* ----- SMS (Twilio) --------------------------------------------- */}
         <Section
           icon={<IconPhone size={18} />}
-          title="SMS alerts (Twilio)"
-          subtitle="Configured by the server operator only — no per-user API keys."
+          title="SMS alerts"
+          subtitle={
+            apiOnline
+              ? serverStatus?.smsEnabled
+                ? 'Server has Twilio configured — toggle on and add your phone number.'
+                : 'Server has no Twilio credentials. Add your own below to send SMS alerts.'
+              : 'Connect a monitoring server to send SMS alerts.'
+          }
         >
           <Toggle
-            label="Send SMS alerts"
-            description="High and critical events go to the phone number on your profile."
+            label="Enable SMS alerts"
+            description="Only sends when this toggle is ON AND a recipient number is set. SMS fires for high + critical severity."
             checked={settings.smsEnabled}
             onChange={(v) => update('smsEnabled', v)}
-            disabled={!apiOnline || !serverStatus?.smsEnabled}
           />
-          {apiOnline && serverStatus && !serverStatus.smsEnabled && (
-            <p className="mt-2 text-xs text-slate-400">
-              Your monitoring server has no Twilio credentials set. See{' '}
-              <Link href="/help/integrations/twilio" className="text-emerald-300 underline-offset-2 hover:underline">
-                Twilio setup
-              </Link>
-              .
-            </p>
+
+          {settings.smsEnabled && (
+            <div className="mt-4 space-y-4 border-t border-slate-700/50 pt-4">
+              <Field
+                label="Recipient phone number"
+                htmlFor="sms-recipient"
+                tooltip={{
+                  label: 'Help: recipient phone number',
+                  body: (
+                    <>
+                      Phone number that receives alert texts. Must be in <strong>E.164 format</strong>:
+                      leading <code className="px-1 bg-slate-900 rounded">+</code> then country code then digits.
+                      Example: <code className="px-1 bg-slate-900 rounded">+15551234567</code> (US),
+                      <code className="px-1 bg-slate-900 rounded">+447700900123</code> (UK).
+                    </>
+                  ),
+                }}
+              >
+                <input
+                  id="sms-recipient"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={settings.smsRecipient}
+                  onChange={(e) => update('smsRecipient', e.target.value)}
+                  placeholder="+15551234567"
+                  className="w-full px-4 py-3 bg-slate-900/60 border border-slate-600 rounded-lg text-white placeholder-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+                {settings.smsRecipient && !isValidPhone(settings.smsRecipient) && (
+                  <p className="mt-1 text-xs text-amber-300">
+                    Use E.164 format: <code className="px-1 bg-slate-900 rounded">+15551234567</code>
+                  </p>
+                )}
+              </Field>
+
+              <Toggle
+                label="Use my own Twilio account"
+                description={
+                  <>
+                    Paste your own Twilio Account SID + Auth Token + From number. Required if the
+                    server has no Twilio credentials.{' '}
+                    <Link href="/help/integrations/twilio" className="text-emerald-300 underline-offset-2 hover:underline">
+                      How do I set up Twilio?
+                    </Link>
+                  </>
+                }
+                checked={settings.smsUseOwnKey}
+                onChange={(v) => update('smsUseOwnKey', v)}
+              />
+
+              {settings.smsUseOwnKey && (
+                <div className="space-y-4 rounded-lg border border-slate-700/50 bg-slate-900/40 p-4">
+                  <Field
+                    label="Twilio Account SID"
+                    htmlFor="twilio-sid"
+                    tooltip={{
+                      label: 'Help: Twilio Account SID',
+                      body: (
+                        <>
+                          Unique ID for your Twilio account, starts with{' '}
+                          <code className="px-1 bg-slate-900 rounded">AC</code> followed by 32 hex chars.
+                          Find it on your{' '}
+                          <a
+                            href="https://console.twilio.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-300 underline-offset-2 hover:underline"
+                          >
+                            Twilio Console dashboard
+                          </a>{' '}
+                          under <strong>Account Info</strong>. Not a secret — safe to share for support requests.
+                        </>
+                      ),
+                    }}
+                  >
+                    <input
+                      id="twilio-sid"
+                      type="text"
+                      autoComplete="off"
+                      value={settings.smsAccountSid}
+                      onChange={(e) => update('smsAccountSid', e.target.value)}
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-4 py-3 bg-slate-900/60 border border-slate-600 rounded-lg text-white placeholder-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    />
+                    <p className="mt-1 text-xs text-slate-400">
+                      Find at{' '}
+                      <a
+                        href="https://console.twilio.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-300 hover:text-emerald-200 underline-offset-2 hover:underline inline-flex items-center gap-1"
+                      >
+                        console.twilio.com
+                        <IconExternalLink size={12} />
+                      </a>{' '}
+                      → Account Info.
+                    </p>
+                  </Field>
+
+                  <Field
+                    label="Twilio Auth Token"
+                    htmlFor="twilio-token"
+                    tooltip={{
+                      label: 'Help: Twilio Auth Token',
+                      body: (
+                        <>
+                          <strong>Secret</strong> — treat like a password. Shown only on first reveal
+                          in the Twilio Console; rotate via <strong>Account → API Credentials</strong>.
+                          Stored only in this browser&apos;s local storage and sent to your monitoring
+                          server only when an alert fires.
+                        </>
+                      ),
+                    }}
+                  >
+                    <input
+                      id="twilio-token"
+                      type="password"
+                      autoComplete="off"
+                      value={settings.smsAuthToken}
+                      onChange={(e) => update('smsAuthToken', e.target.value)}
+                      placeholder="••••••••••••••••••••••••••••••••"
+                      className="w-full px-4 py-3 bg-slate-900/60 border border-slate-600 rounded-lg text-white placeholder-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    />
+                    <p className="mt-1 text-xs text-slate-400">
+                      Reveal on the Twilio Console under <strong>Account Info</strong>. Treat like a password.
+                    </p>
+                  </Field>
+
+                  <Field
+                    label="From number"
+                    htmlFor="twilio-from"
+                    tooltip={{
+                      label: 'Help: From number',
+                      body: (
+                        <>
+                          A phone number you <strong>own in Twilio</strong> (purchased or ported).
+                          E.164 format. Buy at{' '}
+                          <a
+                            href="https://console.twilio.com/us1/develop/phone-numbers/manage/search"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-300 underline-offset-2 hover:underline"
+                          >
+                            Console → Phone Numbers → Buy a number
+                          </a>
+                          {' '}(~$1/month + ~$0.0079 per outbound SMS in the US). Trial accounts can only
+                          send to verified numbers.
+                        </>
+                      ),
+                    }}
+                  >
+                    <input
+                      id="twilio-from"
+                      type="tel"
+                      autoComplete="off"
+                      value={settings.smsFromNumber}
+                      onChange={(e) => update('smsFromNumber', e.target.value)}
+                      placeholder="+15551234567"
+                      className="w-full px-4 py-3 bg-slate-900/60 border border-slate-600 rounded-lg text-white placeholder-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    />
+                    {settings.smsFromNumber && !isValidPhone(settings.smsFromNumber) && (
+                      <p className="mt-1 text-xs text-amber-300">
+                        Use E.164 format: <code className="px-1 bg-slate-900 rounded">+15551234567</code>
+                      </p>
+                    )}
+                  </Field>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <button
+                  type="button"
+                  onClick={handleTestSms}
+                  disabled={!canTestSms || testSmsStatus.type === 'sending' || !apiOnline}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors inline-flex items-center justify-center gap-2"
+                >
+                  {testSmsStatus.type === 'sending' ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <IconPhone size={14} />
+                      Send test SMS
+                    </>
+                  )}
+                </button>
+
+                <Link
+                  href="/help/integrations/twilio"
+                  className="text-xs text-emerald-300 hover:text-emerald-200 underline-offset-2 hover:underline inline-flex items-center gap-1"
+                >
+                  Twilio setup walkthrough
+                  <IconExternalLink size={12} />
+                </Link>
+              </div>
+
+              {testSmsStatus.type === 'success' && (
+                <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-xs text-emerald-200 inline-flex items-center gap-2">
+                  <IconCheck size={14} />
+                  Test SMS queued (sid <span className="font-mono">{testSmsStatus.sid.slice(0, 10)}…</span>). Check your phone.
+                </div>
+              )}
+              {testSmsStatus.type === 'error' && (
+                <div className="px-3 py-2 bg-red-500/15 border border-red-500/30 rounded-lg text-xs text-red-200">
+                  Test failed: {testSmsStatus.message}
+                </div>
+              )}
+            </div>
           )}
         </Section>
 
@@ -612,7 +948,7 @@ function Toggle({
   disabled,
 }: {
   label: string;
-  description?: string;
+  description?: React.ReactNode;
   checked: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
@@ -647,11 +983,22 @@ function Toggle({
   );
 }
 
-function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+  tooltip,
+}: {
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+  tooltip?: { label: string; body: React.ReactNode };
+}) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-200 mb-2">
-        {label}
+      <label htmlFor={htmlFor} className="flex items-center gap-2 text-sm font-medium text-slate-200 mb-2">
+        <span>{label}</span>
+        {tooltip && <HelpTooltip label={tooltip.label}>{tooltip.body}</HelpTooltip>}
       </label>
       {children}
     </div>

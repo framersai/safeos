@@ -7,7 +7,7 @@
  */
 
 import { TelegramBotService } from './telegram';
-import { sendTwilioSms } from './twilio';
+import { sendTwilioSms, isTwilioConfigured, type TwilioConfig } from './twilio';
 import { sendBrowserPushNotification } from './browser-push';
 import { sendAlertEmail, isResendConfigured, type EmailConfig } from './email';
 import { getPushSubscriptions, getTelegramChatIds } from '../../api/routes/notifications';
@@ -38,6 +38,8 @@ export interface NotificationConfig {
   emailOverride?: Partial<EmailConfig>;
   /** Optional per-user "From" address override. */
   emailFromOverride?: string;
+  /** Optional per-user Twilio override (BYO SID + auth token + from number). */
+  smsOverride?: Partial<TwilioConfig>;
 }
 
 export interface NotificationResult {
@@ -77,6 +79,7 @@ export class NotificationManager {
       emailRecipient: config.emailRecipient,
       emailOverride: config.emailOverride,
       emailFromOverride: config.emailFromOverride,
+      smsOverride: config.smsOverride,
     };
 
     if (this.config.telegram && process.env['TELEGRAM_BOT_TOKEN']) {
@@ -216,14 +219,30 @@ export class NotificationManager {
   }
 
   /**
-   * Send SMS notifications
+   * Send SMS notifications.
+   *
+   * Fires only when:
+   *  1. `sms` flag is true (user opted in)
+   *  2. `smsNumber` is set (we know where to send)
+   *  3. Either server `TWILIO_*` env is configured OR the user has supplied a
+   *     complete `smsOverride` (BYO Twilio path).
    */
   private async sendSms(payload: NotificationPayload): Promise<void> {
     if (!this.config.sms || !this.config.smsNumber) return;
 
-    const message = `[SafeOS ${payload.severity.toUpperCase()}] ${payload.title}: ${payload.message}`;
+    const override = this.config.smsOverride;
+    const hasCompleteOverride = !!(
+      override?.accountSid &&
+      override?.authToken &&
+      override?.fromNumber
+    );
+    if (!hasCompleteOverride && !isTwilioConfigured()) {
+      console.warn('[NotificationManager] sms channel skipped: no Twilio credentials configured');
+      return;
+    }
 
-    await sendTwilioSms(this.config.smsNumber, message);
+    const message = `[SafeOS ${payload.severity.toUpperCase()}] ${payload.title}: ${payload.message}`;
+    await sendTwilioSms(this.config.smsNumber, message, { override });
   }
 
   // ---------------------------------------------------------------------------

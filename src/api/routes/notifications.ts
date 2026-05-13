@@ -16,6 +16,7 @@ import {
   TestNotificationSchema,
 } from '../schemas/index.js';
 import { sendTestEmail, isResendConfigured } from '../../lib/alerts/email.js';
+import { sendTestSms, isTwilioConfigured } from '../../lib/alerts/twilio.js';
 
 // =============================================================================
 // Router
@@ -154,6 +155,57 @@ notificationRoutes.post('/test', validate(TestNotificationSchema), async (req: R
  *                                    // domain verified in your Resend account)
  *     replyTo?: string }
  */
+/**
+ * POST /api/notifications/test-sms - Send a real Twilio test SMS so the user
+ * can verify their phone number + credentials work. Accepts optional BYO
+ * Twilio creds; falls back to server `TWILIO_*` env vars.
+ *
+ * Body:
+ *   { to: string,                       // recipient phone (E.164: +15551234567)
+ *     twilioAccountSid?: string,        // optional BYO
+ *     twilioAuthToken?: string,         // optional BYO
+ *     twilioFromNumber?: string }       // optional BYO (must be a Twilio-owned number)
+ */
+notificationRoutes.post('/test-sms', async (req: Request, res: Response) => {
+  try {
+    const { to, twilioAccountSid, twilioAuthToken, twilioFromNumber } = req.body ?? {};
+
+    if (!to || typeof to !== 'string') {
+      return res.status(400).json({ error: 'Recipient phone number is required' });
+    }
+
+    const overrideProvided = !!(twilioAccountSid && twilioAuthToken && twilioFromNumber);
+    if (!overrideProvided && !isTwilioConfigured()) {
+      return res.status(400).json({
+        error: 'Twilio not configured',
+        message:
+          'No Twilio credentials were supplied and the server has no TWILIO_* env vars set. Add credentials in Settings → Notifications or configure them on the server.',
+      });
+    }
+
+    const override = overrideProvided
+      ? {
+          accountSid: twilioAccountSid as string,
+          authToken: twilioAuthToken as string,
+          fromNumber: twilioFromNumber as string,
+        }
+      : undefined;
+
+    const result = await sendTestSms(to, { override });
+
+    return res.json({
+      success: true,
+      sid: result.sid,
+      to: result.to,
+      from: result.from,
+    });
+  } catch (error) {
+    console.error('Failed to send test SMS:', error);
+    const message = error instanceof Error ? error.message : 'Failed to send test SMS';
+    return res.status(500).json({ error: 'Failed to send test SMS', message });
+  }
+});
+
 notificationRoutes.post('/test-email', async (req: Request, res: Response) => {
   try {
     const { to, resendApiKey, fromOverride, replyTo } = req.body ?? {};
