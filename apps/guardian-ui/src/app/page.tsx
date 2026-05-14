@@ -603,10 +603,10 @@ function LandingPage() {
 
         {/* Humanitarian Badge + Forever Free */}
         <div className="mt-8 flex flex-col items-center gap-4">
-          <div className="flex items-center gap-3 px-6 py-3
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-5 py-2.5
                           bg-emerald-500/10 border border-emerald-500/20
-                          rounded-full text-emerald-400">
-            <IconHeart size={20} className="text-red-400" />
+                          rounded-2xl sm:rounded-full text-emerald-400 max-w-[90vw]">
+            <IconHeart size={20} className="text-red-400 flex-shrink-0" />
             <span className="text-sm font-medium">
               Part of Frame&apos;s 10% for Humanity initiative
             </span>
