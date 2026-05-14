@@ -1370,9 +1370,269 @@ html.light .to-slate-800 {
   --tw-gradient-to: var(--color-steel-950) !important;
 }
 
+/* =============================================================================
+   Light Mode — Comprehensive Utility Color Overrides
+   =============================================================================
+   Tailwind text-{color}-{50,100,200,300} shades and their opacity variants are
+   designed for use on dark backgrounds. In light mode they wash out into the
+   background and become unreadable (the canonical case: the supervision warning
+   box with text-amber-100 + text-amber-100/90 sitting on bg-amber-500/10).
 
+   The [class*="text-color-shade"] attribute selector catches every opacity
+   variant (text-amber-100, text-amber-100/90, text-amber-100/80, ...) in a
+   single rule so future utility uses inherit the fix automatically. Each light
+   shade flips to its dark equivalent: 50/100/200 → 800/900, 300 → 700.
 
+   Pre-existing single-class rules above this block remain in place for
+   backward compatibility but this section is the authoritative override. */
 
+/* --- AMBER --- */
+html.light [class*="text-amber-50"]:not([class*="text-amber-500"]):not([class*="text-amber-950"]),
+html.light [class*="text-amber-100"],
+html.light [class*="text-amber-200"] {
+  color: #78350f !important; /* amber-900 */
+}
+html.light [class*="text-amber-300"] {
+  color: #b45309 !important; /* amber-700 */
+}
+
+/* --- EMERALD --- */
+html.light [class*="text-emerald-50"]:not([class*="text-emerald-500"]):not([class*="text-emerald-950"]),
+html.light [class*="text-emerald-100"] {
+  color: #064e3b !important; /* emerald-900 */
+}
+html.light [class*="text-emerald-200"],
+html.light [class*="text-emerald-300"] {
+  color: #047857 !important; /* emerald-700 */
+}
+
+/* --- RED --- */
+html.light [class*="text-red-50"]:not([class*="text-red-500"]):not([class*="text-red-950"]),
+html.light [class*="text-red-100"],
+html.light [class*="text-red-200"] {
+  color: #7f1d1d !important; /* red-900 */
+}
+html.light [class*="text-red-300"] {
+  color: #b91c1c !important; /* red-700 */
+}
+
+/* --- BLUE --- */
+html.light [class*="text-blue-50"]:not([class*="text-blue-500"]):not([class*="text-blue-950"]),
+html.light [class*="text-blue-100"],
+html.light [class*="text-blue-200"] {
+  color: #1e3a8a !important; /* blue-900 */
+}
+html.light [class*="text-blue-300"] {
+  color: #1d4ed8 !important; /* blue-700 */
+}
+
+/* --- ORANGE --- */
+html.light [class*="text-orange-50"]:not([class*="text-orange-500"]):not([class*="text-orange-950"]),
+html.light [class*="text-orange-100"],
+html.light [class*="text-orange-200"] {
+  color: #7c2d12 !important; /* orange-900 */
+}
+html.light [class*="text-orange-300"] {
+  color: #c2410c !important; /* orange-700 */
+}
+
+/* --- YELLOW --- */
+html.light [class*="text-yellow-50"]:not([class*="text-yellow-500"]):not([class*="text-yellow-950"]),
+html.light [class*="text-yellow-100"],
+html.light [class*="text-yellow-200"] {
+  color: #713f12 !important; /* yellow-900 */
+}
+html.light [class*="text-yellow-300"] {
+  color: #a16207 !important; /* yellow-700 */
+}
+
+/* --- ROSE --- */
+html.light [class*="text-rose-50"]:not([class*="text-rose-500"]):not([class*="text-rose-950"]),
+html.light [class*="text-rose-100"],
+html.light [class*="text-rose-200"] {
+  color: #881337 !important; /* rose-900 */
+}
+html.light [class*="text-rose-300"] {
+  color: #be123c !important; /* rose-700 */
+}
+
+/* --- PINK --- */
+html.light [class*="text-pink-50"]:not([class*="text-pink-500"]):not([class*="text-pink-950"]),
+html.light [class*="text-pink-100"],
+html.light [class*="text-pink-200"] {
+  color: #831843 !important; /* pink-900 */
+}
+html.light [class*="text-pink-300"] {
+  color: #be185d !important; /* pink-700 */
+}
+
+/* --- PURPLE --- */
+html.light [class*="text-purple-50"]:not([class*="text-purple-500"]):not([class*="text-purple-950"]),
+html.light [class*="text-purple-100"],
+html.light [class*="text-purple-200"] {
+  color: #581c87 !important; /* purple-900 */
+}
+html.light [class*="text-purple-300"] {
+  color: #7e22ce !important; /* purple-700 */
+}
+
+/* --- INDIGO --- */
+html.light [class*="text-indigo-50"]:not([class*="text-indigo-500"]):not([class*="text-indigo-950"]),
+html.light [class*="text-indigo-100"],
+html.light [class*="text-indigo-200"] {
+  color: #312e81 !important; /* indigo-900 */
+}
+html.light [class*="text-indigo-300"] {
+  color: #4338ca !important; /* indigo-700 */
+}
+
+/* --- VIOLET --- */
+html.light [class*="text-violet-50"]:not([class*="text-violet-500"]):not([class*="text-violet-950"]),
+html.light [class*="text-violet-100"],
+html.light [class*="text-violet-200"] {
+  color: #4c1d95 !important; /* violet-900 */
+}
+html.light [class*="text-violet-300"] {
+  color: #6d28d9 !important; /* violet-700 */
+}
+
+/* --- CYAN --- */
+html.light [class*="text-cyan-50"]:not([class*="text-cyan-500"]):not([class*="text-cyan-950"]),
+html.light [class*="text-cyan-100"],
+html.light [class*="text-cyan-200"] {
+  color: #164e63 !important; /* cyan-900 */
+}
+html.light [class*="text-cyan-300"] {
+  color: #0e7490 !important; /* cyan-700 */
+}
+
+/* --- SKY --- */
+html.light [class*="text-sky-50"]:not([class*="text-sky-500"]):not([class*="text-sky-950"]),
+html.light [class*="text-sky-100"],
+html.light [class*="text-sky-200"] {
+  color: #0c4a6e !important; /* sky-900 */
+}
+html.light [class*="text-sky-300"] {
+  color: #0369a1 !important; /* sky-700 */
+}
+
+/* --- TEAL --- */
+html.light [class*="text-teal-50"]:not([class*="text-teal-500"]):not([class*="text-teal-950"]),
+html.light [class*="text-teal-100"],
+html.light [class*="text-teal-200"] {
+  color: #134e4a !important; /* teal-900 */
+}
+html.light [class*="text-teal-300"] {
+  color: #0f766e !important; /* teal-700 */
+}
+
+/* --- GREEN --- */
+html.light [class*="text-green-50"]:not([class*="text-green-500"]):not([class*="text-green-950"]),
+html.light [class*="text-green-100"],
+html.light [class*="text-green-200"] {
+  color: #14532d !important; /* green-900 */
+}
+html.light [class*="text-green-300"] {
+  color: #15803d !important; /* green-700 */
+}
+
+/* --- LIME --- */
+html.light [class*="text-lime-50"]:not([class*="text-lime-500"]):not([class*="text-lime-950"]),
+html.light [class*="text-lime-100"],
+html.light [class*="text-lime-200"] {
+  color: #365314 !important; /* lime-900 */
+}
+html.light [class*="text-lime-300"] {
+  color: #4d7c0f !important; /* lime-700 */
+}
+
+/* --- FUCHSIA --- */
+html.light [class*="text-fuchsia-50"]:not([class*="text-fuchsia-500"]):not([class*="text-fuchsia-950"]),
+html.light [class*="text-fuchsia-100"],
+html.light [class*="text-fuchsia-200"] {
+  color: #701a75 !important; /* fuchsia-900 */
+}
+html.light [class*="text-fuchsia-300"] {
+  color: #a21caf !important; /* fuchsia-700 */
+}
+
+/* --- NEUTRALS: slate / gray / zinc / neutral / stone --- */
+html.light [class*="text-slate-50"]:not([class*="text-slate-500"]):not([class*="text-slate-950"]),
+html.light [class*="text-slate-100"],
+html.light [class*="text-slate-200"] {
+  color: #0f172a !important; /* slate-900 */
+}
+html.light [class*="text-gray-50"]:not([class*="text-gray-500"]):not([class*="text-gray-950"]),
+html.light [class*="text-gray-100"],
+html.light [class*="text-gray-200"] {
+  color: #111827 !important; /* gray-900 */
+}
+html.light [class*="text-zinc-50"]:not([class*="text-zinc-500"]):not([class*="text-zinc-950"]),
+html.light [class*="text-zinc-100"],
+html.light [class*="text-zinc-200"] {
+  color: #18181b !important; /* zinc-900 */
+}
+html.light [class*="text-neutral-50"]:not([class*="text-neutral-500"]):not([class*="text-neutral-950"]),
+html.light [class*="text-neutral-100"],
+html.light [class*="text-neutral-200"] {
+  color: #171717 !important; /* neutral-900 */
+}
+html.light [class*="text-stone-50"]:not([class*="text-stone-500"]):not([class*="text-stone-950"]),
+html.light [class*="text-stone-100"],
+html.light [class*="text-stone-200"] {
+  color: #1c1917 !important; /* stone-900 */
+}
+
+/* =============================================================================
+   Light Mode — Background tints for X-500/{opacity} callouts
+   =============================================================================
+   Callout boxes use bg-{color}-500/10 or bg-{color}-500/15 to suggest a tint of
+   the accent color. The earlier section already covers a few; this fills in the
+   remaining color families so a callout works regardless of accent. */
+html.light [class*="bg-emerald-500/1"],
+html.light [class*="bg-emerald-500/2"] {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+html.light [class*="bg-red-500/1"],
+html.light [class*="bg-red-500/2"] {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+html.light [class*="bg-orange-500/1"],
+html.light [class*="bg-orange-500/2"] {
+  background-color: rgba(249, 115, 22, 0.12) !important;
+}
+html.light [class*="bg-yellow-500/1"],
+html.light [class*="bg-yellow-500/2"] {
+  background-color: rgba(234, 179, 8, 0.12) !important;
+}
+html.light [class*="bg-rose-500/1"],
+html.light [class*="bg-rose-500/2"] {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+}
+html.light [class*="bg-pink-500/1"],
+html.light [class*="bg-pink-500/2"] {
+  background-color: rgba(236, 72, 153, 0.12) !important;
+}
+html.light [class*="bg-purple-500/1"],
+html.light [class*="bg-purple-500/2"] {
+  background-color: rgba(168, 85, 247, 0.12) !important;
+}
+html.light [class*="bg-indigo-500/1"],
+html.light [class*="bg-indigo-500/2"] {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+html.light [class*="bg-blue-500/1"],
+html.light [class*="bg-blue-500/2"] {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+}
+html.light [class*="bg-cyan-500/1"],
+html.light [class*="bg-cyan-500/2"] {
+  background-color: rgba(6, 182, 212, 0.12) !important;
+}
+html.light [class*="bg-teal-500/1"],
+html.light [class*="bg-teal-500/2"] {
+  background-color: rgba(20, 184, 166, 0.12) !important;
+}
 
 
 
