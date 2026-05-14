@@ -603,13 +603,22 @@ function LandingPage() {
 
         {/* Humanitarian Badge + Forever Free */}
         <div className="mt-8 flex flex-col items-center gap-4">
-          <div className="flex items-center gap-3 px-6 py-3 
-                          bg-emerald-500/10 border border-emerald-500/20 
+          <div className="flex items-center gap-3 px-6 py-3
+                          bg-emerald-500/10 border border-emerald-500/20
                           rounded-full text-emerald-400">
             <IconHeart size={20} className="text-red-400" />
             <span className="text-sm font-medium">
               Part of Frame&apos;s 10% for Humanity initiative
             </span>
+            <span aria-hidden="true" className="text-emerald-400/40">│</span>
+            <a
+              href="https://frame.dev/blog/ten-percent-for-humanity"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline"
+            >
+              blog post
+            </a>
           </div>
           
           <p className="text-sm text-[var(--color-steel-300)] text-center max-w-md">
