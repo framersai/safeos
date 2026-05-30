@@ -44,6 +44,15 @@ docker compose -f docker-compose.ghcr.yml up -d
 
 `docker compose` then pulls the prebuilt images `ghcr.io/framersai/safeos-api` and `…/safeos-ui` (nothing is compiled locally), downloads and caches the Ollama vision models, and starts everything. UI at <http://localhost:3000>, API at <http://localhost:3001>.
 
+Or pull the images straight from the registry with the Docker CLI:
+
+```bash
+docker pull ghcr.io/framersai/safeos-api:latest
+docker pull ghcr.io/framersai/safeos-ui:latest
+```
+
+The compose file only wires the four services together (Ollama, model-pull, API, UI). For just the API server, `docker run -p 3001:3001 ghcr.io/framersai/safeos-api:latest` is enough.
+
 **Build from source instead:**
 
 ```bash
