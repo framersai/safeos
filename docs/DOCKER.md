@@ -19,6 +19,22 @@ Then open:
 | API health | http://localhost:3001/health | Used by the container healthcheck |
 | Ollama | http://localhost:11434 | Local vision-model inference |
 
+## Run from prebuilt images (no build)
+
+To run SafeOS without cloning the repo or building anything, use the published
+GHCR images. This pulls `ghcr.io/framersai/safeos-api` and `…/safeos-ui`:
+
+```bash
+curl -O https://raw.githubusercontent.com/framersai/safeos/master/docker-compose.ghcr.yml
+docker compose -f docker-compose.ghcr.yml up -d
+```
+
+Pin a version with `SAFEOS_TAG` (default `latest`); add `-f docker-compose.gpu.yml`
+on an NVIDIA host. The images are published from `master` by
+`.github/workflows/docker-publish.yml`. The `safeos-ui` image bakes an API URL of
+`http://localhost:3001` (Next inlines `NEXT_PUBLIC_*` at build time), which is
+correct for local trial; a production deployment builds the UI with its own URL.
+
 ## What `up` does, in order
 
 Compose gates each service on the previous one so a cold start is deterministic:

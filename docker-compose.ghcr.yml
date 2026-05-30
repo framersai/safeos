@@ -1,0 +1,122 @@
+# Run SafeOS from prebuilt GHCR images - no local build required.
+#
+#   docker compose -f docker-compose.ghcr.yml up -d
+#
+# UI at http://localhost:3000, API at http://localhost:3001.
+# Pin a version with SAFEOS_TAG (default: latest). NVIDIA GPU: add
+# -f docker-compose.gpu.yml. Images are published from master to
+# ghcr.io/framersai/safeos-{api,ui} by .github/workflows/docker-publish.yml.
+
+name: safeos
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: safeos-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    networks:
+      - safeos-network
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: safeos-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-moondream llava:7b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        models=$$(echo "$$OLLAMA_MODELS" | tr ',' ' ')
+        echo "Caching Ollama models: $$models"
+        for m in $$models; do
+          echo ">> ollama pull $$m"
+          ollama pull "$$m"
+        done
+        echo "Model cache ready:"
+        ollama list
+    restart: "no"
+    networks:
+      - safeos-network
+
+  api:
+    image: ${REGISTRY:-ghcr.io}/framersai/safeos-api:${SAFEOS_TAG:-latest}
+    container_name: safeos-api
+    restart: unless-stopped
+    init: true
+    pull_policy: always
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - SAFEOS_PORT=3001
+      - SAFEOS_DB_PATH=/app/db_data/safeos.sqlite3
+      - OLLAMA_HOST=http://ollama:11434
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - REDIS_URL=${REDIS_URL:-}
+      - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-60}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - SESSION_EXPIRY=${SESSION_EXPIRY:-604800}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
+      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_EMAIL=${VAPID_EMAIL:-}
+    volumes:
+      - safeos-data:/app/db_data
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - safeos-network
+
+  ui:
+    image: ${REGISTRY:-ghcr.io}/framersai/safeos-ui:${SAFEOS_TAG:-latest}
+    container_name: safeos-ui
+    restart: unless-stopped
+    pull_policy: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - safeos-network
+
+volumes:
+  ollama-models:
+  safeos-data:
+
+networks:
+  safeos-network:
+    driver: bridge
