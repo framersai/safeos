@@ -34,14 +34,15 @@ Once the models have cached after first load, the entire detection pipeline runs
 
 ## Quickstart
 
-**Fastest — run the published images (no clone, no build):**
+**Fastest — pull the prebuilt images (no clone, no build):**
 
 ```bash
+# downloads ONLY the compose file (the run recipe, ~120 lines of YAML — not source code)
 curl -O https://raw.githubusercontent.com/framersai/safeos/master/docker-compose.ghcr.yml
 docker compose -f docker-compose.ghcr.yml up -d
 ```
 
-Pulls `ghcr.io/framersai/safeos-api` and `…/safeos-ui`, downloads and caches the Ollama vision models, then starts everything. UI at <http://localhost:3000>, API at <http://localhost:3001>.
+`docker compose` then pulls the prebuilt images `ghcr.io/framersai/safeos-api` and `…/safeos-ui` (nothing is compiled locally), downloads and caches the Ollama vision models, and starts everything. UI at <http://localhost:3000>, API at <http://localhost:3001>.
 
 **Build from source instead:**
 
