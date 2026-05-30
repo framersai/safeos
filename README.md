@@ -34,7 +34,16 @@ Once the models have cached after first load, the entire detection pipeline runs
 
 ## Quickstart
 
-**Full stack with Docker (UI + API + local AI models):**
+**Fastest — run the published images (no clone, no build):**
+
+```bash
+curl -O https://raw.githubusercontent.com/framersai/safeos/master/docker-compose.ghcr.yml
+docker compose -f docker-compose.ghcr.yml up -d
+```
+
+Pulls `ghcr.io/framersai/safeos-api` and `…/safeos-ui`, downloads and caches the Ollama vision models, then starts everything. UI at <http://localhost:3000>, API at <http://localhost:3001>.
+
+**Build from source instead:**
 
 ```bash
 git clone https://github.com/framersai/safeos.git
@@ -43,7 +52,7 @@ cp .env.example .env            # optional — add only the keys you want
 docker compose up -d --build
 ```
 
-This builds the images, downloads and caches the Ollama vision models, then starts everything in dependency order. UI at <http://localhost:3000>, API at <http://localhost:3001>. NVIDIA GPU: add `-f docker-compose.gpu.yml`. Full reference and troubleshooting: [docs/DOCKER.md](docs/DOCKER.md).
+NVIDIA GPU: add `-f docker-compose.gpu.yml` to either command. Full reference and troubleshooting: [docs/DOCKER.md](docs/DOCKER.md).
 
 **Browser PWA only (no server, no Docker):**
 
