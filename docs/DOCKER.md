@@ -54,8 +54,8 @@ The three tiers are defined in [`src/lib/ollama/models.ts`](../src/lib/ollama/mo
 
 | Model | Tier | Download | RAM | Pulled by default |
 | --- | --- | --- | --- | --- |
-| `moondream` | triage | ~830 MB | ~2 GB | yes |
-| `llava:7b` | analysis | ~4.5 GB | ~8 GB | yes |
+| `moondream` | triage | ~1.7 GB | ~2 GB | yes |
+| `llava:7b` | analysis | ~4 GB | ~8 GB | yes |
 | `llama3.2-vision:11b` | complex | ~7 GB | ~16 GB | no |
 
 The default set (`moondream llava:7b`) matches the two models the backend uses for

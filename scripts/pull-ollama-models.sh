@@ -3,8 +3,8 @@
 # Pull the SafeOS Guardian vision models into the local Ollama cache.
 #
 # The models map to the three analysis tiers in src/lib/ollama/models.ts:
-#   moondream             - triage   (~830 MB download, ~2 GB RAM)
-#   llava:7b              - analysis (~4.5 GB download, ~8 GB RAM)
+#   moondream             - triage   (~1.7 GB download, ~2 GB RAM)
+#   llava:7b              - analysis (~4 GB download, ~8 GB RAM)
 #   llama3.2-vision:11b   - complex  (~7 GB download, ~16 GB RAM)
 #
 # Usage:

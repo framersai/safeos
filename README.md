@@ -32,6 +32,29 @@ SafeOS Guardian is a Progressive Web App that turns any device with a camera and
 
 Once the models have cached after first load, the entire detection pipeline runs offline.
 
+## Quickstart
+
+**Full stack with Docker (UI + API + local AI models):**
+
+```bash
+git clone https://github.com/framersai/safeos.git
+cd safeos
+cp .env.example .env            # optional — add only the keys you want
+docker compose up -d --build
+```
+
+This builds the images, downloads and caches the Ollama vision models, then starts everything in dependency order. UI at <http://localhost:3000>, API at <http://localhost:3001>. NVIDIA GPU: add `-f docker-compose.gpu.yml`. Full reference and troubleshooting: [docs/DOCKER.md](docs/DOCKER.md).
+
+**Browser PWA only (no server, no Docker):**
+
+```bash
+cd apps/guardian-ui
+pnpm install
+pnpm dev                        # http://localhost:3000
+```
+
+Models download on first use, then run entirely offline.
+
 ## Part of the Frame ecosystem
 
 SafeOS Guardian is built by [Frame](https://frame.dev) — the same team behind [AgentOS](https://agentos.sh), an open-source agent runtime with cognitive memory grounded in HEXACO personality traits, and [Paracosm](https://paracosm.agentos.sh), an agent swarm simulation engine where AI characters with persistent memory inhabit shared world models. Same local-first philosophy: deep learning that runs on the user's device, not in someone else's cloud.
@@ -119,7 +142,7 @@ SafeOS Guardian fans out alerts across four channels, routed by severity:
 | high | ✓ | ✓ | ✓ | ✓ |
 | critical | ✓ | ✓ | ✓ | ✓ |
 
-Browser push is the only channel that works without the API server. The other three require [Resend](https://resend.com), [Twilio](https://www.twilio.com), and a [Telegram bot](https://core.telegram.org/bots) respectively — all opt-in.
+Browser push works straight from the static PWA. Email via [Resend](https://resend.com), SMS via [Twilio](https://www.twilio.com), and Telegram via a [bot](https://core.telegram.org/bots) fan out from the optional API server — those three providers can't be called safely from the browser (no CORS, and the keys would leak in client JS), so the server is what holds the credentials and makes the outbound calls. All three integrations are opt-in.
 
 ### Email alerts via Resend
 
@@ -132,17 +155,6 @@ Two ways to wire it up:
 
 Email only fires when the toggle is **on** AND a recipient address is set. See [`apps/guardian-ui/src/app/help/integrations/resend`](apps/guardian-ui/src/app/help/integrations/resend) for the full setup walkthrough or read [`src/lib/alerts/email.ts`](src/lib/alerts/email.ts) for the implementation.
 
-## Detection modes
-
-| Scenario | What it watches for |
-|---|---|
-| **Pets** | Eating, bathroom, distress vocalizations, prolonged stillness |
-| **Baby / Toddler** | Crying, movement, breathing patterns, safety hazards in frame |
-| **Elderly** | Falls, confusion, distress, prolonged inactivity |
-| **Lost & Found** | Visual match against 1–5 reference photos via color + edge fingerprints |
-
-Each scenario has its own thresholds in [`apps/guardian-ui/src/lib`](apps/guardian-ui/src/lib) and on-device profile configuration.
-
 ## Privacy guarantees
 
 - **Rolling buffer.** Camera frames live in memory for 5–10 minutes, then overwrite.
@@ -151,45 +163,31 @@ Each scenario has its own thresholds in [`apps/guardian-ui/src/lib`](apps/guardi
 - **IndexedDB only.** Settings, alert history, and reference photos stay in [browser-local storage](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API).
 - **Optional integrations are opt-in.** Twilio, Telegram, Ollama, and cloud fallback fire only when you configure them.
 
-## Quick start
+## Running from source
 
-### PWA only (recommended)
-
-```bash
-cd apps/guardian-ui
-pnpm install
-pnpm dev
-```
-
-Open <http://localhost:3000>. Models download on first use, then cache offline.
-
-To deploy as a static site:
-
-```bash
-pnpm build      # writes ./out
-# deploy out/ to GitHub Pages, Vercel, Netlify, Cloudflare Pages, any CDN
-```
-
-### Full stack (only if you need server-side fan-out)
+The Quickstart above is the fast path. To run the pieces directly with pnpm:
 
 ```bash
 pnpm install
-pnpm dev        # API + UI together
-# or:
-pnpm run api    # port 3001
-pnpm run ui     # port 3000
+pnpm dev          # API (3001) + UI (3000) together
+# or run them separately:
+pnpm run api      # API on 3001
+pnpm run ui       # UI on 3000
 ```
 
-### Local LLM (optional)
+Static PWA build — deploy `apps/guardian-ui/out` to any CDN:
+
+```bash
+pnpm build:ui     # writes apps/guardian-ui/out
+```
+
+Local LLM (optional) — point `OLLAMA_HOST` at your install:
 
 ```bash
 brew install ollama         # macOS; see ollama.com for other platforms
 ollama serve
-ollama pull moondream
-ollama pull llava:7b
+./scripts/pull-ollama-models.sh   # pulls moondream + llava:7b
 ```
-
-Point `OLLAMA_HOST` at your Ollama instance in `.env`.
 
 ## Configuration
 
@@ -244,8 +242,10 @@ packages/safeos/
 │   └── queues/              # Job queues (analysis, human review)
 │
 ├── tests/                   # vitest — unit + integration
-├── docker-compose.yml       # API server + Postgres
-└── Dockerfile               # API server image
+├── docker-compose.yml       # Full stack: UI + API + Ollama + model cache
+├── docker-compose.prod.yml  # Production (Caddy HTTPS)
+├── docker-compose.gpu.yml   # NVIDIA GPU override
+└── Dockerfile               # Multi-stage: backend (tsx), frontend (nginx), dev
 ```
 
 ## Testing
@@ -260,18 +260,24 @@ pnpm test:watch      # watch mode
 
 The PWA is a static export. Deploy `apps/guardian-ui/out` to any CDN — GitHub Pages, Vercel, Netlify, Cloudflare Pages. No server is required.
 
-The API server ships as a Docker image:
+The API server (and optional local AI) run via Docker Compose — see [docs/DOCKER.md](docs/DOCKER.md):
 
 ```bash
-docker build -t safeos .
-docker run -p 3001:3001 --env-file .env safeos
+docker compose up -d --build                              # full stack, local
+docker compose -f docker-compose.prod.yml up -d --build   # production, Caddy HTTPS
 ```
 
-Or run it under PM2:
+To build the API as a single image, target the stage:
 
 ```bash
-pnpm build
-pm2 start dist/index.js --name safeos-api
+docker build --target backend -t safeos-api .
+docker run -p 3001:3001 --env-file .env safeos-api
+```
+
+Or run it under PM2 (the server runs through `tsx`, not a compiled bundle):
+
+```bash
+pm2 start npm --name safeos-api -- run start:api
 ```
 
 ## Contributing
