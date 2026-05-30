@@ -51,7 +51,9 @@ docker pull ghcr.io/framersai/safeos-api:latest
 docker pull ghcr.io/framersai/safeos-ui:latest
 ```
 
-The compose file only wires the four services together (Ollama, model-pull, API, UI). For just the API server, `docker run -p 3001:3001 ghcr.io/framersai/safeos-api:latest` is enough.
+The two images run together: `safeos-ui` is the interface you open, `safeos-api` is the backend it talks to for notifications and the local-AI bridge. The compose starts both, plus Ollama, and wires them on one network. (`docker run … safeos-api` on its own gives you just the headless API.)
+
+**Local AI with Ollama:** the compose runs an Ollama container and pre-pulls its models on first start, so local scene analysis works with no extra setup. To use an Ollama instance you already run, set `OLLAMA_HOST` in `.env` (e.g. `http://192.168.1.50:11434`). Choose which models to cache with `OLLAMA_MODELS` (default `moondream llava:7b`; add `llama3.2-vision:11b` if you have ~16 GB RAM). Frames only reach Ollama when in-browser detection is ambiguous, and nothing leaves your network. Details in [docs/DOCKER.md](docs/DOCKER.md).
 
 **Build from source instead:**
 
