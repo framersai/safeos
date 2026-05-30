@@ -1,97 +1,22 @@
-# SafeOS Guardian - Docker Compose Configuration
-# Run: docker-compose up -d
+# SafeOS Guardian - full local stack.
+#
+#   cp .env.example .env        # optional: fill in only the keys you want
+#   docker compose up -d --build
+#
+# Startup order is enforced by health/completion gates:
+#   ollama (healthy) -> ollama-pull (models cached) -> api (healthy) -> ui
+#
+# NVIDIA GPU:  docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+# With Redis:  docker compose --profile with-redis up -d --build
+#
+# Values written as ${VAR:-default} are read from ./.env automatically.
 
-version: '3.8'
+name: safeos
 
 services:
-  # =============================================================================
-  # Backend API Server
-  # =============================================================================
-  api:
-    build:
-      context: .
-      target: backend
-    container_name: safeos-api
-    restart: unless-stopped
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=production
-      - SAFEOS_PORT=3001
-      - SAFEOS_DB_PATH=/app/db_data/safeos.sqlite3
-      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
-    volumes:
-      - safeos-data:/app/db_data
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    networks:
-      - safeos-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  # =============================================================================
-  # Frontend UI
-  # =============================================================================
-  ui:
-    build:
-      context: .
-      target: frontend
-    container_name: safeos-ui
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
-      - NEXT_PUBLIC_WS_URL=ws://localhost:3001
-    depends_on:
-      api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    networks:
-      - safeos-network
-
-  # =============================================================================
-  # Redis (Optional - for production scaling)
-  # =============================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: safeos-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - safeos-network
-    profiles:
-      - production
-
-  # =============================================================================
-  # Ollama (Local AI - if not running on host)
-  # =============================================================================
+  # ---------------------------------------------------------------------------
+  # Ollama - local vision-model inference server
+  # ---------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:latest
     container_name: safeos-ollama
@@ -100,67 +25,149 @@ services:
       - "11434:11434"
     volumes:
       - ollama-models:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    networks:
+      - safeos-network
+
+  # ---------------------------------------------------------------------------
+  # ollama-pull - one-shot: download the configured models into the
+  # ollama-models volume (the cache) before the API starts, so the API's
+  # ensureModels() call is instant instead of blocking on a cold pull.
+  # ---------------------------------------------------------------------------
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: safeos-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-moondream llava:7b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        models=$$(echo "$$OLLAMA_MODELS" | tr ',' ' ')
+        echo "Caching Ollama models: $$models"
+        for m in $$models; do
+          echo ">> ollama pull $$m"
+          ollama pull "$$m"
+        done
+        echo "Model cache ready:"
+        ollama list
+    restart: "no"
+    networks:
+      - safeos-network
+
+  # ---------------------------------------------------------------------------
+  # api - backend (Express + Socket.io + BullMQ), runs src/ via tsx
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      target: backend
+    container_name: safeos-api
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - SAFEOS_PORT=3001
+      - SAFEOS_DB_PATH=/app/db_data/safeos.sqlite3
+      - OLLAMA_HOST=http://ollama:11434
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - REDIS_URL=${REDIS_URL:-}
+      - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-60}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - SESSION_EXPIRY=${SESSION_EXPIRY:-604800}
+      # Cloud AI fallback (optional)
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Alert channels (optional)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
+      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-}
+      # Web push (optional)
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_EMAIL=${VAPID_EMAIL:-}
+    volumes:
+      - safeos-data:/app/db_data
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 30s
     networks:
       - safeos-network
+
+  # ---------------------------------------------------------------------------
+  # ui - Next.js static export served by nginx
+  # NEXT_PUBLIC_* are inlined at build time, so they are passed as build args.
+  # ---------------------------------------------------------------------------
+  ui:
+    build:
+      context: .
+      target: frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:3001}
+    container_name: safeos-ui
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - safeos-network
+
+  # ---------------------------------------------------------------------------
+  # redis - optional, for BullMQ scaling / rate limiting
+  #   docker compose --profile with-redis up -d
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: safeos-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safeos-network
     profiles:
-      - with-ollama
+      - with-redis
 
-# =============================================================================
-# Volumes
-# =============================================================================
 volumes:
-  safeos-data:
-    driver: local
-  redis-data:
-    driver: local
   ollama-models:
-    driver: local
+  safeos-data:
+  redis-data:
 
-# =============================================================================
-# Networks
-# =============================================================================
 networks:
   safeos-network:
     driver: bridge
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,0 +1,44 @@
+# Dependencies (reinstalled inside the image)
+node_modules
+**/node_modules
+
+# Build output (rebuilt inside the image)
+dist
+apps/guardian-ui/.next
+apps/guardian-ui/out
+
+# Local data / databases (must never be baked into an image)
+db_data
+*.sqlite3
+*.sqlite3-*
+*.db
+
+# Tests, coverage, e2e artifacts
+coverage
+tests
+e2e
+playwright-report
+test-results
+**/*.tsbuildinfo
+
+# Secrets / env (passed at runtime, never baked)
+.env
+.env.*
+!.env.example
+
+# VCS / editor / OS cruft
+.git
+.gitignore
+.github
+.vscode
+.idea
+.DS_Store
+
+# Capacitor native shells (not part of the web build)
+apps/guardian-ui/ios
+apps/guardian-ui/android
+
+# Docs (not needed in the build context)
+docs
+CHANGELOG.md
+SECURITY.md

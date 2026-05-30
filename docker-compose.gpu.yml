@@ -1,0 +1,21 @@
+# NVIDIA GPU override for Ollama.
+#
+# Requires the NVIDIA Container Toolkit on the host. Apply on top of the base
+# compose file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+#
+# On macOS / hosts without an NVIDIA GPU, do NOT use this file - the base
+# docker-compose.yml runs Ollama on CPU.
+
+name: safeos
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

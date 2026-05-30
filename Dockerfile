@@ -1,152 +1,97 @@
-# SafeOS Guardian - Docker Configuration
-# Multi-stage build for optimized production image
+# syntax=docker/dockerfile:1
 
 # =============================================================================
-# Stage 1: Base Dependencies
+# SafeOS Guardian - container build
+#
+# Backend: the package is ESM ("type":"module") with bundler-style extensionless
+# imports (tsconfig moduleResolution: "bundler"), so the compiled dist/ is NOT
+# directly runnable by `node` (it throws ERR_MODULE_NOT_FOUND on the first
+# relative import). The supported runtime path is `tsx`, which is exactly what
+# `npm run dev` uses. The backend image runs the TypeScript sources through tsx.
+#
+# Frontend: apps/guardian-ui is a Next.js static export (output: 'export'), so
+# `next build` emits out/ and it is served by nginx. `next start` does not serve
+# an exported app and is not used here.
 # =============================================================================
+
+# -----------------------------------------------------------------------------
+# base: Node 20 + toolchain for native modules (better-sqlite3, sharp)
+# -----------------------------------------------------------------------------
 FROM node:20-alpine AS base
-
-# Install build dependencies
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    sqlite-dev
-
+RUN apk add --no-cache python3 make g++ sqlite-dev
 WORKDIR /app
 
-# =============================================================================
-# Stage 2: Install Dependencies
-# =============================================================================
+# -----------------------------------------------------------------------------
+# deps: install backend (root) dependencies, including devDeps (tsx, typescript)
+# Do not set NODE_ENV=production here, or npm would prune tsx and the backend
+# would have no runtime.
+# -----------------------------------------------------------------------------
 FROM base AS deps
-
-# Copy package files
 COPY package.json package-lock.json* ./
-COPY apps/guardian-ui/package.json ./apps/guardian-ui/
-
-# Install dependencies
 RUN npm install --legacy-peer-deps
 
-# =============================================================================
-# Stage 3: Build Backend
-# =============================================================================
-FROM base AS builder-backend
-
+# -----------------------------------------------------------------------------
+# backend: runtime image - runs src/ via tsx
+# -----------------------------------------------------------------------------
+FROM node:20-alpine AS backend
 WORKDIR /app
-
-# Copy dependencies
+# Runtime libraries for the better-sqlite3 / sharp native bindings
+RUN apk add --no-cache sqlite-libs libstdc++
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY package.json tsconfig.json ./
+COPY src ./src
+RUN mkdir -p /app/db_data
+ENV NODE_ENV=production \
+    SAFEOS_PORT=3001 \
+    SAFEOS_DB_PATH=/app/db_data/safeos.sqlite3
+EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+# tsx runs the ESM TypeScript directly. Run the API server entry, which
+# self-starts via its import.meta main-guard. Compose sets `init: true` so tini
+# forwards SIGTERM to the process for the server's graceful-shutdown handler.
+CMD ["npx", "tsx", "src/api/server.ts"]
 
-# Build TypeScript
-RUN npm run build || echo "Build script not found, using tsc directly" && \
-    npx tsc -p tsconfig.json || true
-
-# =============================================================================
-# Stage 4: Build Frontend
-# =============================================================================
+# -----------------------------------------------------------------------------
+# builder-frontend: build the Next.js static export (out/)
+# -----------------------------------------------------------------------------
 FROM base AS builder-frontend
-
 WORKDIR /app/apps/guardian-ui
-
-# Copy package files first for caching
-COPY apps/guardian-ui/package.json ./
-
-# Copy root node_modules and install any missing guardian-ui deps
-COPY --from=deps /app/node_modules /app/node_modules
-
-# Copy source files
-COPY apps/guardian-ui .
-
-# Install guardian-ui specific deps (uses hoisted deps from parent)
+COPY apps/guardian-ui/package.json apps/guardian-ui/package-lock.json* ./
 RUN npm install --legacy-peer-deps
-
-# Build Next.js
-ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* are inlined at build time, so the API/WS URLs the browser uses
+# must be passed as build args (not runtime env).
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ARG NEXT_PUBLIC_WS_URL=ws://localhost:3001
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL \
+    NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=production
+COPY apps/guardian-ui ./
 RUN npm run build
 
-# =============================================================================
-# Stage 5: Production Backend
-# =============================================================================
-FROM node:20-alpine AS backend
-
-WORKDIR /app
-
-# Install runtime dependencies only
-RUN apk add --no-cache sqlite-libs
-
-# Copy built backend
-COPY --from=builder-backend /app/dist ./dist
-COPY --from=builder-backend /app/node_modules ./node_modules
-COPY package.json ./
-
-# Create data directory
-RUN mkdir -p /app/db_data
-
-# Environment variables
-ENV NODE_ENV=production
-ENV SAFEOS_PORT=3001
-ENV SAFEOS_DB_PATH=/app/db_data/safeos.sqlite3
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
-
-# Expose port
-EXPOSE 3001
-
-# Start server
-CMD ["node", "dist/index.js"]
-
-# =============================================================================
-# Stage 6: Production Frontend
-# =============================================================================
-FROM node:20-alpine AS frontend
-
-WORKDIR /app
-
-# Copy built frontend
-COPY --from=builder-frontend /app/apps/guardian-ui/.next ./.next
-COPY --from=builder-frontend /app/apps/guardian-ui/public ./public
-COPY --from=builder-frontend /app/apps/guardian-ui/node_modules ./node_modules
-COPY --from=builder-frontend /app/apps/guardian-ui/package.json ./
-
-# Environment variables
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
-
-# Expose port
+# -----------------------------------------------------------------------------
+# frontend: nginx serving the static export on :3000
+# -----------------------------------------------------------------------------
+FROM nginx:alpine AS frontend
+RUN rm -f /etc/nginx/conf.d/default.conf
+COPY docker/nginx-guardian-ui.conf /etc/nginx/conf.d/guardian-ui.conf
+COPY --from=builder-frontend /app/apps/guardian-ui/out /usr/share/nginx/html
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start Next.js
-CMD ["npm", "start"]
-
-# =============================================================================
-# Stage 7: Full Stack (Development)
-# =============================================================================
+# -----------------------------------------------------------------------------
+# development: full stack with hot reload (api + ui via concurrently)
+# -----------------------------------------------------------------------------
 FROM base AS development
-
 WORKDIR /app
-
-# Copy everything
-COPY . .
-
-# Install all dependencies
+COPY package.json package-lock.json* ./
 RUN npm install --legacy-peer-deps
-
-# Environment
-ENV NODE_ENV=development
-ENV SAFEOS_PORT=3001
-
-# Expose ports
+COPY apps/guardian-ui/package.json ./apps/guardian-ui/
+RUN cd apps/guardian-ui && npm install --legacy-peer-deps
+COPY . .
+ENV NODE_ENV=development \
+    SAFEOS_PORT=3001
 EXPOSE 3000 3001
-
-# Start development
 CMD ["npm", "run", "dev"]
-
-

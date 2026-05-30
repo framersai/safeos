@@ -13,8 +13,6 @@
 # Deploy: docker compose -f docker-compose.prod.yml up -d
 # Logs:   docker compose -f docker-compose.prod.yml logs -f
 
-version: '3.8'
-
 services:
   # =============================================================================
   # Backend API Server
@@ -60,6 +58,8 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     logging:
       driver: "json-file"
       options:
@@ -84,11 +84,44 @@ services:
         reservations:
           memory: 4G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
+    networks:
+      - safeos-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =============================================================================
+  # ollama-pull - one-shot model cache warmer (downloads models, then exits)
+  # =============================================================================
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: safeos-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-moondream llava:7b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        models=$$(echo "$$OLLAMA_MODELS" | tr ',' ' ')
+        echo "Caching Ollama models: $$models"
+        for m in $$models; do
+          echo ">> ollama pull $$m"
+          ollama pull "$$m"
+        done
+        echo "Model cache ready:"
+        ollama list
+    restart: "no"
     networks:
       - safeos-network
     logging:
